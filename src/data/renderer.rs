@@ -226,16 +226,6 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     s
 }
 
-#[cfg(test)]
-fn print_crosses_verbose(v: Vec<Cross<'_>>) -> String {
-    let mut s = String::new();
-    for c in v {
-        // inefficient aff
-        s.push_str(&format!("{c:?}"));
-    }
-    s
-}
-
 #[test]
 fn test_cross() {
     use crate::block::distribution::define;
@@ -246,6 +236,8 @@ fn test_cross() {
         ($schem: literal => $($a:tt,$b:tt,$c:tt,$d:tt)*) => {
             let s = ss.deserialize_base64($schem).unwrap();
             let mut c = vec![];
+                println!("{:#?}", s.blocks);
+
             for (j, tile) in s.block_iter().enumerate() {
                 let pctx = PositionContext {
                     position: tile.pos,
@@ -259,15 +251,16 @@ fn test_cross() {
                 $(define!($a,$b,$c,$d),)*
             ];
             if cc != c {
-                let a = print_crosses(c, s.height as usize);
-                let b = print_crosses(cc, s.height as usize);
+                let a = print_crosses(cc, s.height as usize);
+                let b = print_crosses(c, s.height as usize);
                 for diff in diff::lines(&a, &b) {
                     match diff {
-                        diff::Result::Left(l)    => println!("\x1b[38;5;1m- {}", l),
-                        diff::Result::Right(r)   => println!("\x1b[38;5;2m+ {}", r),
-                        diff::Result::Both(l, _) => println!("\x1b[0m  {}", l),
+                        diff::Result::Left(l)    => println!("\x1b[38;5;1m{}", l),
+                        diff::Result::Right(r)   => println!("\x1b[38;5;2m{}", r),
+                        diff::Result::Both(l, _) => println!("\x1b[0m{}", l),
                     }
                 }
+                print!("\x1b[0m");
                 /*
                 for diff in diff::slice(&c.into_iter().enumerate().collect::<Vec<_>>(), &cc.into_iter().enumerate().collect::<Vec<_>>()) {
                     match diff {
@@ -277,7 +270,7 @@ fn test_cross() {
                     }
                 }
                 */
-                panic!("\x1b[0mtest {n} \x1b[38;5;1mfailed\x1b[0m")
+                panic!("test {n} \x1b[38;5;1mfailed\x1b[0m")
             }
             println!("test {n} \x1b[38;5;2mpassed\x1b[0m");
         };
@@ -285,14 +278,13 @@ fn test_cross() {
     // crosses go from bottom left -> top left -> bottom left + 1 -> top left + 1...
     // the symbols are directions (> => Right...), which mean the neighbors pointing direction
     // _ = no block
-    // the first symbol is north rotation
-    // second east, third south, fourth west
 
     // the basic test
     // ─┐
     // ─┤
     test!("bXNjaAF4nGNgYmBiZmDJS8xNZWBNSizOTGbgTkktTi7KLCjJzM9jYGBgy0lMSs0pZmCNfr9gTSwjA0dyfl5ZamV+EVCOhQEBGGEEM4hiZGAGAOb+EWA=" =>
     //  (0, 0)  (0, 1)
+    //  n e s w borders (west void for first row)
         >,v,_,_ _,v,>,_
     //  (1, 0)  (1, 1)
         v,_,_,> _,_,v,>
@@ -316,26 +308,30 @@ fn test_cross() {
 
     // the notile test
     test!("bXNjaAF4nCWJQQqAIBREx69E0Lq994oWph8STEMj6fZpzcDjDQMCSahoDsZsdN1TYB25aucz28uniMlxsdmf3wCGYDYOBbSsAqNN8eYn5XYofJEdAtSB31tfaoIVGw==" =>
-        _,_,_,_
+        <,>,_,_ _,^,v,_
+        ^,_,_,v _,_,>,<
+    );
+    // the asymmetrical test
+    test!("bXNjaAF4nEXJwQqAIBAE0HGVCPrE6GC2B0HdcCPw78MKnMMwj4EFWbjiM8N5bRnLwRpqPK8oBcCU/M5JQetmMAcpNzep/cCIAfX69yv6RF0PFy0O4Q==" =>
+        <,>,_,_ _,<,>,_
+        <,_,_,> _,_,>,<
+        <,_,_,> _,_,>,<
     );
 
+    // the complex test
     // ─┬─│││─
     // ─┤─┘─┘─
-    //  \v/ (3, 1)
     // ─┤┌─│─┐
     // ─┼┘─┴─│
-    // test!("bXNjaAF4nEWOUQ7CIBBEh2VZTbyCx/A2xg9a+WiC0LTGxNvb7Wjk5wEzb7M4QCO05UdBqj3PF5zuZR2XaX5OvQGwmodSV8j1FnAce3uVd1+24Iz/CYQQ8fcVHYEQIjqEXWEm9LwgX9kR+PLSbm2BMlN6Sk/3LhJnJu6S6CVmxl2MntEzv38AchUPug==" =>
-    // //  n e s w borders (west void for first row)
-    //     >,v,_,_ >,v,>,_ >,<,>,_ _,v,>,_
-    //     v,>,_,_ v,<,v,_ v,>,v,_ _,<,v,>
-    //     //      (3, 1). east should be pointing towards?
-    //     v,^,_,> >,v,<,> <,>,v,> _,v,>,v
-    //     <,>,_,v ^,^,>,v v,<,<,v _,>,^,<
-    //     v,^,_,v >,^,>,> ^,v,v,< _,v,>,>
-    //     >,>,_,< ^,>,<,^ ^,_,>,v _,_,^,>
-    // //    east void for last row
-    //     v,_,_,v >,_,v,> >,_,v,^ _,_,>,<
-    // );
+    test!("bXNjaAF4nEWOUQ7CIBBEh2VZTbyCx/A2xg9a+WiC0LTGxNvb7Wjk5wEzb7M4QCO05UdBqj3PF5zuZR2XaX5OvQGwmodSV8j1FnAce3uVd1+24Iz/CYQQ8fcVHYEQIjqEXWEm9LwgX9kR+PLSbm2BMlN6Sk/3LhJnJu6S6CVmxl2MntEzv38AchUPug==" =>
+        >,v,_,_ >,v,>,_ >,v,>,_ _,v,>,_
+        v,<,_,> v,v,v,> v,>,v,> _,<,v,>
+        v,>,_,v >,<,<,v <,^,v,v _,v,>,v
+        <,_,_,< ^,_,>,v v,_,<,> _,_,^,<
+        v,_,_,> >,_,>,< ^,_,v,^ _,_,>,v
+        >,_,_,> ^,_,<,v ^,_,>,> _,_,^,^
+        v,_,_,< >,_,v,> >,_,v,^ _,_,>,^
+    );
 }
 
 fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug>(
@@ -356,8 +352,8 @@ fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug
         debug_assert!(
             b.get_position().1 as i32 == pos.position.1 as i32 + ch.1,
             "expected x position {}, got {}",
-            pos.position.0 as i32 + ch.0,
-            b.get_position().0 as i32
+            pos.position.1 as i32 + ch.1,
+            b.get_position().1 as i32
         );
         Some((b.get_block()?, b.get_rotation()))
     };
@@ -378,8 +374,8 @@ fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug
         ),
         // E
         cond!(
-            pos.position.0 >= (pos.width - 1) as u16,
-            get(j + pos.width, (1, 0), "E")
+            pos.position.0 >= (pos.height - 1) as u16,
+            get(j + pos.height, (1, 0), "E")
         ),
         // S
         cond!(
@@ -387,7 +383,7 @@ fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug
             get(j - 1, (0, -1), "S")
         ),
         // W
-        cond!(j < pos.width, get(j - pos.width, (-1, 0), "W")),
+        cond!(j < pos.height, get(j - pos.height, (-1, 0), "W")),
     ]
 }
 

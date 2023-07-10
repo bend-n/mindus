@@ -254,7 +254,7 @@ impl Build<'_> {
         // let _ = buff.read_i64()?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
-        // "overriden by subclasses"
+        // "overridden by subclasses"
         // self.block.read(buff, reg, map)?;
         // Ok(())
     }
@@ -271,7 +271,7 @@ pub struct Map<'l> {
 
 const MAP_HEADER: [u8; 4] = [b'M', b'S', b'A', b'V'];
 
-/// error ocurring when reading a map fails
+/// error occurring when reading a map fails
 #[derive(Debug, Error)]
 pub enum ReadError {
     #[error("failed to read from buffer")]

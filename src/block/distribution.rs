@@ -10,22 +10,6 @@ use crate::data::dynamic::DynType;
 use crate::item;
 use bobbin_bits::U4;
 use image::imageops::{flip_horizontal_in_place as flip_h, flip_vertical_in_place as flip_v};
-use std::ops::{Add, Rem, Sub};
-fn wrap<T: Add + Sub + Rem + Eq>(n: T, min: T, max: T) -> T {
-    let range = max - min;
-    if range == 0 {
-        min
-    } else {
-        min + ((((n - min) % range) + range) % range)
-    }
-}
-
-#[test]
-fn math() {
-    assert!(wrap(5, 2, 4) == 3);
-    assert!(wrap(11, 1, 10) == 2);
-}
-
 #[cfg(test)]
 macro_rules! dir {
     (^) => {
@@ -238,13 +222,17 @@ fn mask2tile(mask: U4, rot: Rotation, name: &str) -> ImageHolder {
             Rotation::Left => p!(3, 0, FLIP_X), // ┼
             _ => unreachable!(),
         },
-        // B0000 => (0, match rot {
-        //     Rotation::Left => 2,
-        //     Rotation::Right => 0,
-        //     Rotation::Down => 1,
-        //     Rotation::Up => 3,
-        // }, None),
-        B0000 => (0, wrap(rot.count() as i8 - 1, 0, 3)),
+        B0000 => (
+            0,
+            match rot {
+                Rotation::Left => 2,
+                Rotation::Right => 0,
+                Rotation::Down => 1,
+                Rotation::Up => 3,
+            },
+            None,
+        ),
+        // B0000 => (0, wrap(rot.count() as i8 - 1, 0, 3) as u8, None),
         B1111 => unreachable!(),
     };
     let mut p = ImageHolder::from(load("distribution/conveyors", &format!("{name}-{index}")));
