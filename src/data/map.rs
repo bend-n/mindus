@@ -70,10 +70,11 @@
 //!                 - id: `u32`
 //!                 - entity read
 use std::collections::HashMap;
+use std::ops::{Index, IndexMut};
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::{Block, BlockRegistry, Rotation};
+use crate::block::{environment, Block, BlockRegistry, Rotation};
 use crate::data::dynamic::DynSerializer;
 use crate::data::renderer::*;
 use crate::data::DataRead;
@@ -82,14 +83,13 @@ use crate::item::storage::Storage;
 use crate::item::Type as Item;
 use crate::team::Team;
 
-use super::GridPos;
 use super::Serializer;
 use crate::content::Content;
 use crate::utils::image::ImageUtils;
 
 /// a tile in a map
+#[derive(Clone)]
 pub struct Tile<'l> {
-    pub pos: GridPos,
     pub floor: &'l Block,
     pub ore: Option<&'l Block>,
     build: Option<Build<'l>>,
@@ -97,6 +97,14 @@ pub struct Tile<'l> {
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
+    fn new(floor: &'l Block, ore: Option<&'l Block>) -> Self {
+        Self {
+            floor,
+            ore,
+            build: None,
+        }
+    }
+
     fn set_block(&mut self, block: &'l Block) {
         self.build = Some(Build {
             block,
@@ -151,9 +159,7 @@ impl std::fmt::Debug for Tile<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Tile<{},{}>@{}+{}{}",
-            self.pos.0,
-            self.pos.1,
+            "Tile@{}+{}{}",
             self.floor.name(),
             if let Some(ore) = &self.ore {
                 ore.name()
@@ -181,14 +187,26 @@ impl RotationState for Tile<'_> {
     }
 }
 
-impl PositionState for Tile<'_> {
-    fn get_position(&self) -> GridPos {
-        self.pos
+impl RotationState for Option<Tile<'_>> {
+    fn get_rotation(&self) -> Rotation {
+        self.as_ref().unwrap().get_rotation()
     }
 }
 
+impl<'l> BlockState<'l> for Option<Tile<'_>> {
+    fn get_block(&'l self) -> Option<&'l Block> {
+        self.as_ref().unwrap().get_block()
+    }
+}
+
+/// tiles.
+/// ```
+/// # use mindus::data::map::*;
+/// let tiles = Tiles::new(2, 3);
+/// tiles.set(1, 3, Tile)
+
 /// a build on a tile in a map
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Build<'l> {
     pub block: &'l Block,
     pub items: Storage<Item>,
@@ -263,10 +281,45 @@ impl Build<'_> {
 /// a map
 #[derive(Debug)]
 pub struct Map<'l> {
-    pub width: u32,
-    pub height: u32,
+    pub width: usize,
+    pub height: usize,
     pub tags: HashMap<String, String>,
     pub tiles: Vec<Tile<'l>>,
+}
+
+impl<'l> Map<'l> {
+    fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
+        Self {
+            tiles: vec![Tile::new(&environment::STONE, None); width * height],
+            height,
+            width,
+            tags,
+        }
+    }
+
+    /// please ensure bounds
+    fn get(&'l self, x: usize, y: usize) -> &'l Tile<'l> {
+        &self.tiles[x * y + self.height]
+    }
+
+    /// bounds must be ensured
+    fn set(&'l mut self, x: usize, y: usize, t: Tile<'l>) {
+        let h = self.height;
+        self[x * y + h] = t;
+    }
+}
+
+impl<'l> Index<usize> for Map<'l> {
+    type Output = Tile<'l>;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.tiles[index]
+    }
+}
+
+impl<'l> IndexMut<usize> for Map<'l> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.tiles[index]
+    }
 }
 
 const MAP_HEADER: [u8; 4] = [b'M', b'S', b'A', b'V'];
@@ -325,45 +378,28 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         // map section
         let mut w = 0;
         let mut h = 0;
-        let mut tiles = vec![];
+        let mut m = None;
         buff.read_chunk(true, |buff| {
-            w = buff.read_u16()? as u32;
-            h = buff.read_u16()? as u32;
+            w = buff.read_u16()? as usize;
+            h = buff.read_u16()? as usize;
+            let mut map = Map::new(w, h, tags);
             let count = w * h;
             let mut i = 0;
             while i < count {
-                let x = (i % w) as u16;
-                let y = (i / w) as u16;
                 let floor_id = buff.read_u16()?;
                 let overlay_id = buff.read_u16()?;
                 let floor = BlockEnum::try_from(floor_id)
                     .unwrap_or(BlockEnum::Stone)
                     .to(self.0)
-                    .unwrap_or(&crate::block::environment::STONE);
+                    .unwrap_or(&environment::STONE);
                 let ore = BlockEnum::try_from(overlay_id)
                     .unwrap_or(BlockEnum::Air)
                     .to(self.0);
-                debug_assert!(
-                    x < w as u16 && y < h as u16,
-                    "{x} or {y} out of bounds ({floor:?} {ore:?})"
-                );
-                tiles.push(Tile {
-                    floor,
-                    ore,
-                    pos: GridPos(x, y),
-                    build: None,
-                });
-                let consecutives = buff.read_u8()? as u32;
+                map[i] = Tile::new(floor, ore);
+                let consecutives = buff.read_u8()? as usize;
                 if consecutives > 0 {
                     for i in (i + 1)..(i + 1 + consecutives) {
-                        let x = (i % w) as u16;
-                        let y = (i / w) as u16;
-                        tiles.push(Tile {
-                            floor,
-                            ore,
-                            pos: GridPos(x, y),
-                            build: None,
-                        })
+                        map[i] = Tile::new(floor, ore)
                     }
                     i += consecutives;
                 }
@@ -389,14 +425,14 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 };
                 if central {
                     if let Some(block) = block {
-                        tiles[i].set_block(block);
+                        map[i].set_block(block);
                     }
                 }
                 if entity {
                     if central {
                         let _ = dbg!(buff.read_chunk(false, |buff| {
                             let _ = buff.read_i8()?;
-                            tiles[i]
+                            map[i]
                                 .build
                                 .as_mut()
                                 .unwrap()
@@ -407,12 +443,12 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     }
                 } else if data {
                     if let Some(block) = block {
-                        tiles[i].set_block(block);
+                        map[i].set_block(block);
                     }
-                    tiles[i].build.as_mut().unwrap().data = buff.read_i8()?;
+                    map[i].build.as_mut().unwrap().data = buff.read_i8()?;
                 } else {
                     let consecutives = buff.read_u8()? as usize;
-                    for tile in tiles.iter_mut().take(consecutives).skip(i + 1) {
+                    for tile in map.tiles.iter_mut().take(consecutives).skip(i + 1) {
                         if let Some(block) = block {
                             tile.set_block(block);
                         }
@@ -421,6 +457,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 }
                 i += 1
             }
+            m = Some(map);
             Ok::<(), ReadError>(())
         })?;
         let mut mapping = EntityMapping::new();
@@ -453,12 +490,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })?;
         // skip custom chunks
         buff.skip_chunk()?;
-        Ok(Map {
-            width: w,
-            height: h,
-            tags,
-            tiles,
-        })
+        Ok(m.unwrap())
     }
 
     /// serialize a map (todo)

@@ -86,12 +86,6 @@ impl RotationState for Placement<'_> {
     }
 }
 
-impl PositionState for Placement<'_> {
-    fn get_position(&self) -> GridPos {
-        self.pos
-    }
-}
-
 // manual impl because trait objects cannot be cloned
 impl<'l> Clone for Placement<'l> {
     fn clone(&self) -> Self {

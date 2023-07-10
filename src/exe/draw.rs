@@ -1,5 +1,5 @@
 use mindus::build_registry;
-use mindus::Renderer;
+use mindus::Renderable;
 use mindus::SchematicSerializer;
 use std::env::Args;
 
@@ -18,7 +18,7 @@ pub fn main(args: Args) {
                 if !first || need_space {
                     println!();
                 }
-                Renderer::render_schematic(&s).save("x.png").unwrap();
+                s.render().save("x.png").unwrap();
             }
             // continue processing literals & maybe interactive mode
             Err(e) => {

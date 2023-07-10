@@ -14,6 +14,6 @@ mod utils;
 pub use block::build_registry;
 pub use data::dynamic::DynData;
 pub use data::map::{Map, MapSerializer};
-pub use data::renderer::Renderer;
+pub use data::renderer::Renderable;
 pub use data::schematic::{Schematic, SchematicSerializer};
 pub use data::Serializer;

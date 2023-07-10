@@ -1,5 +1,5 @@
 use mindus::data::DataRead;
-use mindus::{build_registry, Renderer};
+use mindus::{build_registry, Renderable};
 use mindus::{MapSerializer, Serializer};
 use std::env::Args;
 
@@ -14,7 +14,7 @@ pub fn main(args: Args) {
             match ms.deserialize(&mut DataRead::new(&s)) {
                 Err(e) => print_err!(e, "fail"),
                 Ok(m) => {
-                    Renderer::render_map(&m).save("x.png").unwrap();
+                    m.render().save("x.png").unwrap();
                 }
             }
         }

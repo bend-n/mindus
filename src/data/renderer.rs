@@ -88,6 +88,7 @@ pub struct RenderingContext<'l> {
 /// holds positions
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct PositionContext {
+    // TODO remove
     pub position: GridPos,
     pub width: usize,
     pub height: usize,
@@ -203,10 +204,7 @@ pub trait RotationState {
     fn get_rotation(&self) -> Rotation;
 }
 pub trait BlockState<'l> {
-    fn get_block(&self) -> Option<&'l Block>;
-}
-pub trait PositionState {
-    fn get_position(&self) -> GridPos;
+    fn get_block(&'l self) -> Option<&'l Block>;
 }
 
 #[cfg(test)]
@@ -334,7 +332,7 @@ fn test_cross() {
     );
 }
 
-fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug>(
+fn cross<'l, T: BlockState<'l> + RotationState + std::fmt::Debug>(
     j: usize,
     tiles: &'l [T],
     pos: &PositionContext,
@@ -342,19 +340,7 @@ fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug
     println!("crossing {pos:?} (index {j})");
     let get = |n: usize, ch: (i32, i32), label: &'static str| {
         let b = tiles.get(n)?;
-        println!("{label}: {b:?} + {:?}", b.get_rotation(),);
-        debug_assert!(
-            b.get_position().0 as i32 == pos.position.0 as i32 + ch.0,
-            "expected y position {}, got {}",
-            pos.position.0 as i32 + ch.0,
-            b.get_position().0 as i32
-        );
-        debug_assert!(
-            b.get_position().1 as i32 == pos.position.1 as i32 + ch.1,
-            "expected x position {}, got {}",
-            pos.position.1 as i32 + ch.1,
-            b.get_position().1 as i32
-        );
+        println!("{label}: {b:?} + {:?}", b.get_rotation());
         Some((b.get_block()?, b.get_rotation()))
     };
     macro_rules! cond {
@@ -387,37 +373,45 @@ fn cross<'l, T: BlockState<'l> + RotationState + PositionState + std::fmt::Debug
     ]
 }
 
-/// renderer for creating images of schematics
-pub struct Renderer {}
-impl<'l> Renderer {
-    /// creates a picture of a schematic. Bridges and node connections are not drawn, and there is no background.
-    /// conveyors, conduits, and ducts currently do not render.
+/// trait for renderable objects
+pub trait Renderable {
+    /// creates a picture of a schematic. Bridges and node connections are not drawn.
+    fn render(&self) -> RgbaImage;
+}
+
+impl Renderable for Schematic<'_> {
     /// ```
     /// use mindus::*;
     /// let mut s = Schematic::new(2, 3);
     /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
     /// s.put(0, 3, &block::distribution::ROUTER);
     /// s.put(1, 3, &block::walls::COPPER_WALL);
-    /// let output /*: RgbaImage */ = Renderer::render_schematic(&s);
+    /// let output /*: RgbaImage */ = s.render();
     /// ```
-    pub fn render_schematic(s: &'l Schematic<'_>) -> RgbaImage {
+    fn render(&self) -> RgbaImage {
         load_zip();
         // fill background
-        dbg!(&s.blocks);
-        let mut bg = RgbaImage::new(((s.width + 2) * 32).into(), ((s.height + 2) * 32).into());
+        dbg!(&self.blocks);
+        let mut bg = RgbaImage::new(
+            ((self.width + 2) * 32).into(),
+            ((self.height + 2) * 32).into(),
+        );
         bg.repeat(METAL_FLOOR.image(None, None).borrow());
-        let mut canvas = RgbaImage::new(((s.width + 2) * 32).into(), ((s.height + 2) * 32).into());
-        for (j, tile) in s.block_iter().enumerate() {
+        let mut canvas = RgbaImage::new(
+            ((self.width + 2) * 32).into(),
+            ((self.height + 2) * 32).into(),
+        );
+        for (j, tile) in self.block_iter().enumerate() {
             let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as u32;
-            let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as u32;
+            let y = (self.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as u32;
             let ctx = if tile.block.wants_context() {
                 let pctx = PositionContext {
                     position: tile.pos,
-                    width: s.width as usize,
-                    height: s.height as usize,
+                    width: self.width as usize,
+                    height: self.height as usize,
                 };
                 Some(RenderingContext {
-                    cross: cross(j, &s.blocks, &pctx),
+                    cross: cross(j, &self.blocks, &pctx),
                     rotation: tile.rot,
                     position: pctx,
                 })
@@ -433,15 +427,23 @@ impl<'l> Renderer {
         image::imageops::overlay(&mut bg, canvas.shadow(), 0, 0);
         bg
     }
+}
 
-    pub fn render_map(m: &'l Map<'_>) -> RgbaImage {
+impl Renderable for Map<'_> {
+    fn render(&self) -> RgbaImage {
         load_zip();
-        let mut floor = RgbaImage::new(m.width * 8, m.height * 8);
-        let mut top = RgbaImage::new(m.width * 8, m.height * 8);
-        for (j, tile) in m.tiles.iter().enumerate() {
+        let mut floor = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
+        let mut top = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
+        for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
+            (
+                (j % self.width) as u32,
+                // flip y
+                (self.height - (j / self.width)) as u32 - 1,
+                j,
+                t,
+            )
+        }) {
             if tile.build().is_none() {
-                let x = (tile.pos.0) as u32;
-                let y = (m.height as u16 - tile.pos.1 - 1) as u32;
                 floor.overlay(
                     // SAFETY: [`load_raw`] forces nonzero image size
                     unsafe { &tile.image(None).own().scale(8) },
@@ -454,20 +456,20 @@ impl<'l> Renderer {
                 } else {
                     1
                 };
-                let x = (tile.pos.0 - ((s - 1) / 2) as u16) as u32;
-                let y = (m.height as u16 - tile.pos.1 - ((s / 2) + 1) as u16) as u32;
+                let x = x - ((s - 1) / 2) as u32;
+                let y = y - (s / 2) as u32;
                 let ctx = || {
                     let b = tile.build()?;
                     if !b.block.wants_context() {
                         return None;
                     }
                     let pctx = PositionContext {
-                        position: tile.pos,
-                        width: m.width as usize,
-                        height: m.height as usize,
+                        position: GridPos(x as u16, y as u16),
+                        width: self.width as usize,
+                        height: self.height as usize,
                     };
                     Some(RenderingContext {
-                        cross: cross(j, &m.tiles, &pctx),
+                        cross: cross(j, &self.tiles, &pctx),
                         rotation: b.rotation,
                         position: pctx,
                     })
