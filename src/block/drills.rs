@@ -3,7 +3,7 @@ use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
 use crate::data::renderer::*;
 
-make_simple!(DrillBlock, |me: &DrillBlock, _, name, _| {
+make_simple!(DrillBlock, |me: &DrillBlock, _, name, _, _| {
     if matches!(name, "cliff-crusher" | "large-plasma-bore" | "plasma-bore") {
         const SFX: &[&str; 3] = &["", "-top", "-rotator"];
         return Some(ImageHolder::Own(read_with("drills", name, SFX, me.size)));

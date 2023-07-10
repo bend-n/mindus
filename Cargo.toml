@@ -22,11 +22,11 @@ const-str = "0.5.5"
 color-hex = "0.2.0"
 zip = { version = "0.6.6", features = ["zstd"], default-features = false }
 tinyrand = "0.5.0"
-seq-macro = "0.3.4"
 tinyrand-std = "0.5.0"
 dashmap = "5.4.0"
 fast_image_resize = "2.7.3"
 thiserror = "1.0.41"
+bobbin-bits = "0.1.1"
 
 [build-dependencies]
 zip = { version = "0.6.6", features = ["zstd"], default-features = false }
@@ -41,3 +41,6 @@ debug = 2
 opt-level = 3
 lto = true
 incremental = true
+
+[dev-dependencies]
+diff = "0.1"

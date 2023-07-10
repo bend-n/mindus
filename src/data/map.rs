@@ -92,7 +92,7 @@ pub struct Tile<'l> {
     pub pos: GridPos,
     pub floor: &'l Block,
     pub ore: Option<&'l Block>,
-    pub build: Option<Build<'l>>,
+    build: Option<Build<'l>>,
 }
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
@@ -106,6 +106,10 @@ impl<'l> Tile<'l> {
             team: crate::team::SHARDED,
             data: 0,
         });
+    }
+
+    pub fn build(&self) -> Option<&Build<'l>> {
+        self.build.as_ref()
     }
 
     /// check if this tile contains a building.
@@ -128,14 +132,14 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub fn image(&self) -> ImageHolder {
+    pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
         // building covers floore
         let i = if let Some(b) = &self.build {
-            b.image()
+            b.image(context)
         } else {
-            let mut i = self.floor.image(None).own();
+            let mut i = self.floor.image(None, context).own();
             if let Some(ore) = self.ore {
-                i.overlay(ore.image(None).borrow(), 0, 0);
+                i.overlay(ore.image(None, context).borrow(), 0, 0);
             }
             ImageHolder::from(i)
         };
@@ -165,6 +169,24 @@ impl std::fmt::Debug for Tile<'_> {
     }
 }
 
+impl<'l> BlockState<'l> for Tile<'l> {
+    fn get_block(&self) -> Option<&'l Block> {
+        Some(self.build()?.block)
+    }
+}
+
+impl RotationState for Tile<'_> {
+    fn get_rotation(&self) -> Rotation {
+        self.build().map_or(Rotation::Up, |b| b.rotation)
+    }
+}
+
+impl PositionState for Tile<'_> {
+    fn get_position(&self) -> GridPos {
+        self.pos
+    }
+}
+
 /// a build on a tile in a map
 #[derive(Debug)]
 pub struct Build<'l> {
@@ -178,15 +200,15 @@ pub struct Build<'l> {
 }
 
 impl Build<'_> {
-    pub fn image(&self) -> ImageHolder {
-        self.block.image(None)
+    pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
+        self.block.image(None, context)
     }
 
     pub fn read(
         &mut self,
         buff: &mut DataRead<'_>,
-        reg: &BlockRegistry,
-        map: &EntityMapping,
+        _reg: &BlockRegistry,
+        _map: &EntityMapping,
     ) -> Result<(), ReadError> {
         // health
         let _ = buff.read_f32()?; // 4
@@ -196,42 +218,45 @@ impl Build<'_> {
             return Err(ReadError::Version(rot & 128));
         }
 
-        let _t = dbg!(buff.read_u8()?); // 6
-        let _v = dbg!(buff.read_u8()?); // 7
-        let mask = dbg!(buff.read_u8()?); // 8
-        if dbg!((mask & 1) != 0) {
-            self.items.clear();
-            // 10
-            for _ in 0..dbg!(buff.read_u16()?) {
-                let item = buff.read_u16()?;
-                let amount = buff.read_u32()?;
-                if let Ok(item) = Item::try_from(item) {
-                    self.items.set(item, amount);
-                }
-            }
-        }
-        if mask & 2 == 0 {
-            let n = buff.read_u16()? as usize;
-            buff.skip((n * 4) + 1)?;
-        }
-        if mask & 4 == 0 {
-            self.liquids.clear();
-            for _ in 0..buff.read_u16()? {
-                let fluid = buff.read_u16()?;
-                let amount = buff.read_f32()?;
-                if let Ok(fluid) = Fluid::try_from(fluid) {
-                    self.liquids.set(fluid, (amount * 100.0) as u32);
-                }
-            }
-        }
+        let _t = buff.read_u8()?; // 6
+        let _v = buff.read_u8()?; // 7
+        let _mask = buff.read_u8()?; // 8
+
+        // if (mask & 1) != 0 {
+        //     self.items.clear();
+        //     // 10
+        //     for _ in 0..dbg!(buff.read_u16()?) {
+        //         let item = buff.read_u16()?;
+        //         let amount = buff.read_u32()?;
+        //         if let Ok(item) = Item::try_from(item) {
+        //             self.items.set(item, amount);
+        //         }
+        //     }
+        // }
+        // if mask & 2 == 0 {
+        //     let n = buff.read_u16()? as usize;
+        //     buff.skip((n * 4) + 1)?;
+        // }
+        // if mask & 4 == 0 {
+        //     self.liquids.clear();
+        //     for _ in 0..buff.read_u16()? {
+        //         let fluid = buff.read_u16()?;
+        //         let amount = buff.read_f32()?;
+        //         if let Ok(fluid) = Fluid::try_from(fluid) {
+        //             self.liquids.set(fluid, (amount * 100.0) as u32);
+        //         }
+        //     }
+        // }
         // "efficiency"?
-        let _ = buff.read_u8()?;
-        let _ = buff.read_u8()?;
+        // let _ = buff.read_u8()?;
+        // let _ = buff.read_u8()?;
         // visible flags
-        let _ = buff.read_i64()?;
+        // let _ = buff.read_i64()?;
+        // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
+        Err(ReadError::Version(0x0))
         // "overriden by subclasses"
-        self.block.read(buff, reg, map)?;
-        Ok(())
+        // self.block.read(buff, reg, map)?;
+        // Ok(())
     }
 }
 
@@ -286,7 +311,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             return Err(ReadError::Version(version.try_into().unwrap_or(0)));
         }
         let mut tags = HashMap::new();
-        buff.read_chunk(|buff| {
+        buff.read_chunk(true, |buff| {
             buff.skip(1)?;
             for _ in 0..buff.read_u8()? {
                 let key = buff.read_utf()?;
@@ -295,27 +320,13 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             }
             Ok::<(), super::ReadError>(())
         })?;
-        buff.read_chunk(|buff| {
-            // we skip these (just keep the respective modules updated)
-            for _ in 0..buff.read_i8()? {
-                // let _ty = buff.read_u8()?;
-                // for _ in 0..buff.read_i16()? {
-                //     let name = dbg!(buff.read_utf()?);
-                // }
-                buff.skip(1)?;
-                for _ in 0..buff.read_u16()? {
-                    let n = buff.read_u16()?;
-                    buff.skip(n as usize)?;
-                }
-            }
-            Ok::<(), super::ReadError>(())
-        })?;
-
-        //  map section
+        // we skip the content header (just keep the respective modules updated)
+        buff.skip_chunk()?;
+        // map section
         let mut w = 0;
         let mut h = 0;
         let mut tiles = vec![];
-        buff.read_chunk(|buff| {
+        buff.read_chunk(true, |buff| {
             w = buff.read_u16()? as u32;
             h = buff.read_u16()? as u32;
             let count = w * h;
@@ -383,16 +394,16 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 }
                 if entity {
                     if central {
-                        // TODO: actually read
-                        let n = buff.read_u16()?;
-                        buff.skip(n as usize)?;
-                        // let _ = buff.read_i8()?;
-                        // tiles[i]
-                        //     .build
-                        //     .as_mut()
-                        //     .unwrap()
-                        //     // map not initialized yet
-                        //     .read(&mut buff, self.0, &HashMap::new())?;
+                        let _ = dbg!(buff.read_chunk(false, |buff| {
+                            let _ = buff.read_i8()?;
+                            tiles[i]
+                                .build
+                                .as_mut()
+                                .unwrap()
+                                // map not initialized yet
+                                .read(buff, self.0, &HashMap::new())?;
+                            Ok::<(), ReadError>(())
+                        }));
                     }
                 } else if data {
                     if let Some(block) = block {
@@ -413,7 +424,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             Ok::<(), ReadError>(())
         })?;
         let mut mapping = EntityMapping::new();
-        buff.read_chunk(|buff| {
+        buff.read_chunk(true, |buff| {
             for _ in 0..buff.read_u16()? {
                 let id = buff.read_i16()? as u8;
                 let nam = buff.read_utf()?;

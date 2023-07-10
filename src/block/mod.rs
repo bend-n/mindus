@@ -11,7 +11,7 @@ use std::fmt;
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::EntityMapping;
-use crate::data::renderer::ImageHolder;
+use crate::data::renderer::*;
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
@@ -53,9 +53,21 @@ pub trait BlockLogic {
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError>;
 
-    fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<ImageHolder> {
+    #[allow(unused_variables)]
+    fn draw(
+        &self,
+        category: &str,
+        name: &str,
+        state: Option<&State>,
+        context: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
         None
     }
+
+    fn want_context(&self) -> bool {
+        false
+    }
+
     // TODO: use data
     #[allow(unused_variables)]
     fn read(
@@ -227,12 +239,20 @@ impl Block {
         &self.name
     }
 
+    /// should you send context to [`image`]?
+    pub fn wants_context(&self) -> bool {
+        self.logic.as_ref().want_context()
+    }
+
     /// draw this block, with this state
-    pub fn image(&self, state: Option<&State>) -> ImageHolder {
-        if let Some(p) = self.logic.as_ref().draw(&self.category, &self.name, state) {
+    pub fn image(&self, state: Option<&State>, context: Option<&RenderingContext>) -> ImageHolder {
+        if let Some(p) = self
+            .logic
+            .as_ref()
+            .draw(&self.category, &self.name, state, context)
+        {
             return p;
         }
-        use crate::data::renderer::read;
         ImageHolder::Own(read(&self.category, &self.name, self.get_size()))
     }
 
@@ -301,7 +321,7 @@ impl Block {
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name: &str = &self.name;
-        write!(f, "Block {{ name: {name:?} }}")
+        write!(f, "Block<{name:?}>")
     }
 }
 
@@ -321,6 +341,28 @@ pub enum Rotation {
 }
 
 impl Rotation {
+    #[must_use]
+    /// count rotations
+    pub fn count(self) -> u8 {
+        match self {
+            Self::Up => 0,
+            Self::Right => 1,
+            Self::Down => 2,
+            Self::Left => 3,
+        }
+    }
+
+    #[must_use]
+    /// character of this rot (Right => >, Up => ^, Left => <, Down => v)
+    pub fn ch(self) -> char {
+        match self {
+            Rotation::Right => '>',
+            Rotation::Up => '^',
+            Rotation::Left => '<',
+            Rotation::Down => 'v',
+        }
+    }
+
     #[must_use]
     /// mirror the directions.
     pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self {

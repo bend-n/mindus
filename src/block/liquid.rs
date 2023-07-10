@@ -102,7 +102,13 @@ impl BlockLogic for FluidBlock {
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<ImageHolder> {
+    fn draw(
+        &self,
+        category: &str,
+        name: &str,
+        state: Option<&State>,
+        _: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
         let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {

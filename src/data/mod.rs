@@ -124,16 +124,28 @@ impl<'d> DataRead<'d> {
         Ok(len)
     }
 
-    pub fn read_chunk<E>(&mut self, f: impl FnOnce(&mut DataRead) -> Result<(), E>) -> Result<(), E>
+    pub fn read_chunk<E>(
+        &mut self,
+        big: bool,
+        f: impl FnOnce(&mut DataRead) -> Result<(), E>,
+    ) -> Result<(), E>
     where
         E: Error + From<ReadError>,
     {
-        let len = self.read_u32()? as usize;
+        let len = if big {
+            self.read_u32()? as usize
+        } else {
+            self.read_u16()? as usize
+        };
         self.read = 0;
         let r = f(self);
         match r {
             Err(e) => {
                 // skip this chunk
+                if len < self.read {
+                    eprintln!("overread ({e:?})");
+                    return Err(e);
+                }
                 let n = len - self.read;
                 if n != 0 {
                     self.skip(n)?;
@@ -428,7 +440,7 @@ pub trait Serializer<D> {
     fn serialize(&mut self, buff: &mut DataWrite<'_>, data: &D) -> Result<(), Self::WriteError>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct GridPos(pub u16, pub u16);
 
 impl From<u32> for GridPos {
@@ -440,6 +452,12 @@ impl From<u32> for GridPos {
 impl From<GridPos> for u32 {
     fn from(value: GridPos) -> Self {
         (u32::from(value.0) << 16) | u32::from(value.1)
+    }
+}
+
+impl fmt::Debug for GridPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({0}, {1})", self.0, self.1)
     }
 }
 

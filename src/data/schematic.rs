@@ -9,6 +9,7 @@ use thiserror::Error;
 use crate::block::{self, Block, BlockRegistry, Rotation, State};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
+use crate::data::renderer::*;
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
@@ -32,6 +33,18 @@ impl PartialEq for Placement<'_> {
     }
 }
 
+impl fmt::Debug for Placement<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "Placement<{},{}>+{}>",
+            self.pos.0,
+            self.pos.1,
+            self.block.name()
+        )
+    }
+}
+
 impl<'l> Placement<'l> {
     /// gets the current state of this placement. you can cast it with `placement.block::get_state(placement.get_state()?)?`
     #[must_use]
@@ -45,8 +58,8 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    pub fn image(&self) -> crate::data::renderer::ImageHolder {
-        self.block.image(self.get_state())
+    pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
+        self.block.image(self.get_state(), context)
     }
 
     /// set the state
@@ -58,6 +71,24 @@ impl<'l> Placement<'l> {
     /// rotate this
     pub fn set_rotation(&mut self, rot: Rotation) -> Rotation {
         std::mem::replace(&mut self.rot, rot)
+    }
+}
+
+impl<'l> BlockState<'l> for Placement<'l> {
+    fn get_block(&self) -> Option<&'l Block> {
+        Some(self.block)
+    }
+}
+
+impl RotationState for Placement<'_> {
+    fn get_rotation(&self) -> Rotation {
+        self.rot
+    }
+}
+
+impl PositionState for Placement<'_> {
+    fn get_position(&self) -> GridPos {
+        self.pos
     }
 }
 

@@ -11,7 +11,7 @@ macro_rules! register_env {
             $($field => EnvironmentBlock::new($size, true, &[]);)*
         );
 
-        make_simple!(EnvironmentBlock, |_, _, name, _| {
+        make_simple!(EnvironmentBlock, |_, _, name, _, _| {
             let mut rand = StdRand::seed(ClockSeed::default().next_u64());
             match name {
                 $($field => {

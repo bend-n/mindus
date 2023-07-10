@@ -22,8 +22,10 @@ macro_rules! state_impl {
 
 pub(crate) use state_impl;
 
+/// draw is called with self, category, name, state, context
+/// read is called with self, category, name, reg, entity_mapping, buff
 macro_rules! make_simple {
-    ($name: ident, $draw: expr, $read: expr) => {
+    ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
         pub struct $name {
             size: u8,
             symmetric: bool,
@@ -87,8 +89,13 @@ macro_rules! make_simple {
                 category: &str,
                 name: &str,
                 state: Option<&crate::block::State>,
+                context: Option<&crate::data::renderer::RenderingContext>,
             ) -> Option<crate::data::renderer::ImageHolder> {
-                $draw(self, category, name, state)
+                $draw(self, category, name, state, context)
+            }
+
+            fn want_context(&self) -> bool {
+                $wants_context
             }
 
             fn read(
@@ -104,10 +111,21 @@ macro_rules! make_simple {
         }
     };
     ($name: ident, $draw: expr) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _, _, _| Ok(()));
+        crate::block::simple::make_simple!($name, $draw, |_, _, _, _, _, _| Ok(()), false);
+    };
+    ($name: ident, $draw: expr, $wants_context: literal) => {
+        crate::block::simple::make_simple!($name, $draw, |_, _, _, _, _, _| Ok(()), $wants_context);
+    };
+    ($name: ident, $draw: expr, $read: expr) => {
+        crate::block::simple::make_simple!($name, $draw, $read, false);
     };
     ($name: ident) => {
-        crate::block::simple::make_simple!($name, |_, _, _, _| None, |_, _, _, _, _, _| { Ok(()) });
+        crate::block::simple::make_simple!(
+            $name,
+            |_, _, _, _, _| None,
+            |_, _, _, _, _, _| { Ok(()) },
+            false
+        );
     };
 }
 pub(crate) use make_simple;

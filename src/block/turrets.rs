@@ -34,7 +34,7 @@ make_register! {
 
 use crate::data::renderer::*;
 use crate::utils::ImageUtils;
-crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _| {
+crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _, _| {
     let path = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
         | "scathe" | "malign" => format!("bases/reinforced-block-{}", me.size),

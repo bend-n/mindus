@@ -4,7 +4,7 @@ use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::{load, read_with, ImageHolder, TOP};
 
-make_simple!(WallBlock, |_, _, name, _| {
+make_simple!(WallBlock, |_, _, name, _, _| {
     if name == "thruster" {
         const SFX: &[&str; 1] = &[TOP];
         return Some(ImageHolder::Own(read_with(
