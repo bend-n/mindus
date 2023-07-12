@@ -1,6 +1,5 @@
 //! payload related bits and bobs
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
 use crate::block::distribution::BridgeBlock;
@@ -145,34 +144,16 @@ impl BlockLogic for AssemblerBlock {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+#[error("invalid unit index ({idx}, valid: {count})")]
 pub struct AssemblerDeserializeError {
     pub idx: i32,
     pub count: i32,
 }
 
-impl fmt::Display for AssemblerDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "invalid unit index ({}, #valid: {})",
-            self.idx, self.count
-        )
-    }
-}
-
-impl Error for AssemblerDeserializeError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+#[error("invalid unit {0:?}")]
 pub struct AssemblerSerializeError(unit::Type);
-
-impl fmt::Display for AssemblerSerializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid unit ({:?}) is not valid", self.0)
-    }
-}
-
-impl Error for AssemblerSerializeError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Payload {
@@ -291,11 +272,14 @@ impl BlockLogic for PayloadBlock {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
 pub enum PayloadDeserializeError {
+    #[error("expected Unit or Block but got {0:?}")]
     ContentType(content::Type),
-    BlockNotFound(block::content::TryFromU16Error),
-    UnitNotFound(unit::TryFromU16Error),
+    #[error("payload block not found")]
+    BlockNotFound(#[from] block::content::TryFromU16Error),
+    #[error("payload unit not found")]
+    UnitNotFound(#[from] unit::TryFromU16Error),
 }
 
 impl PayloadDeserializeError {
@@ -303,43 +287,6 @@ impl PayloadDeserializeError {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(DeserializeError::Custom(Box::new(e.into()))),
-        }
-    }
-}
-
-impl From<block::content::TryFromU16Error> for PayloadDeserializeError {
-    fn from(err: block::content::TryFromU16Error) -> Self {
-        Self::BlockNotFound(err)
-    }
-}
-
-impl From<unit::TryFromU16Error> for PayloadDeserializeError {
-    fn from(err: unit::TryFromU16Error) -> Self {
-        Self::UnitNotFound(err)
-    }
-}
-
-impl fmt::Display for PayloadDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ContentType(have) => write!(
-                f,
-                "expected content {:?} or {:?} but got {have:?}",
-                content::Type::Block,
-                content::Type::Unit
-            ),
-            Self::BlockNotFound(..) => f.write_str("payload block not found"),
-            Self::UnitNotFound(..) => f.write_str("payload unit not found"),
-        }
-    }
-}
-
-impl Error for PayloadDeserializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::BlockNotFound(e) => Some(e),
-            Self::UnitNotFound(e) => Some(e),
-            _ => None,
         }
     }
 }

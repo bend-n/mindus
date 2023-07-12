@@ -1,18 +1,11 @@
 //! logic processors and stuff
 use std::borrow::Cow;
-use std::error::Error;
-use std::fmt;
 use std::string::FromUtf8Error;
-
-use flate2::{
-    Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress,
-    FlushDecompress, Status,
-};
 
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
-use crate::data::{self, DataRead, DataWrite};
+use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
 
@@ -167,37 +160,9 @@ impl BlockLogic for ProcessorLogic {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(ProcessorState::default()))),
             DynData::ByteArray(arr) => {
-                let mut input = arr.as_ref();
-                let mut dec = Decompress::new(true);
-                let mut raw = Vec::<u8>::new();
-                raw.reserve(1024);
-                loop {
-                    let t_in = dec.total_in();
-                    let t_out = dec.total_out();
-                    let res = ProcessorDeserializeError::forward(dec.decompress_vec(
-                        input,
-                        &mut raw,
-                        FlushDecompress::Finish,
-                    ))?;
-                    if dec.total_in() > t_in {
-                        // we have to advance input every time, decompress_vec only knows the output position
-                        input = &input[(dec.total_in() - t_in) as usize..];
-                    }
-                    match res {
-                        // there's no more input (and the flush mode says so), we need to reserve additional space
-                        Status::Ok | Status::BufError => (),
-                        // input was already at the end, so this is referring to the output
-                        Status::StreamEnd => break,
-                    }
-                    if dec.total_in() == t_in && dec.total_out() == t_out {
-                        // protect against looping forever
-                        return Err(DeserializeError::Custom(Box::new(
-                            ProcessorDeserializeError::DecompressStall,
-                        )));
-                    }
-                    raw.reserve(1024);
-                }
-                let mut buff = DataRead::new(&raw);
+                let input = arr.as_ref();
+                let buff = DataRead::new(input).deflate()?;
+                let mut buff = DataRead::new(&buff);
                 let ver = ProcessorDeserializeError::forward(buff.read_u8())?;
                 if ver != 1 {
                     return Err(DeserializeError::Custom(Box::new(
@@ -279,48 +244,23 @@ impl BlockLogic for ProcessorLogic {
             ProcessorSerializeError::forward(rbuff.write_i16(link.x))?;
             ProcessorSerializeError::forward(rbuff.write_i16(link.y))?;
         }
-        let mut input = rbuff.get_written();
-        let mut comp = Compress::new(Compression::default(), true);
-        let mut dst = Vec::<u8>::new();
-        dst.reserve(1024);
-        loop {
-            let t_in = comp.total_in();
-            let t_out = comp.total_out();
-            let res = ProcessorSerializeError::forward(comp.compress_vec(
-                input,
-                &mut dst,
-                FlushCompress::Finish,
-            ))?;
-            if comp.total_in() > t_in {
-                // we have to advance input every time, compress_vec only knows the output position
-                input = &input[(comp.total_in() - t_in) as usize..];
-            }
-            match res {
-                // there's no more input (and the flush mode says so), we need to reserve additional space
-                Status::Ok | Status::BufError => (),
-                // input was already at the end, so this is referring to the output
-                Status::StreamEnd => break,
-            }
-            if comp.total_in() == t_in && comp.total_out() == t_out {
-                // protect against looping forever
-                return Err(SerializeError::Custom(Box::new(
-                    ProcessorSerializeError::CompressStall,
-                )));
-            }
-            dst.reserve(1024);
-        }
-        Ok(DynData::ByteArray(dst))
+        let mut out = DataWrite::default();
+        rbuff.inflate(&mut out)?;
+        Ok(DynData::ByteArray(out.consume()))
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProcessorDeserializeError {
-    Read(data::ReadError),
-    Decompress(DecompressError),
-    DecompressStall,
-    FromUtf8(FromUtf8Error),
+    #[error("failed to read state data")]
+    Read(#[from] data::ReadError),
+    #[error("malformed utf-8 in processor code")]
+    FromUtf8(#[from] FromUtf8Error),
+    #[error("unsupported version ({0})")]
     Version(u8),
+    #[error("invalid code length ({0})")]
     CodeLength(i32),
+    #[error("invalid link count {0}")]
     LinkCount(i32),
 }
 
@@ -333,54 +273,12 @@ impl ProcessorDeserializeError {
     }
 }
 
-impl From<data::ReadError> for ProcessorDeserializeError {
-    fn from(value: data::ReadError) -> Self {
-        Self::Read(value)
-    }
-}
-
-impl From<DecompressError> for ProcessorDeserializeError {
-    fn from(value: DecompressError) -> Self {
-        Self::Decompress(value)
-    }
-}
-
-impl From<FromUtf8Error> for ProcessorDeserializeError {
-    fn from(value: FromUtf8Error) -> Self {
-        Self::FromUtf8(value)
-    }
-}
-
-impl fmt::Display for ProcessorDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Read(..) => f.write_str("failed to read state data"),
-            Self::Decompress(..) => f.write_str("zlib decompression failed"),
-            Self::DecompressStall => f.write_str("decompressor stalled before completion"),
-            Self::FromUtf8(..) => f.write_str("malformed utf-8 in processor code"),
-            Self::Version(ver) => write!(f, "unsupported version ({ver})"),
-            Self::CodeLength(len) => write!(f, "invalid code length ({len})"),
-            Self::LinkCount(cnt) => write!(f, "invalid link count ({cnt})"),
-        }
-    }
-}
-
-impl Error for ProcessorDeserializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Decompress(e) => Some(e),
-            Self::FromUtf8(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProcessorSerializeError {
-    Write(data::WriteError),
-    Compress(CompressError),
-    CompressEof(usize),
-    CompressStall,
+    #[error("failed to write state data")]
+    Write(#[from] data::WriteError),
+    #[error(transparent)]
+    Compress(#[from] CompressError),
 }
 
 impl ProcessorSerializeError {
@@ -388,41 +286,6 @@ impl ProcessorSerializeError {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(SerializeError::Custom(Box::new(e.into()))),
-        }
-    }
-}
-
-impl From<data::WriteError> for ProcessorSerializeError {
-    fn from(value: data::WriteError) -> Self {
-        Self::Write(value)
-    }
-}
-
-impl From<CompressError> for ProcessorSerializeError {
-    fn from(value: CompressError) -> Self {
-        Self::Compress(value)
-    }
-}
-
-impl fmt::Display for ProcessorSerializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Write(..) => f.write_str("failed to write state data"),
-            Self::Compress(..) => f.write_str("zlib compression failed"),
-            Self::CompressEof(remain) => write!(
-                f,
-                "compression overflow with {remain} bytes of input remaining"
-            ),
-            Self::CompressStall => f.write_str("compressor stalled before completion"),
-        }
-    }
-}
-
-impl Error for ProcessorSerializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Compress(e) => Some(e),
-            _ => None,
         }
     }
 }
@@ -529,38 +392,18 @@ impl ProcessorState {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CodeError {
+    #[error("code too long ({0} bytes)")]
     TooLong(usize),
 }
 
-impl fmt::Display for CodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TooLong(len) => write!(f, "code too long ({len} bytes)"),
-        }
-    }
-}
-
-impl Error for CodeError {}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CreateError {
+    #[error("link name too long ({0} bytes)")]
     NameLength(usize),
+    #[error("there is already a link named {0}")]
     DuplicateName(String),
+    #[error("link {name} already points to ({x}, {y})")]
     DuplicatePos { name: String, x: i16, y: i16 },
 }
-
-impl fmt::Display for CreateError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NameLength(len) => write!(f, "link name too long ({len} bytes)"),
-            Self::DuplicateName(name) => write!(f, "there already is a link named {name}"),
-            Self::DuplicatePos { name, x, y } => {
-                write!(f, "link {name} already points to {x} / {y}")
-            }
-        }
-    }
-}
-
-impl Error for CreateError {}

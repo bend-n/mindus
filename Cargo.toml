@@ -27,6 +27,7 @@ dashmap = "5.4.0"
 fast_image_resize = "2.7.3"
 thiserror = "1.0.41"
 bobbin-bits = "0.1.1"
+blurslice = "0.1.0"
 
 [build-dependencies]
 zip = { version = "0.6.6", features = ["zstd"], default-features = false }

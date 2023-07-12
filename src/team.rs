@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 
 use image::Rgb;
@@ -38,7 +37,8 @@ impl TryFrom<u16> for Team {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("no content of type Team for value {0}")]
 pub struct TryFromU16Error(pub u16);
 
 impl From<Team> for u8 {
@@ -62,18 +62,11 @@ impl fmt::Display for Team {
             3 => f.write_str("Malis"),
             4 => f.write_str("Green"),
             5 => f.write_str("Blue"),
+            6 => f.write_str("Neoplastic"),
             id => write!(f, "Team #{id}"),
         }
     }
 }
-
-impl fmt::Display for TryFromU16Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "no content of type Team for value {}", self.0)
-    }
-}
-
-impl Error for TryFromU16Error {}
 
 const TEAM_NAMES: &str = include_str!("../res/team_names.txt");
 
@@ -94,6 +87,7 @@ impl Content for Team {
             3 => "malis",
             4 => "green",
             5 => "blue",
+            6 => "neoplastic",
             // dark magic: offsets manually computed, then rely on the format "...|team#{i}|..."
             i @ 6..=9 => {
                 // length: 7 ("team#" (5) + 1 digit + "|" (1))

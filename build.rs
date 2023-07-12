@@ -11,15 +11,19 @@ fn zip_dir<T>(
     it: &mut dyn Iterator<Item = DirEntry>,
     prefix: &str,
     writer: T,
-    method: zip::CompressionMethod,
 ) -> zip::result::ZipResult<()>
 where
     T: Write + Seek,
 {
     let mut zip = zip::ZipWriter::new(writer);
-    let options = FileOptions::default()
-        .compression_method(method)
+    let mut options = FileOptions::default()
+        .compression_method(zip::CompressionMethod::Zstd)
         .unix_permissions(0o755);
+    if let Ok(v) = std::env::var("COMPRESS") {
+        if v == "1" {
+            options = options.compression_level(Some(22));
+        }
+    }
 
     let mut buffer = Vec::new();
     for entry in it {
@@ -59,6 +63,5 @@ fn main() -> Result<(), ZipError> {
         &mut it.filter_map(|e| e.ok()),
         "assets",
         File::create(std::env::var("OUT_DIR").unwrap() + "/asset").unwrap(),
-        zip::CompressionMethod::Zstd,
     )
 }

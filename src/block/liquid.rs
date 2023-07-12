@@ -1,6 +1,5 @@
 //! liquid related things
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 use crate::block::distribution::BridgeBlock;
 use crate::block::simple::*;
@@ -123,21 +122,16 @@ impl BlockLogic for FluidBlock {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+#[error("invalid config ({0}) for fluid")]
 pub struct FluidConvertError(pub i32);
 
-impl fmt::Display for FluidConvertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid config ({}) for fluid", self.0)
-    }
-}
-
-impl Error for FluidConvertError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
 pub enum FluidDeserializeError {
+    #[error("expected Fluid but got {0:?}")]
     ContentType(content::Type),
-    NotFound(fluid::TryFromU16Error),
+    #[error("fluid not found")]
+    NotFound(#[from] fluid::TryFromU16Error),
 }
 
 impl FluidDeserializeError {
@@ -145,34 +139,6 @@ impl FluidDeserializeError {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(DeserializeError::Custom(Box::new(e.into()))),
-        }
-    }
-}
-
-impl From<fluid::TryFromU16Error> for FluidDeserializeError {
-    fn from(err: fluid::TryFromU16Error) -> Self {
-        Self::NotFound(err)
-    }
-}
-
-impl fmt::Display for FluidDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ContentType(have) => write!(
-                f,
-                "expected content {:?} but got {have:?}",
-                content::Type::Fluid
-            ),
-            Self::NotFound(..) => f.write_str("fluid not found"),
-        }
-    }
-}
-
-impl Error for FluidDeserializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::NotFound(e) => Some(e),
-            _ => None,
         }
     }
 }

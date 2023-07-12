@@ -1,6 +1,5 @@
 //! power connection and generation
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 use crate::block::simple::*;
 use crate::block::*;
@@ -117,8 +116,9 @@ impl BlockLogic for ConnectorBlock {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConnectorDeserializeError {
+    #[error("too many links ({have} but only {max} allowed)")]
     LinkCount { have: usize, max: u8 },
 }
 
@@ -130,18 +130,6 @@ impl ConnectorDeserializeError {
         }
     }
 }
-
-impl fmt::Display for ConnectorDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LinkCount { have, max } => {
-                write!(f, "too many links ({have} but only {max} supported)")
-            }
-        }
-    }
-}
-
-impl Error for ConnectorDeserializeError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RGBA(u8, u8, u8, u8);

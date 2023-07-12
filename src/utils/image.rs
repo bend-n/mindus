@@ -1,6 +1,7 @@
 use fast_image_resize as fr;
 use image::{GenericImageView, Rgb, Rgba, RgbaImage};
 use std::num::NonZeroU32;
+use blurslice::gaussian_blur_bytes;
 
 pub trait ImageUtils {
     /// Tint this image with the color
@@ -13,6 +14,8 @@ pub trait ImageUtils {
     fn rotate(&mut self, times: u8) -> &mut Self;
     /// shadow
     fn shadow(&mut self) -> &mut Self;
+    /// silhouette
+    fn silhouette(&mut self) -> &mut Self;
     /// scale a image
     ///
     /// SAFETY: to and width and height cannot be 0.
@@ -58,7 +61,7 @@ impl ImageUtils for RgbaImage {
         for j in 0..with.height() {
             for i in 0..with.width() {
                 let get = with.get_pixel(i, j);
-                if get[3] > 5 {
+                if get[3] > 128 {
                     self.put_pixel(i + x, j + y, *get);
                 }
             }
@@ -85,8 +88,22 @@ impl ImageUtils for RgbaImage {
         RgbaImage::from_raw(to.get(), to.get(), dst.into_vec()).unwrap()
     }
 
+    fn silhouette(&mut self) -> &mut Self {
+        for pixel in self.pixels_mut() {
+            if pixel[3] < 128 {
+                pixel[2] /= 10;
+                pixel[1] /= 10;
+                pixel[0] /= 10;
+            }
+        }
+        self
+    }
+
     fn shadow(&mut self) -> &mut Self {
-        let shadow = image::imageops::blur(&image::imageops::grayscale_alpha(self), 9.0);
+        let mut shadow = self.clone();
+        shadow.silhouette();
+        let samples = shadow.as_flat_samples_mut();
+        gaussian_blur_bytes::<4>(samples.samples, self.width() as usize, self.height() as usize, 9.0).unwrap();
         for x in 0..shadow.width() {
             for y in 0..shadow.height() {
                 let Rgba([r, g, b, a]) = self.get_pixel_mut(x, y);

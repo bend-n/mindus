@@ -88,7 +88,6 @@ pub struct RenderingContext<'l> {
 /// holds positions
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct PositionContext {
-    // TODO remove
     pub position: GridPos,
     pub width: usize,
     pub height: usize,
@@ -201,11 +200,22 @@ where
 }
 
 pub trait RotationState {
-    fn get_rotation(&self) -> Rotation;
+    fn get_rotation(&self) -> Option<Rotation>;
 }
 pub trait BlockState<'l> {
     fn get_block(&'l self) -> Option<&'l Block>;
 }
+pub(crate) trait Crossable {
+    fn cross(&self, j: usize, c: &PositionContext) -> Cross;
+}
+
+// pub(crate) trait Darray {
+//     type Output;
+//     fn n(&self, j: usize, c: &PositionContext) -> Option<&Self::Output>;
+//     fn e(&self, j: usize, c: &PositionContext) -> Option<&Self::Output>;
+//     fn s(&self, j: usize, c: &PositionContext) -> Option<&Self::Output>;
+//     fn w(&self, j: usize, c: &PositionContext) -> Option<&Self::Output>;
+// }
 
 #[cfg(test)]
 fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
@@ -236,13 +246,13 @@ fn test_cross() {
             let mut c = vec![];
                 println!("{:#?}", s.blocks);
 
-            for (j, tile) in s.block_iter().enumerate() {
+            for (position, _) in s.block_iter() {
                 let pctx = PositionContext {
-                    position: tile.pos,
-                    width: s.width as usize,
-                    height: s.height as usize,
+                    position,
+                    width: s.width,
+                    height: s.height,
                 };
-                c.push(cross(j, &s.blocks, &pctx));
+                c.push(s.cross(&pctx));
             }
             let n = s.tags.get("name").map_or("<unknown>", |x| &x);
             let cc: Vec<Cross> = vec![
@@ -310,9 +320,12 @@ fn test_cross() {
         ^,_,_,v _,_,>,<
     );
     // the asymmetrical test
+    // <───
+    // ───>
     test!("bXNjaAF4nEXJwQqAIBAE0HGVCPrE6GC2B0HdcCPw78MKnMMwj4EFWbjiM8N5bRnLwRpqPK8oBcCU/M5JQetmMAcpNzep/cCIAfX69yv6RF0PFy0O4Q==" =>
         <,>,_,_ _,<,>,_
-        <,_,_,> _,_,>,<
+        <,>,_,> _,<,>,<
+        // <,_,_,> _,_,>,<
         <,_,_,> _,_,>,<
     );
 
@@ -325,52 +338,14 @@ fn test_cross() {
         >,v,_,_ >,v,>,_ >,v,>,_ _,v,>,_
         v,<,_,> v,v,v,> v,>,v,> _,<,v,>
         v,>,_,v >,<,<,v <,^,v,v _,v,>,v
-        <,_,_,< ^,_,>,v v,_,<,> _,_,^,<
-        v,_,_,> >,_,>,< ^,_,v,^ _,_,>,v
-        >,_,_,> ^,_,<,v ^,_,>,> _,_,^,^
+        <,>,_,< ^,v,>,v v,>,<,> _,^,^,<
+        v,<,_,> >,>,>,< ^,^,v,^ _,^,>,v
+        >,v,_,> ^,v,<,v ^,>,>,> _,>,^,^
+        // <,_,_,< ^,_,>,v v,_,<,> _,_,^,<
+        // v,_,_,> >,_,>,< ^,_,v,^ _,_,>,v
+        // >,_,_,> ^,_,<,v ^,_,>,> _,_,^,^
         v,_,_,< >,_,v,> >,_,v,^ _,_,>,^
     );
-}
-
-fn cross<'l, T: BlockState<'l> + RotationState + std::fmt::Debug>(
-    j: usize,
-    tiles: &'l [T],
-    pos: &PositionContext,
-) -> [Option<(&'l Block, Rotation)>; 4] {
-    println!("crossing {pos:?} (index {j})");
-    let get = |n: usize, ch: (i32, i32), label: &'static str| {
-        let b = tiles.get(n)?;
-        println!("{label}: {b:?} + {:?}", b.get_rotation());
-        Some((b.get_block()?, b.get_rotation()))
-    };
-    macro_rules! cond {
-        ($cond: expr, $do: expr) => {
-            if $cond {
-                None
-            } else {
-                $do
-            }
-        };
-    }
-    [
-        // N
-        cond!(
-            pos.position.1 >= (pos.height - 1) as u16,
-            get(j + 1, (0, 1), "N")
-        ),
-        // E
-        cond!(
-            pos.position.0 >= (pos.height - 1) as u16,
-            get(j + pos.height, (1, 0), "E")
-        ),
-        // S
-        cond!(
-            pos.position.1 == 0 || pos.position.1 >= pos.height as u16,
-            get(j - 1, (0, -1), "S")
-        ),
-        // W
-        cond!(j < pos.height, get(j - pos.height, (-1, 0), "W")),
-    ]
 }
 
 /// trait for renderable objects
@@ -384,46 +359,51 @@ impl Renderable for Schematic<'_> {
     /// use mindus::*;
     /// let mut s = Schematic::new(2, 3);
     /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
-    /// s.put(0, 3, &block::distribution::ROUTER);
-    /// s.put(1, 3, &block::walls::COPPER_WALL);
+    /// s.put(0, 2, &block::distribution::ROUTER);
+    /// s.put(1, 2, &block::walls::COPPER_WALL);
     /// let output /*: RgbaImage */ = s.render();
     /// ```
     fn render(&self) -> RgbaImage {
+        dbg!(&self.blocks.clone());
         load_zip();
         // fill background
-        dbg!(&self.blocks);
         let mut bg = RgbaImage::new(
-            ((self.width + 2) * 32).into(),
-            ((self.height + 2) * 32).into(),
+            ((self.width + 2) * 32) as u32,
+            ((self.height + 2) * 32) as u32,
         );
         bg.repeat(METAL_FLOOR.image(None, None).borrow());
         let mut canvas = RgbaImage::new(
-            ((self.width + 2) * 32).into(),
-            ((self.height + 2) * 32).into(),
+            ((self.width + 2) * 32) as u32,
+            ((self.height + 2) * 32) as u32,
         );
-        for (j, tile) in self.block_iter().enumerate() {
-            let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as u32;
-            let y = (self.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as u32;
+        for (GridPos(x, y), tile) in self.block_iter() {
             let ctx = if tile.block.wants_context() {
                 let pctx = PositionContext {
-                    position: tile.pos,
-                    width: self.width as usize,
-                    height: self.height as usize,
+                    position: GridPos(x, y),
+                    width: self.width,
+                    height: self.height,
                 };
                 Some(RenderingContext {
-                    cross: cross(j, &self.blocks, &pctx),
+                    cross: self.cross(&pctx),
                     rotation: tile.rot,
                     position: pctx,
                 })
             } else {
                 None
             };
+            #[cfg(debug_assertions)]
+            println!("rendering {tile:?} ({x}, {y}) [+{}]", tile.block.get_size());
+            let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
+            let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
             canvas.overlay(
                 tile.image(ctx.as_ref()).borrow(),
                 (x + 1) * 32,
                 (y + 1) * 32,
             );
+            // canvas.save("tmp.png").unwrap();
         }
+        #[cfg(debug_assertions)]
+        println!("finishing up");
         image::imageops::overlay(&mut bg, canvas.shadow(), 0, 0);
         bg
     }
@@ -436,9 +416,9 @@ impl Renderable for Map<'_> {
         let mut top = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
         for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
             (
-                (j % self.width) as u32,
+                (j % self.width),
                 // flip y
-                (self.height - (j / self.width)) as u32 - 1,
+                (self.height - (j / self.width)) - 1,
                 j,
                 t,
             )
@@ -447,8 +427,8 @@ impl Renderable for Map<'_> {
                 floor.overlay(
                     // SAFETY: [`load_raw`] forces nonzero image size
                     unsafe { &tile.image(None).own().scale(8) },
-                    x * 8,
-                    y * 8,
+                    x as u32 * 8,
+                    y as u32 * 8,
                 );
             } else {
                 let s = if let Some(build) = &tile.build() {
@@ -456,20 +436,20 @@ impl Renderable for Map<'_> {
                 } else {
                     1
                 };
-                let x = x - ((s - 1) / 2) as u32;
-                let y = y - (s / 2) as u32;
+                let x = x - ((s - 1) / 2) as usize;
+                let y = y - (s / 2) as usize;
                 let ctx = || {
                     let b = tile.build()?;
                     if !b.block.wants_context() {
                         return None;
                     }
                     let pctx = PositionContext {
-                        position: GridPos(x as u16, y as u16),
-                        width: self.width as usize,
-                        height: self.height as usize,
+                        position: GridPos(x, y),
+                        width: self.width,
+                        height: self.height,
                     };
                     Some(RenderingContext {
-                        cross: cross(j, &self.tiles, &pctx),
+                        cross: self.cross(j, &pctx),
                         rotation: b.rotation,
                         position: pctx,
                     })
@@ -478,8 +458,8 @@ impl Renderable for Map<'_> {
                 top.overlay(
                     // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
                     unsafe { &tile.image(ctx.as_ref()).own().scale(tile.size() as u32 * 8) },
-                    x * 8,
-                    y * 8,
+                    x as u32 * 8,
+                    y as u32 * 8,
                 );
             }
         }

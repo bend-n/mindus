@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 use std::iter::{Enumerate, FusedIterator};
 use std::marker::PhantomData;
@@ -40,6 +39,12 @@ where
     /// ```
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[must_use]
+    /// total items
+    pub fn get_total(&self) -> u64 {
+        self.total
     }
 
     #[must_use]
@@ -379,43 +384,21 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("adding {add} to current {have} would exceed {max}")]
 pub struct TryAddError {
     pub have: u32,
     pub add: u32,
     pub max: u32,
 }
 
-impl fmt::Display for TryAddError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "adding {:?} to current {} would exceed {}",
-            self.add, self.have, self.max
-        )
-    }
-}
-
-impl Error for TryAddError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("removing {sub} from current {have} would drop below {min}")]
 pub struct TrySubError {
     pub have: u32,
     pub sub: u32,
     pub min: u32,
 }
-
-impl fmt::Display for TrySubError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "removing {} from current {} would drop below {}",
-            self.sub, self.have, self.min
-        )
-    }
-}
-
-impl Error for TrySubError {}
 
 #[derive(Clone, Debug)]
 pub struct Iter<'l> {

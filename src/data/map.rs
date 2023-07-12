@@ -97,7 +97,7 @@ pub struct Tile<'l> {
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
-    fn new(floor: &'l Block, ore: Option<&'l Block>) -> Self {
+    pub fn new(floor: &'l Block, ore: Option<&'l Block>) -> Self {
         Self {
             floor,
             ore,
@@ -182,13 +182,13 @@ impl<'l> BlockState<'l> for Tile<'l> {
 }
 
 impl RotationState for Tile<'_> {
-    fn get_rotation(&self) -> Rotation {
-        self.build().map_or(Rotation::Up, |b| b.rotation)
+    fn get_rotation(&self) -> Option<Rotation> {
+        Some(self.build()?.rotation)
     }
 }
 
 impl RotationState for Option<Tile<'_>> {
-    fn get_rotation(&self) -> Rotation {
+    fn get_rotation(&self) -> Option<Rotation> {
         self.as_ref().unwrap().get_rotation()
     }
 }
@@ -198,12 +198,6 @@ impl<'l> BlockState<'l> for Option<Tile<'_>> {
         self.as_ref().unwrap().get_block()
     }
 }
-
-/// tiles.
-/// ```
-/// # use mindus::data::map::*;
-/// let tiles = Tiles::new(2, 3);
-/// tiles.set(1, 3, Tile)
 
 /// a build on a tile in a map
 #[derive(Debug, Clone)]
@@ -230,7 +224,7 @@ impl Build<'_> {
     ) -> Result<(), ReadError> {
         // health
         let _ = buff.read_f32()?; // 4
-        let rot = dbg!(buff.read_u8()?); // 5
+        let rot = buff.read_u8()?; // 5
         self.rotation = Rotation::try_from(rot & 127).unwrap_or(Rotation::Up);
         if (rot & 128) == 0 {
             return Err(ReadError::Version(rot & 128));
@@ -278,34 +272,74 @@ impl Build<'_> {
     }
 }
 
-/// a map
+/// a map.
+/// ## Does not support serialization yet!
 #[derive(Debug)]
 pub struct Map<'l> {
     pub width: usize,
     pub height: usize,
     pub tags: HashMap<String, String>,
+    /// y increment 2d array
+    /// ```rs
+    /// (0, 0), (0, 1),
+    /// (1, 0), (1, 1),
+    /// ```
     pub tiles: Vec<Tile<'l>>,
 }
 
+macro_rules! cond {
+    ($cond: expr, $do: expr) => {
+        if $cond {
+            None
+        } else {
+            $do
+        }
+    };
+}
+
+impl<'l> Crossable for Map<'l> {
+    // N
+    // cond!(pos.position.1 >= (pos.height - 1) as u16, get(j + 1)),
+    // // E
+    // cond!(
+    //     pos.position.0 >= (pos.height - 1) as u16,
+    //     get(j + pos.height)
+    // ),
+    // // S
+    // cond!(
+    //     pos.position.1 == 0 || pos.position.1 >= pos.height as u16,
+    // cond!(pos.position.1 >= (pos.height - 1), get(j + 1)),
+    //      // E
+    //      cond!(pos.position.0 >= (pos.height - 1), get(j + pos.height)),
+    //      // S
+    //      cond!(
+    //          pos.position.1 == 0 || pos.position.1 >= pos.height,
+    //          get(j - 1)
+    //      ),
+    //      // W
+    //      cond!(j < pos.height, get(j - pos.height)),
+    fn cross(&self, j: usize, c: &PositionContext) -> Cross {
+        let get = |i| {
+            let b = &self[i];
+            Some((b.get_block()?, b.get_rotation()?))
+        };
+        [
+            cond![c.position.1 >= (c.height - 1), get(j + 1)],
+            cond![c.position.0 >= (c.height - 1), get(j + self.height)],
+            cond![c.position.1 == 0 || c.position.1 >= c.height, get(j - 1)],
+            cond![j < c.height, get(j - self.height)],
+        ]
+    }
+}
+
 impl<'l> Map<'l> {
-    fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
+    pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
             tiles: vec![Tile::new(&environment::STONE, None); width * height],
             height,
             width,
             tags,
         }
-    }
-
-    /// please ensure bounds
-    fn get(&'l self, x: usize, y: usize) -> &'l Tile<'l> {
-        &self.tiles[x * y + self.height]
-    }
-
-    /// bounds must be ensured
-    fn set(&'l mut self, x: usize, y: usize, t: Tile<'l>) {
-        let h = self.height;
-        self[x * y + h] = t;
     }
 }
 
@@ -329,6 +363,8 @@ const MAP_HEADER: [u8; 4] = [b'M', b'S', b'A', b'V'];
 pub enum ReadError {
     #[error("failed to read from buffer")]
     Read(#[from] super::ReadError),
+    #[error(transparent)]
+    Decompress(#[from] super::DecompressError),
     #[error("incorrect header ({0:?})")]
     Header([u8; 4]),
     #[error("unsupported version ({0})")]
@@ -406,7 +442,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 i += 1;
             }
             let mut i = 0usize;
-            while i < count as usize {
+            while i < count {
                 let block_id = buff.read_u16()?;
                 let packed = buff.read_u8()?;
                 let entity = (packed & 1) != 0;
@@ -430,7 +466,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 }
                 if entity {
                     if central {
-                        let _ = dbg!(buff.read_chunk(false, |buff| {
+                        let _ = buff.read_chunk(false, |buff| {
                             let _ = buff.read_i8()?;
                             map[i]
                                 .build
@@ -439,7 +475,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                                 // map not initialized yet
                                 .read(buff, self.0, &HashMap::new())?;
                             Ok::<(), ReadError>(())
-                        }));
+                        });
                     }
                 } else if data {
                     if let Some(block) = block {

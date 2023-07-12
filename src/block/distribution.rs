@@ -1,7 +1,5 @@
 //! conveyors ( & ducts )
 use std::borrow::BorrowMut;
-use std::error::Error;
-use std::fmt;
 
 use crate::block::simple::*;
 use crate::block::*;
@@ -104,12 +102,12 @@ fn mask(ctx: &RenderingContext, n: &str) -> U4 {
     use Rotation::*;
     let mut x = 0b0000;
 
-    println!("{:?}, {ctx}", ctx.cross);
+    // println!("{:?}, {ctx}", ctx.cross);
     x |= 8 * c!(ctx.cross[0], ctx.rotation, n, Down);
     x |= 4 * c!(ctx.cross[1], ctx.rotation, n, Left);
     x |= 2 * c!(ctx.cross[2], ctx.rotation, n, Up);
     x |= c!(ctx.cross[3], ctx.rotation, n, Right);
-    dbg!(U4::from(x))
+    U4::from(x)
 }
 
 fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation) -> ImageHolder {
@@ -295,7 +293,7 @@ make_register! {
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "router" => ControlBlock::new(1, true, cost!(Copper: 3));
-    "distributor" => ConveyorBlock::new(2, true, cost!(Copper: 4, Lead: 4));
+    "distributor" => ControlBlock::new(2, true, cost!(Copper: 4, Lead: 4));
     "overflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "underflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
@@ -407,21 +405,16 @@ impl BlockLogic for ItemBlock {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("invalid config ({0}) for item")]
 pub struct ItemConvertError(pub i32);
 
-impl fmt::Display for ItemConvertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid config ({}) for item", self.0)
-    }
-}
-
-impl Error for ItemConvertError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum ItemDeserializeError {
+    #[error("expected Item but got {0:?}")]
     ContentType(content::Type),
-    NotFound(item::TryFromU16Error),
+    #[error("target item not found")]
+    NotFound(#[from] item::TryFromU16Error),
 }
 
 impl ItemDeserializeError {
@@ -429,34 +422,6 @@ impl ItemDeserializeError {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(DeserializeError::Custom(Box::new(e.into()))),
-        }
-    }
-}
-
-impl From<item::TryFromU16Error> for ItemDeserializeError {
-    fn from(err: item::TryFromU16Error) -> Self {
-        Self::NotFound(err)
-    }
-}
-
-impl fmt::Display for ItemDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ContentType(have) => write!(
-                f,
-                "expected content {:?} but got {have:?}",
-                content::Type::Item
-            ),
-            Self::NotFound(..) => f.write_str("target item not found"),
-        }
-    }
-}
-
-impl Error for ItemDeserializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::NotFound(e) => Some(e),
-            _ => None,
         }
     }
 }
@@ -505,8 +470,8 @@ impl BlockLogic for BridgeBlock {
                 y,
             })));
         }
-        let dx = i32::from(x) - i32::from(pos.0);
-        let dy = i32::from(y) - i32::from(pos.1);
+        let dx = i32::from(x) - pos.0 as i32;
+        let dy = i32::from(y) - pos.1 as i32;
         Ok(DynData::Point2(dx, dy))
     }
 
@@ -595,16 +560,9 @@ impl BlockLogic for BridgeBlock {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("invalid coordinates ({x}, {y}) for bridge")]
 pub struct BridgeConvertError {
     pub x: i16,
     pub y: i16,
 }
-
-impl fmt::Display for BridgeConvertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid coordinate ({} / {}) for bridge", self.x, self.y)
-    }
-}
-
-impl Error for BridgeConvertError {}
