@@ -438,7 +438,7 @@ impl Renderable for Map<'_> {
                 };
                 let x = x - ((s - 1) / 2) as usize;
                 let y = y - (s / 2) as usize;
-                let ctx = || {
+                let ctx = (|| {
                     let b = tile.build()?;
                     if !b.block.wants_context() {
                         return None;
@@ -448,13 +448,13 @@ impl Renderable for Map<'_> {
                         width: self.width,
                         height: self.height,
                     };
-                    Some(RenderingContext {
+                    let rctx = RenderingContext {
                         cross: self.cross(j, &pctx),
                         rotation: b.rotation,
                         position: pctx,
-                    })
-                };
-                let ctx = ctx();
+                    };
+                    Some(rctx)
+                })();
                 top.overlay(
                     // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
                     unsafe { &tile.image(ctx.as_ref()).own().scale(tile.size() as u32 * 8) },

@@ -1,6 +1,6 @@
 //! the map module
 //! ### format
-//! note: utf = `len<u16>` + utf8(read(len))
+//! note: utf = `len<u16>` + `utf8(read(len))`
 //!
 //! note: each section has a `u32` denoting its length
 //!
@@ -12,10 +12,10 @@
 //! - tag section `<u32>`
 //!     - 1 byte of idk (skip)
 //!     - string map (`u16` for map len, iterate each, read `utf`)
-//! - 4 bytes of idk (skip)
 //! - content header section `<u32>`:
-//!     - iterate `i8` (should = `8`)'//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13//!         - item count: `u1\'6` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
-//!         - these types all have their own modules: [`crate::item`], [`crate::block::content`], [`crate::fluid`], [`crate::modifier`], [`crate::unit`], [`crate::data::weather`], [`crate::data::sector`], [`crate::data::planet`]
+//!     - iterate `i8` (should = `8`)'
+//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13//!         - item count: `u1\'6` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
+//!         - these types all have their own modules: [`item`], [`content`], [`fluid`], [`modifier`], [`mod@unit`], [`weather`], [`sector`], [`planet`]
 //!         - iterate `u16`
 //!             - name: `utf`
 //! - map section `<u32>`
@@ -59,7 +59,7 @@
 //!             - team = `team#<u32>`
 //!             - iterate `plans<u32>`
 //!                 - x: `u16`, y: `u16`, rot: `u16`, id: `u16`
-//!                 - o: `DynData` (refer to [crate::data::dynamic::DynSerializer])
+//!                 - o: `DynData` (refer to [`DynSerializer`])
 //!         - world entities
 //!             - iterate `u32`
 //!                 - len: `u16`
@@ -79,9 +79,10 @@ use crate::data::dynamic::DynSerializer;
 use crate::data::renderer::*;
 use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
-use crate::item::storage::Storage;
-use crate::item::Type as Item;
+use crate::item::{storage::Storage, Type as Item};
 use crate::team::Team;
+#[allow(unused_imports)]
+use crate::{block::content, data::*, fluid, item, modifier, unit};
 
 use super::Serializer;
 use crate::content::Content;
@@ -159,12 +160,12 @@ impl std::fmt::Debug for Tile<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Tile@{}+{}{}",
+            "Tile@{}{}{}",
             self.floor.name(),
             if let Some(ore) = &self.ore {
-                ore.name()
+                format!("+{}", ore.name())
             } else {
-                ""
+                "".into()
             },
             if let Some(build) = &self.build {
                 format!(":{}", build.block.name())
@@ -279,10 +280,11 @@ pub struct Map<'l> {
     pub width: usize,
     pub height: usize,
     pub tags: HashMap<String, String>,
-    /// y increment 2d array
+    /// row major 2d array
     /// ```rs
-    /// (0, 0), (0, 1),
-    /// (1, 0), (1, 1),
+    /// (0, 0), (1, 0), (2, 0)
+    /// (0, 1), (1, 1), (2, 1)
+    /// (0, 2), (1, 2), (2, 2)
     /// ```
     pub tiles: Vec<Tile<'l>>,
 }
@@ -324,10 +326,13 @@ impl<'l> Crossable for Map<'l> {
             Some((b.get_block()?, b.get_rotation()?))
         };
         [
-            cond![c.position.1 >= (c.height - 1), get(j + 1)],
-            cond![c.position.0 >= (c.height - 1), get(j + self.height)],
-            cond![c.position.1 == 0 || c.position.1 >= c.height, get(j - 1)],
-            cond![j < c.height, get(j - self.height)],
+            cond![
+                c.position.1 == 0 || c.position.1 >= c.height,
+                get(j + self.height)
+            ],
+            cond![c.position.0 >= (c.height - 1), get(j + 1)],
+            cond![c.position.1 >= (c.height - 1), get(j - self.width)],
+            cond![j < c.height, get(j - 1)],
         ]
     }
 }

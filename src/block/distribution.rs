@@ -206,8 +206,8 @@ fn mask2tile(mask: U4, rot: Rotation, name: &str) -> ImageHolder {
         },
         // from top and right
         B1100 => match rot {
-            Rotation::Down => p!(2, 1), // ┬
-            Rotation::Left => p!(2, 2), // ├
+            Rotation::Down => p!(2, 3, FLIP_X), // ├
+            Rotation::Left => p!(2, 2),         // ┴
             _ => unreachable!(),
         },
         // from top, left, right
