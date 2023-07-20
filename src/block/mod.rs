@@ -47,9 +47,11 @@ pub trait BlockLogic {
 
     fn clone_state(&self, state: &State) -> State;
 
-    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool);
+    #[allow(unused_variables)]
+    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {}
 
-    fn rotate_state(&self, state: &mut State, clockwise: bool);
+    #[allow(unused_variables)]
+    fn rotate_state(&self, state: &mut State, clockwise: bool) {}
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError>;
 
