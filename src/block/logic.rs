@@ -7,7 +7,7 @@ use image::{Rgb, RgbImage};
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::*;
+
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
@@ -84,8 +84,8 @@ impl BlockLogic for CanvasBlock {
                     let offset = i * 3;
                     let mut n = 0;
                     for i in 0..3 {
-                        let word = i + offset >> 3;
-                        n |= (((b[word] & (1 << (i + offset & 7))) != 0) as u8) << i;
+                        let word = (i + offset) >> 3;
+                        n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
                     }
                     p.put_pixel(
                         i as u32 % self.canvas_size as u32,
@@ -93,7 +93,7 @@ impl BlockLogic for CanvasBlock {
                         PALETTE[n as usize],
                     )
                 }
-                return Ok(Some(Self::create_state(p)));
+                Ok(Some(Self::create_state(p)))
             }
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
@@ -117,11 +117,11 @@ impl BlockLogic for CanvasBlock {
             let index = PALETTE.iter().position(|v| v == color).unwrap();
             let offset = i * 3;
             for i in 0..3 {
-                let word = i + offset >> 3;
+                let word = (i + offset) >> 3;
                 if index >> i & 1 == 0 {
-                    o[word] &= !(1 << (i + offset & 7));
+                    o[word] &= !(1 << ((i + offset) & 7));
                 } else {
-                    o[word] |= 1 << (i + offset & 7);
+                    o[word] |= 1 << ((i + offset) & 7);
                 }
             }
         }
