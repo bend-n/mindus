@@ -411,13 +411,13 @@ impl Renderable for Schematic<'_> {
 impl Renderable for Map<'_> {
     fn render(&self) -> RgbaImage {
         load_zip();
-        let mut floor = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
-        let mut top = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
         let scale = if self.width + self.height < 2000 {
             8
         } else {
             4
         };
+        let mut floor = RgbaImage::new(self.width as u32 * scale, self.height as u32 * scale);
+        let mut top = RgbaImage::new(self.width as u32 * scale, self.height as u32 * scale);
         for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
             (
                 (j % self.width),
