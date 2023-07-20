@@ -56,6 +56,7 @@ impl CanvasBlock {
     #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost, canvas_size: u8) -> Self {
         assert!(size != 0, "invalid size");
+        assert!(canvas_size != 0, "invalid size");
         Self {
             canvas_size,
             size,
@@ -124,6 +125,40 @@ impl BlockLogic for CanvasBlock {
             }
         }
         Ok(DynData::ByteArray(o))
+    }
+
+    /// i thought about drawing the borders and stuff but it felt like too much work
+    fn draw(
+        &self,
+        _: &str,
+        _: &str,
+        state: Option<&State>,
+        _: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
+        if let Some(state) = state {
+            let state = self.clone_state(state);
+            let p = state.downcast::<RgbImage>().unwrap();
+            use crate::utils::ImageUtils;
+            let p = DynamicImage::from(
+                RgbImage::from_raw(
+                    self.canvas_size as u32,
+                    self.canvas_size as u32,
+                    p.into_raw(),
+                )
+                .unwrap(),
+            )
+            .into_rgba8();
+            return Some(ImageHolder::from(unsafe { p.scale(self.size as u32 * 32) }));
+        }
+
+        Some(ImageHolder::from(RgbaImage::new(
+            self.size as u32 * 32,
+            self.size as u32 * 32,
+        )))
+    }
+
+    fn want_context(&self) -> bool {
+        true
     }
 }
 
