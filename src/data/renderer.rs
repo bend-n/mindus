@@ -413,6 +413,11 @@ impl Renderable for Map<'_> {
         load_zip();
         let mut floor = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
         let mut top = RgbaImage::new(self.width as u32 * 8, self.height as u32 * 8);
+        let scale = if self.width + self.height < 2000 {
+            8
+        } else {
+            4
+        };
         for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
             (
                 (j % self.width),
@@ -426,8 +431,8 @@ impl Renderable for Map<'_> {
                 floor.overlay(
                     // SAFETY: [`load_raw`] forces nonzero image size
                     unsafe { &tile.image(None).own().scale(8) },
-                    x as u32 * 8,
-                    y as u32 * 8,
+                    x as u32 * scale,
+                    y as u32 * scale,
                 );
             } else {
                 let s = if let Some(build) = &tile.build() {
@@ -456,9 +461,14 @@ impl Renderable for Map<'_> {
                 })();
                 top.overlay(
                     // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
-                    unsafe { &tile.image(ctx.as_ref()).own().scale(tile.size() as u32 * 8) },
-                    x as u32 * 8,
-                    y as u32 * 8,
+                    unsafe {
+                        &tile
+                            .image(ctx.as_ref())
+                            .own()
+                            .scale(tile.size() as u32 * scale)
+                    },
+                    x as u32 * scale,
+                    y as u32 * scale,
                 );
             }
         }
