@@ -485,19 +485,14 @@ fn all_blocks() {
     let reg = crate::block::build_registry();
     for t in 19..Type::WorldMessage as u16 {
         let t = Type::try_from(t).unwrap();
-        if matches!(
-            t,
-            // TODO canvas
-            Type::Canvas
-                | Type::Empty
-                | Type::SlagCentrifuge
-                | Type::HeatReactor
-                | Type::LegacyMechPad
-                | Type::LegacyUnitFactory
-                | Type::LegacyUnitFactoryAir
-                | Type::LegacyUnitFactoryGround
-                | Type::CommandCenter
-        ) {
+        if matches!(t, |Type::Empty| Type::SlagCentrifuge
+            | Type::HeatReactor
+            | Type::LegacyMechPad
+            | Type::LegacyUnitFactory
+            | Type::LegacyUnitFactoryAir
+            | Type::LegacyUnitFactoryGround
+            | Type::CommandCenter)
+        {
             continue;
         }
 
