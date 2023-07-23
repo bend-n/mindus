@@ -8,6 +8,7 @@ use crate::block::{self, *};
 use crate::content::{self, Content};
 use crate::data::dynamic::DynType;
 use crate::data::ReadError;
+use crate::team;
 use crate::unit;
 
 use super::BlockRegistry;
@@ -117,8 +118,7 @@ impl BlockLogic for PayloadBlock {
     ///     - unit read???????? TODO
     fn read(
         &self,
-        _: &str,
-        _: &str,
+        _: &mut Build,
         reg: &BlockRegistry,
         entity_mapping: &crate::data::map::EntityMapping,
         buff: &mut crate::data::DataRead,
@@ -133,8 +133,21 @@ impl BlockLogic for PayloadBlock {
             BLOCK => {
                 let b = buff.read_u16()?;
                 let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
-                let b = reg.get(b.get_name()).unwrap();
-                b.read(buff, reg, entity_mapping)?;
+                let block = reg.get(b.get_name()).unwrap();
+                block.logic.read(
+                    &mut Build {
+                        block,
+                        items: Default::default(),
+                        liquids: Default::default(),
+                        state: None,
+                        rotation: Rotation::Up,
+                        data: 0,
+                        team: team::SHARDED,
+                    },
+                    reg,
+                    entity_mapping,
+                    buff,
+                )?;
             }
             UNIT => {
                 let u = buff.read_u8()?;

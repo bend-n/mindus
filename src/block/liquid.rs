@@ -13,10 +13,10 @@ use crate::utils::ImageUtils;
 make_simple!(LiquidBlock);
 make_simple!(
     ConduitBlock,
-    |_, _, name, _, ctx: Option<&RenderingContext>| {
+    |_, _, name, _, ctx: Option<&RenderingContext>, rot| {
         let ctx = ctx.unwrap();
-        let mask = mask(ctx, name);
-        let (index, rot, flip) = mask2rotations(mask, ctx.rotation);
+        let mask = mask(ctx, rot, name);
+        let (index, rot, flip) = mask2rotations(mask, rot);
         let tile = rotations2tile(
             (index, rot, flip),
             "liquid",
@@ -130,6 +130,7 @@ impl BlockLogic for FluidBlock {
         name: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
+        _: Rotation,
     ) -> Option<ImageHolder> {
         let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {

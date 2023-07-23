@@ -55,7 +55,6 @@ pub type Cross<'l> = [Option<(&'l Block, Rotation)>; 4];
 #[derive(Copy, Clone)]
 pub struct RenderingContext<'l> {
     pub cross: Cross<'l>,
-    pub rotation: Rotation,
     pub position: PositionContext,
 }
 
@@ -74,34 +73,6 @@ impl std::fmt::Debug for PositionContext {
             "PC<{:?} ({}/{})>",
             self.position, self.width, self.height
         )
-    }
-}
-
-impl std::fmt::Debug for RenderingContext<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(self, f)
-    }
-}
-
-impl std::fmt::Display for RenderingContext<'_> {
-    /// this display impl shows RC<$directions=+own rotation>
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RC<")?;
-        macro_rules! f {
-            ($f:expr, $z:expr, $x:literal, $at: expr, $srot: expr) => {
-                if let Some((_, rot)) = $z {
-                    if (rot == $at && rot.mirrored(true, true) != $srot) {
-                        $f.write_str($x)?;
-                    }
-                }
-            };
-        }
-        f!(f, self.cross[0], "N = ", Rotation::Down, self.rotation);
-        f!(f, self.cross[1], "E = ", Rotation::Left, self.rotation);
-        f!(f, self.cross[2], "S = ", Rotation::Up, self.rotation);
-        f!(f, self.cross[3], "W = ", Rotation::Right, self.rotation);
-
-        write!(f, "{:?}>", self.rotation)
     }
 }
 
@@ -130,7 +101,7 @@ pub fn tile(
     rot: Rotation,
 ) -> ImageHolder {
     rotations2tile(
-        mask2rotations(mask(ctx, name), rot),
+        mask2rotations(mask(ctx, rot, name), rot),
         category,
         subcategory,
         name,
@@ -275,7 +246,7 @@ pub fn rotations2tile(
     ImageHolder::from(p)
 }
 
-pub fn mask(ctx: &RenderingContext, n: &str) -> U4 {
+pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {
     macro_rules! c {
         ($in: expr, $srot: expr, $name: expr, $at: expr) => {{
             if let Some((b, rot)) = $in {
@@ -293,10 +264,10 @@ pub fn mask(ctx: &RenderingContext, n: &str) -> U4 {
     use Rotation::*;
     let mut x = 0b0000;
 
-    x |= 8 * c!(ctx.cross[0], ctx.rotation, n, Down);
-    x |= 4 * c!(ctx.cross[1], ctx.rotation, n, Left);
-    x |= 2 * c!(ctx.cross[2], ctx.rotation, n, Up);
-    x |= c!(ctx.cross[3], ctx.rotation, n, Right);
+    x |= 8 * c!(ctx.cross[0], rot, n, Down);
+    x |= 4 * c!(ctx.cross[1], rot, n, Left);
+    x |= 2 * c!(ctx.cross[2], rot, n, Up);
+    x |= c!(ctx.cross[3], rot, n, Right);
     U4::from(x)
 }
 
@@ -440,8 +411,8 @@ fn test_mask() {
                         height: 10,
                     },
                     cross: $cross,
-                    rotation: dir!($rot),
                 },
+                dir!($rot),
                 "conveyor",
             )
         };

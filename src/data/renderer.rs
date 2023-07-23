@@ -11,6 +11,7 @@ use zip::ZipArchive;
 
 pub(crate) use super::autotile::*;
 use crate::block::environment::METAL_FLOOR;
+use crate::block::Rotation;
 use crate::team::SHARDED;
 pub(crate) use crate::utils::ImageUtils;
 use crate::Map;
@@ -107,8 +108,13 @@ pub(crate) fn load(category: &str, name: &str) -> Option<Ref<'static, PathBuf, R
     })
 }
 
+#[cfg(not(unix))]
+const P: &str = "target/out";
+#[cfg(unix)]
+const P: &str = "/tmp/mindus-tmp";
+
 fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
-    let f = std::fs::File::open(Path::new("target/out").join(f)).ok()?;
+    let f = std::fs::File::open(Path::new(P).join(f)).ok()?;
     let r = PngDecoder::new(BufReader::new(f)).unwrap();
     let p = DynamicImage::from_decoder(r).unwrap().into_rgba8();
     assert!(p.width() != 0);
@@ -117,12 +123,12 @@ fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
 }
 
 fn load_zip() {
-    if !Path::new("target/out").exists() {
+    if !Path::new(P).exists() {
         let mut zip = ZipArchive::new(Cursor::new(
             include_bytes!(concat!(env!("OUT_DIR"), "/asset")).to_vec(),
         ))
         .unwrap();
-        zip.extract("target/out").unwrap();
+        zip.extract(P).unwrap();
     }
 }
 pub const TOP: &str = "-top";
@@ -180,7 +186,7 @@ impl Renderable for Schematic<'_> {
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
         );
-        bg.repeat(METAL_FLOOR.image(None, None).borrow());
+        bg.repeat(METAL_FLOOR.image(None, None, Rotation::Up).borrow());
         let mut canvas = RgbaImage::new(
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
@@ -194,7 +200,6 @@ impl Renderable for Schematic<'_> {
                 };
                 Some(RenderingContext {
                     cross: self.cross(&pctx),
-                    rotation: tile.rot,
                     position: pctx,
                 })
             } else {
@@ -205,7 +210,8 @@ impl Renderable for Schematic<'_> {
             let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
             canvas.overlay(
-                tile.image(ctx.as_ref()).borrow(),
+                tile.image(ctx.as_ref(), tile.get_rotation().unwrap_or(Rotation::Up))
+                    .borrow(),
                 (x + 1) * 32,
                 (y + 1) * 32,
             );
@@ -259,7 +265,6 @@ impl Renderable for Map<'_> {
                     };
                     let rctx = RenderingContext {
                         cross: self.cross(j, &pctx),
-                        rotation: build.rotation,
                         position: pctx,
                     };
                     Some(rctx)

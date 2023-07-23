@@ -11,7 +11,7 @@ use std::fmt;
 
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
-use crate::data::map::EntityMapping;
+use crate::data::map::{Build, EntityMapping};
 use crate::data::{self, renderer::*, CompressError};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
@@ -63,6 +63,7 @@ pub trait BlockLogic {
         name: &str,
         state: Option<&State>,
         context: Option<&RenderingContext>,
+        rot: Rotation,
     ) -> Option<ImageHolder> {
         None
     }
@@ -71,12 +72,10 @@ pub trait BlockLogic {
         false
     }
 
-    // TODO: use data
     #[allow(unused_variables)]
     fn read(
         &self,
-        category: &str,
-        name: &str,
+        build: &mut Build,
         reg: &BlockRegistry,
         mapping: &EntityMapping,
         buff: &mut DataRead,
@@ -166,7 +165,7 @@ impl SerializeError {
 pub struct Block {
     category: Cow<'static, str>,
     name: Cow<'static, str>,
-    logic: BoxAccess<'static, dyn BlockLogic + Sync>,
+    pub(crate) logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
 
 impl PartialEq for Block {
@@ -204,11 +203,16 @@ impl Block {
     }
 
     /// draw this block, with this state
-    pub fn image(&self, state: Option<&State>, context: Option<&RenderingContext>) -> ImageHolder {
+    pub fn image(
+        &self,
+        state: Option<&State>,
+        context: Option<&RenderingContext>,
+        rot: Rotation,
+    ) -> ImageHolder {
         if let Some(p) = self
             .logic
             .as_ref()
-            .draw(&self.category, &self.name, state, context)
+            .draw(&self.category, &self.name, state, context, rot)
         {
             return p;
         }
@@ -263,17 +267,6 @@ impl Block {
 
     pub(crate) fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         self.logic.serialize_state(state)
-    }
-
-    #[doc(hidden)]
-    pub fn read(
-        &self,
-        buff: &mut DataRead,
-        reg: &BlockRegistry,
-        mapping: &EntityMapping,
-    ) -> Result<(), DataReadError> {
-        self.logic
-            .read(&self.category, &self.name, reg, mapping, buff)
     }
 }
 

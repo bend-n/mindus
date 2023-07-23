@@ -34,10 +34,9 @@ use crate::unit;
 
 make_simple!(
     ConstructorBlock,
-    |me: &Self, _, name, _, context: Option<&RenderingContext>| {
-        let ctx = context.unwrap();
+    |me: &Self, _, name, _, _, rot: Rotation| {
         let mut base = load("units", name).unwrap().to_owned();
-        let times = ctx.rotation.rotated(false).count();
+        let times = rot.rotated(false).count();
         {
             let out = load(
                 "payload",
@@ -111,8 +110,7 @@ make_simple!(
             }
         }
         Some(ImageHolder::from(base))
-    },
-    true
+    }
 );
 make_simple!(UnitBlock);
 
@@ -232,9 +230,9 @@ impl BlockLogic for AssemblerBlock {
         _: &str,
         name: &str,
         _: Option<&State>,
-        context: Option<&RenderingContext>,
+        _: Option<&RenderingContext>,
+        rot: Rotation,
     ) -> Option<ImageHolder> {
-        let ctx = context.unwrap();
         let mut base = load("units", name).unwrap().to_owned();
         let out = load(
             "payload",
@@ -244,7 +242,7 @@ impl BlockLogic for AssemblerBlock {
             },
         )
         .unwrap();
-        let times = ctx.rotation.rotated(false).count();
+        let times = rot.rotated(false).count();
         if times != 0 {
             let mut out = out.clone();
             out.rotate(times);
@@ -270,10 +268,6 @@ impl BlockLogic for AssemblerBlock {
             0,
         );
         Some(ImageHolder::from(base))
-    }
-
-    fn want_context(&self) -> bool {
-        true
     }
 }
 

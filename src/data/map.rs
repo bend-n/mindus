@@ -74,7 +74,7 @@ use std::ops::{Index, IndexMut};
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::{environment, Block, BlockRegistry, Rotation};
+use crate::block::{environment, Block, BlockRegistry, Rotation, State};
 use crate::data::dynamic::DynSerializer;
 use crate::data::renderer::*;
 use crate::data::DataRead;
@@ -109,6 +109,7 @@ impl<'l> Tile<'l> {
     fn set_block(&mut self, block: &'l Block) {
         self.build = Some(Build {
             block,
+            state: None,
             items: Storage::new(),
             liquids: Storage::new(),
             rotation: Rotation::Up,
@@ -142,9 +143,9 @@ impl<'l> Tile<'l> {
     }
 
     pub fn floor_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
-        let mut i = self.floor.image(None, context).own();
+        let mut i = self.floor.image(None, context, Rotation::Up).own();
         if let Some(ore) = self.ore {
-            i.overlay(ore.image(None, context).borrow(), 0, 0);
+            i.overlay(ore.image(None, context, Rotation::Up).borrow(), 0, 0);
         }
         ImageHolder::from(i)
     }
@@ -203,74 +204,116 @@ impl<'l> BlockState<'l> for Option<Tile<'_>> {
 }
 
 /// a build on a tile in a map
-#[derive(Debug, Clone)]
 pub struct Build<'l> {
     pub block: &'l Block,
     pub items: Storage<Item>,
     pub liquids: Storage<Fluid>,
+    pub state: Option<State>,
     // pub health: f32,
     pub rotation: Rotation,
     pub team: Team,
     pub data: i8,
 }
 
+impl std::fmt::Debug for Build<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Build<{block}>", block = self.block.name(),)
+    }
+}
+
+impl Clone for Build<'_> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block,
+            items: self.items.clone(),
+            liquids: self.liquids.clone(),
+            state: match self.state {
+                None => None,
+                Some(ref s) => Some(self.block.clone_state(s)),
+            },
+            rotation: self.rotation,
+            team: self.team,
+            data: self.data,
+        }
+    }
+}
+
 impl Build<'_> {
     pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
-        self.block.image(None, context)
+        self.block
+            .image(self.state.as_ref(), context, self.rotation)
+    }
+
+    pub fn name(&self) -> &str {
+        self.block.name()
     }
 
     pub fn read(
         &mut self,
         buff: &mut DataRead<'_>,
-        _reg: &BlockRegistry,
-        _map: &EntityMapping,
+        reg: &BlockRegistry,
+        map: &EntityMapping,
     ) -> Result<(), ReadError> {
+        #[cfg(debug_assertions)]
+        println!("reading {self:?}");
         // health
-        let _ = buff.read_f32()?; // 4
-        let rot = buff.read_u8()?; // 5
-        self.rotation = Rotation::try_from(rot & 127).unwrap_or(Rotation::Up);
-        if (rot & 128) == 0 {
-            return Err(ReadError::Version(rot & 128));
+        let _ = buff.read_f32()?;
+        let rot = buff.read_i8()? as i16;
+        // team
+        let _ = buff.read_i8()?;
+        self.rotation = Rotation::try_from((rot & 127) as u8).unwrap_or(Rotation::Up);
+        let mut mask = 0;
+        let mut version = 0;
+        if rot & 128 != 0 {
+            version = buff.read_i8()?;
+            if version >= 1 {
+                buff.skip(1)?;
+            }
+            if version >= 2 {
+                mask = buff.read_i8()?;
+            }
         }
 
-        let _t = buff.read_u8()?; // 6
-        let _v = buff.read_u8()?; // 7
-        let _mask = buff.read_u8()?; // 8
+        if mask & 1 != 0 {
+            self.items.clear();
+            for _ in 0..buff.read_u16()? {
+                let item = buff.read_u16()?;
+                let amount = buff.read_u32()?;
+                if let Ok(item) = Item::try_from(item) {
+                    self.items.set(item, amount);
+                }
+            }
+        }
+        if mask & 2 != 0 {
+            let n = buff.read_u16()? as usize;
+            buff.skip((n * 4) + 1)?;
+        }
+        if mask & 4 != 0 {
+            self.liquids.clear();
+            for _ in 0..buff.read_u16()? {
+                let fluid = buff.read_u16()?;
+                let amount = buff.read_f32()?;
+                if let Ok(fluid) = Fluid::try_from(fluid) {
+                    self.liquids.set(fluid, (amount * 100.0) as u32);
+                }
+            }
+        }
+        if version <= 2 {
+            buff.skip(1)?;
+        }
+        if version >= 3 {
+            // "efficiency"?
+            buff.skip(2)?;
+        }
+        if version == 4 {
+            // visible flags
+            buff.skip(4)?;
+        }
+        // "overridden by subclasses"
 
-        // if (mask & 1) != 0 {
-        //     self.items.clear();
-        //     // 10
-        //     for _ in 0..dbg!(buff.read_u16()?) {
-        //         let item = buff.read_u16()?;
-        //         let amount = buff.read_u32()?;
-        //         if let Ok(item) = Item::try_from(item) {
-        //             self.items.set(item, amount);
-        //         }
-        //     }
-        // }
-        // if mask & 2 == 0 {
-        //     let n = buff.read_u16()? as usize;
-        //     buff.skip((n * 4) + 1)?;
-        // }
-        // if mask & 4 == 0 {
-        //     self.liquids.clear();
-        //     for _ in 0..buff.read_u16()? {
-        //         let fluid = buff.read_u16()?;
-        //         let amount = buff.read_f32()?;
-        //         if let Ok(fluid) = Fluid::try_from(fluid) {
-        //             self.liquids.set(fluid, (amount * 100.0) as u32);
-        //         }
-        //     }
-        // }
-        // "efficiency"?
-        // let _ = buff.read_u8()?;
-        // let _ = buff.read_u8()?;
-        // visible flags
-        // let _ = buff.read_i64()?;
+        self.block.logic.read(self, reg, map, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
-        // "overridden by subclasses"
-        // self.block.read(buff, reg, map)?;
         // Ok(())
     }
 }
@@ -475,9 +518,8 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     if central {
                         let _ = buff.read_chunk(false, |buff| {
                             let _ = buff.read_i8()?;
-                            map[i]
-                                .build
-                                .as_mut()
+
+                            dbg!(map[i].build.as_mut())
                                 .unwrap()
                                 // map not initialized yet
                                 .read(buff, self.0, &HashMap::new())?;
@@ -505,13 +547,15 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })?;
         let mut mapping = EntityMapping::new();
         buff.read_chunk(true, |buff| {
+            // read entity mapping (SaveVersion.java#436)
             for _ in 0..buff.read_u16()? {
-                let id = buff.read_i16()? as u8;
+                let id = buff.read_u16()? as u8;
                 let nam = buff.read_utf()?;
                 dbg!(nam);
                 mapping.insert(id, Box::new(Item::Copper));
                 // mapping.push(content::Type::get_name(nam));
             }
+            // read team block plans (ghosts) (SaveVersion.java#389)
             for _ in 0..buff.read_u32()? {
                 buff.skip(4)?;
                 for _ in 0..buff.read_u32()? {
@@ -519,6 +563,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     let _ = DynSerializer::deserialize(&mut DynSerializer, buff)?;
                 }
             }
+            // read world entities (#412). eg units
             for _ in 0..buff.read_u32()? {
                 let len = buff.read_u16()? as usize;
                 let ty = buff.read_u8()?;
@@ -533,6 +578,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })?;
         // skip custom chunks
         buff.skip_chunk()?;
+        println!("desered");
         Ok(m.unwrap())
     }
 

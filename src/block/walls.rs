@@ -6,7 +6,7 @@ use crate::data::renderer::{load, read_with, ImageHolder, TOP};
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
-make_simple!(WallBlock, |_, _, name, _, _| {
+make_simple!(WallBlock, |_, _, name, _, _, _| {
     macro_rules! pick {
         ($name: literal => load $n: literal) => {{
             let mut rand = StdRand::seed(ClockSeed::default().next_u64());

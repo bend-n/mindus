@@ -135,6 +135,7 @@ impl BlockLogic for CanvasBlock {
         n: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
+        _: Rotation,
     ) -> Option<ImageHolder> {
         if let Some(state) = state {
             let state = self.clone_state(state);

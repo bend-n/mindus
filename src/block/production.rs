@@ -44,28 +44,25 @@ make_register! {
 
 make_simple!(
     ProductionBlock,
-    |_, _, _, _, _| None,
-    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, _, _, _| None,
+    |_, _, _, buff: &mut crate::data::DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
-        buff.read_f32()?;
-        buff.read_f32()?;
+        buff.skip(8)?;
         Ok(())
     }
 );
 
 make_simple!(
     HeatCrafter,
-    |_, _, _, _, _| None,
-    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, _, _, _| None,
+    |_, _, _, buff: &mut crate::data::DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
         // - heat: f32
-        buff.read_f32()?;
-        buff.read_f32()?;
-        buff.read_f32()?;
+        buff.skip(12)?;
         Ok(())
     }
 );
