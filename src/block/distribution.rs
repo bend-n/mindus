@@ -12,6 +12,20 @@ make_simple!(
         let ctx = ctx.unwrap(); // we set want_context to true
         Some(tile(ctx, "distribution", "conveyors", name, rot))
     },
+    |_, _, _, buff: &mut DataRead| {
+        // format:
+        // - amount: `i32`
+        // - iterate amount:
+        //  - val: `i32`
+        //  - id = (((val >> 24) as u8) & 0xff) as u16
+        //  - x = (val >> 16) as u8) as f32 / 127.0
+        //  - y = ((val >> 8) as u8 as f32 + 128.0) / 255.0
+        let amount = buff.read_i32()?;
+        for _ in 0..amount {
+            buff.skip(4)?;
+        }
+        Ok(())
+    },
     true
 );
 
