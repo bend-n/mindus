@@ -316,10 +316,9 @@ impl BlockLogic for ItemBlock {
                 buff.skip(1)?;
             }
             _ => {
-                b.state = Some(Self::create_state(dbg!(item::Type::try_from(
-                    buff.read_u16()?
-                )
-                .ok())));
+                b.state = Some(Self::create_state(
+                    item::Type::try_from(buff.read_u16()?).ok(),
+                ));
             }
         }
         Ok(())

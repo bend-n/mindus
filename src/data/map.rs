@@ -41,7 +41,7 @@
 //!                     - chunk len: `u16`
 //!                     - if block == building:
 //!                         - revision: `i8`
-//!                         - tile.build.readAll
+//!                         - [`read`]
 //!                     - else skip `chunk len`
 //!                 - or data
 //!                     - data: `i8`
@@ -254,8 +254,6 @@ impl Build<'_> {
         reg: &BlockRegistry,
         map: &EntityMapping,
     ) -> Result<(), ReadError> {
-        #[cfg(debug_assertions)]
-        println!("reading {self:?}");
         // health
         let _ = buff.read_f32()?;
         let rot = buff.read_i8()? as i16;
@@ -265,16 +263,19 @@ impl Build<'_> {
         let mut mask = 0;
         let mut version = 0;
         if rot & 128 != 0 {
-            version = buff.read_i8()?;
-            if version >= 1 {
-                buff.skip(1)?;
+            version = buff.read_u8()?;
+            if version < 3 {
+                return Err(ReadError::Version(version));
             }
-            if version >= 2 {
-                mask = buff.read_i8()?;
-            }
+            buff.skip(1)?;
+            mask = buff.read_u8()?;
         }
 
-        if mask & 1 != 0 {
+        const ITEMS: u8 = 1;
+        const POWER: u8 = 2;
+        const LIQUIDS: u8 = 4;
+
+        if mask & ITEMS != 0 {
             self.items.clear();
             for _ in 0..buff.read_u16()? {
                 let item = buff.read_u16()?;
@@ -284,11 +285,11 @@ impl Build<'_> {
                 }
             }
         }
-        if mask & 2 != 0 {
+        if mask & POWER != 0 {
             let n = buff.read_u16()? as usize;
             buff.skip((n * 4) + 1)?;
         }
-        if mask & 4 != 0 {
+        if mask & LIQUIDS != 0 {
             self.liquids.clear();
             for _ in 0..buff.read_u16()? {
                 let fluid = buff.read_u16()?;
@@ -298,19 +299,15 @@ impl Build<'_> {
                 }
             }
         }
-        if version <= 2 {
-            buff.skip(1)?;
-        }
-        if version >= 3 {
-            // "efficiency"?
-            buff.skip(2)?;
-        }
+        // "efficiency"?
+        buff.skip(2)?;
+
         if version == 4 {
-            // visible flags
+            // visible flags for fog
             buff.skip(4)?;
         }
-        // "overridden by subclasses"
 
+        // "overridden by subclasses"
         self.block.logic.read(self, reg, map, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
@@ -516,10 +513,21 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 }
                 if entity {
                     if central {
+                        let mut output = [0u8; 2];
+                        output.copy_from_slice(&buff.data[..2]);
+                        let n = u16::from_be_bytes(output) as usize;
                         let _ = buff.read_chunk(false, |buff| {
+                            #[cfg(debug_assertions)]
+                            println!(
+                                "reading {:?} {:?}",
+                                map[i].build.as_ref().unwrap(),
+                                &buff.data[1..n]
+                            );
                             let _ = buff.read_i8()?;
 
-                            dbg!(map[i].build.as_mut())
+                            map[i]
+                                .build
+                                .as_mut()
                                 .unwrap()
                                 // map not initialized yet
                                 .read(buff, self.0, &HashMap::new())?;
