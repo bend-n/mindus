@@ -243,7 +243,7 @@ pub fn rotations2tile(
 ) -> ImageHolder {
     let mut p = ImageHolder::from(load(category, &format!("{subcategory}/{name}-{index}")));
     flrot(flip, rot, p.borrow_mut());
-    ImageHolder::from(p)
+    p
 }
 
 pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {

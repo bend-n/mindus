@@ -466,11 +466,7 @@ impl BlockLogic for BridgeBlock {
 
     /// format:
     /// (item bridge)
-    /// - out: `i32`
-    /// - warmup: `f32`
-    /// - iterate `links<u8>`
-    ///     - in+: `i32`
-    /// - moved: `bool`
+    /// - become [`read_buffered_item_bridge`]
     /// (buffered brige)
     /// - become [`read_item_buffer`]
     /// (mass driver) (19b)
@@ -488,22 +484,15 @@ impl BlockLogic for BridgeBlock {
         _: &crate::data::map::EntityMapping,
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
-        match t.block.name() {
-            "bridge-conveyor" => {} //read_item_buffer(buff)?,
-            "phase-conveyor" => {
-                buff.skip(8)?;
-                for _ in 0..buff.read_u8()? {
-                    buff.skip(4)?;
-                }
-                buff.skip(1)?;
-            }
-            "mass-driver" => {
-                buff.skip(19)?;
-            }
-            // if im reading it right these guys have no state
-            "duct-bridge" | "bridge-conduit" | "phase-conduit" | "reinforced-bridge-conduit" => {}
-            _ => unreachable!(), // surely no forget
-        }
+        // match t.block.name() {
+        //     "bridge-conveyor" => read_buffered_item_bridge(buff)?,
+        //     "phase-conveyor" | "phase-conduit" | "bridge-conduit" => {} // read_item_bridge(buff)?,
+        //     "mass-driver" => {
+        //         buff.skip(19)?;
+        //     }
+        //     "duct-bridge" | "reinforced-bridge-conduit" => todo!(),
+        //     _ => unreachable!(), // surely no forget
+        // }
 
         Ok(())
     }
@@ -516,14 +505,32 @@ pub struct BridgeConvertError {
     pub y: i16,
 }
 
+fn read_buffered_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
+    read_item_bridge(buff)?;
+    read_item_buffer(buff)
+}
+
 /// format:
-/// - index: u8
-/// - iter u8
-///     l: i64
-fn read_item_buffer(buff: &mut crate::data::DataRead) -> Result<(), crate::data::ReadError> {
+/// - index: `u8`
+/// - iter `u8`
+///     l: `i64`
+fn read_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(1)?;
     for _ in 0..buff.read_u8()? {
         buff.skip(4)?;
     }
     Ok(())
+}
+/// format:
+/// - link: `i32`
+/// - warmup: `f32`
+/// - iterate `u8`
+///     - incoming: `i32`
+/// - moved: `bool`
+fn read_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
+    buff.skip(8)?;
+    for _ in 0..dbg!(buff.read_u8()?) {
+        buff.skip(4)?;
+    }
+    buff.skip(1)
 }
