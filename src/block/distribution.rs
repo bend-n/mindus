@@ -130,7 +130,15 @@ fn draw_stack(
     ))
 }
 
-make_simple!(StackConveyor, draw_stack, true);
+make_simple!(
+    StackConveyor,
+    draw_stack,
+    // format:
+    // - link: `i32`
+    // - cooldown: `f32`
+    |_, _, _, buff: &mut DataRead| { buff.skip(8) },
+    true
+);
 make_simple!(ControlBlock);
 
 make_register! {
