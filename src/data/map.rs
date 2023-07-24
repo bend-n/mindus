@@ -276,43 +276,95 @@ impl Build<'_> {
         const LIQUIDS: u8 = 4;
 
         if mask & ITEMS != 0 {
-            self.items.clear();
-            for _ in 0..buff.read_u16()? {
-                let item = buff.read_u16()?;
-                let amount = buff.read_u32()?;
-                if let Ok(item) = Item::try_from(item) {
-                    self.items.set(item, amount);
-                }
-            }
+            read_items(buff, &mut self.items)?;
         }
         if mask & POWER != 0 {
-            let n = buff.read_u16()? as usize;
-            buff.skip((n * 4) + 1)?;
+            read_power(buff)?;
         }
         if mask & LIQUIDS != 0 {
-            self.liquids.clear();
-            for _ in 0..buff.read_u16()? {
-                let fluid = buff.read_u16()?;
-                let amount = buff.read_f32()?;
-                if let Ok(fluid) = Fluid::try_from(fluid) {
-                    self.liquids.set(fluid, (amount * 100.0) as u32);
-                }
-            }
+            read_liquids(buff, &mut self.liquids)?;
         }
         // "efficiency"?
         buff.skip(2)?;
-
         if version == 4 {
             // visible flags for fog
             buff.skip(4)?;
         }
-
+        println!("2custom");
         // "overridden by subclasses"
         self.block.logic.read(self, reg, map, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
         // Ok(())
     }
+}
+
+/// format:
+/// - iterate [`u16`]
+///     - item: [`u16`] as [`Item`]
+///     - amount: [`u32`]
+///
+fn read_items(from: &mut DataRead, to: &mut Storage<Item>) -> Result<(), ReadError> {
+    to.clear();
+    for _ in 0..from.read_u16()? {
+        let item = from.read_u16()?;
+        let amount = from.read_u32()?;
+        if let Ok(item) = Item::try_from(item) {
+            to.set(item, amount);
+        }
+    }
+    Ok(())
+}
+
+/// format:
+/// - iterate [`u16`]
+///     - liquid: [`u16`] as [`Fluid`]
+///     - amount: [`f32`]
+fn read_liquids(from: &mut DataRead, to: &mut Storage<Fluid>) -> Result<(), ReadError> {
+    to.clear();
+    for _ in 0..from.read_u16()? {
+        let fluid = from.read_u16()?;
+        let amount = from.read_f32()?;
+        if let Ok(fluid) = Fluid::try_from(fluid) {
+            to.set(fluid, (amount * 100.0) as u32);
+        }
+    }
+    Ok(())
+}
+
+/// format:
+/// - iterate [`u16`]
+///     - link: [`i32`]
+/// - status: [`f32`]
+fn read_power(from: &mut DataRead) -> Result<(), ReadError> {
+    let n = from.read_u16()? as usize;
+    from.skip((n + 1) * 4)?;
+    Ok(())
+}
+
+#[test]
+fn test_read_items() {
+    let mut s = Storage::new();
+    read_items(
+        &mut DataRead::new(&[
+            0, 6, 0, 0, 0, 0, 2, 187, 0, 1, 0, 0, 1, 154, 0, 2, 0, 0, 15, 160, 0, 3, 0, 0, 0, 235,
+            0, 6, 0, 0, 1, 46, 0, 12, 0, 0, 1, 81, 255, 255,
+        ]),
+        &mut s,
+    )
+    .unwrap();
+    assert!(s.get_total() == 5983);
+}
+
+#[test]
+fn test_read_liquids() {
+    let mut s = Storage::new();
+    read_liquids(
+        &mut DataRead::new(&[0, 1, 0, 0, 67, 111, 247, 126, 255, 255]),
+        &mut s,
+    )
+    .unwrap();
+    assert!(s.get(Fluid::Water) == 23996);
 }
 
 /// a map.

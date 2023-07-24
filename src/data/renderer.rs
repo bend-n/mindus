@@ -311,13 +311,13 @@ fn all_blocks() {
             None,
             Some(&RenderingContext {
                 cross: [None; 4],
-                rotation: crate::block::Rotation::Up,
                 position: PositionContext {
                     position: GridPos(0, 0),
                     width: 5,
                     height: 5,
                 },
             }),
+            Rotation::Up,
         );
     }
 }
