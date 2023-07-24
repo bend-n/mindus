@@ -5,8 +5,8 @@ use std::string::FromUtf8Error;
 use image::{Rgb, RgbImage};
 
 use crate::block::simple::*;
-use crate::block::*;
-use crate::data::dynamic::DynType;
+use crate::data::dynamic::{DynSerializer, DynType};
+use crate::{block::*, Serializer};
 
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
@@ -287,6 +287,36 @@ impl ProcessorLogic {
     state_impl!(pub ProcessorState);
 }
 
+fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDeserializeError> {
+    let ver = buff.read_u8()?;
+    if ver != 1 {
+        return Err(ProcessorDeserializeError::Version(ver));
+    }
+
+    let code_len = buff.read_u32()? as usize;
+    if !(0..=500 * 1024).contains(&code_len) {
+        return Err(ProcessorDeserializeError::CodeLength(code_len));
+    }
+    let mut code = vec![];
+    code.resize(code_len, 0);
+    buff.read_bytes(&mut code)?;
+    let code = String::from_utf8(code)?;
+    let link_cnt = buff.read_u32()? as usize;
+    let mut links = vec![];
+    links.reserve(link_cnt);
+    for _ in 0..link_cnt {
+        let name = buff.read_utf()?;
+        let x = buff.read_i16()?;
+        let y = buff.read_i16()?;
+        links.push(ProcessorLink {
+            name: String::from(name),
+            x,
+            y,
+        });
+    }
+    Ok(ProcessorState { code, links })
+}
+
 impl BlockLogic for ProcessorLogic {
     impl_block!();
 
@@ -300,49 +330,38 @@ impl BlockLogic for ProcessorLogic {
             DynData::ByteArray(arr) => {
                 let input = arr.as_ref();
                 let buff = DataRead::new(input).deflate()?;
-                let mut buff = DataRead::new(&buff);
-                let ver = ProcessorDeserializeError::forward(buff.read_u8())?;
-                if ver != 1 {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::Version(ver),
-                    )));
-                }
-
-                let code_len = ProcessorDeserializeError::forward(buff.read_i32())?;
-                if !(0..=500 * 1024).contains(&code_len) {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::CodeLength(code_len),
-                    )));
-                }
-                let mut code = Vec::<u8>::new();
-                code.resize(code_len as usize, 0);
-                ProcessorDeserializeError::forward(buff.read_bytes(&mut code))?;
-                let code = ProcessorDeserializeError::forward(String::from_utf8(code))?;
-                let link_cnt = ProcessorDeserializeError::forward(buff.read_i32())?;
-                if link_cnt < 0 {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::LinkCount(link_cnt),
-                    )));
-                }
-                let mut links = Vec::<ProcessorLink>::new();
-                links.reserve(link_cnt as usize);
-                for _ in 0..link_cnt {
-                    let name = ProcessorDeserializeError::forward(buff.read_utf())?;
-                    let x = ProcessorDeserializeError::forward(buff.read_i16())?;
-                    let y = ProcessorDeserializeError::forward(buff.read_i16())?;
-                    links.push(ProcessorLink {
-                        name: String::from(name),
-                        x,
-                        y,
-                    });
-                }
-                Ok(Some(Self::create_state(ProcessorState { code, links })))
+                Ok(Some(Self::create_state(
+                    ProcessorDeserializeError::forward(read_decompressed(&mut DataRead::new(
+                        &buff,
+                    )))?,
+                )))
             }
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::Boolean,
             }),
         }
+    }
+
+    fn read(
+        &self,
+        _: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        let n = buff.read_u32()? as usize;
+        let mut v = vec![0; n];
+        buff.read_bytes(&mut v)?;
+        v = DataRead::new(&v).deflate().unwrap();
+        read_decompressed(&mut DataRead::new(&v)).unwrap();
+        for _ in 0..buff.read_u32()? {
+            let _ = buff.read_utf()?;
+            let _ = DynSerializer.deserialize(buff).unwrap();
+        }
+        let memory = buff.read_u32()? as usize;
+        buff.skip(memory * 8)?;
+        Ok(())
     }
 
     fn clone_state(&self, state: &State) -> State {
@@ -397,9 +416,7 @@ pub enum ProcessorDeserializeError {
     #[error("unsupported version ({0})")]
     Version(u8),
     #[error("invalid code length ({0})")]
-    CodeLength(i32),
-    #[error("invalid link count {0}")]
-    LinkCount(i32),
+    CodeLength(usize),
 }
 
 impl ProcessorDeserializeError {
