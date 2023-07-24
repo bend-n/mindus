@@ -214,6 +214,17 @@ impl BlockLogic for MessageLogic {
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::String(Some(Self::get_state(state).clone())))
     }
+
+    fn read(
+        &self,
+        b: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        b.state = Some(Self::create_state(buff.read_utf()?.to_string()));
+        Ok(())
+    }
 }
 
 pub struct SwitchLogic {
@@ -345,7 +356,7 @@ impl BlockLogic for ProcessorLogic {
 
     fn read(
         &self,
-        _: &mut Build,
+        b: &mut Build,
         _: &BlockRegistry,
         _: &EntityMapping,
         buff: &mut DataRead,
@@ -354,7 +365,9 @@ impl BlockLogic for ProcessorLogic {
         let mut v = vec![0; n];
         buff.read_bytes(&mut v)?;
         v = DataRead::new(&v).deflate().unwrap();
-        read_decompressed(&mut DataRead::new(&v)).unwrap();
+        b.state = Some(Self::create_state(
+            read_decompressed(&mut DataRead::new(&v)).unwrap(),
+        ));
         for _ in 0..buff.read_u32()? {
             let _ = buff.read_utf()?;
             let _ = DynSerializer.deserialize(buff).unwrap();
