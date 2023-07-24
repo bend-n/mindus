@@ -21,7 +21,7 @@ make_register! {
     "spore-press" => ProductionBlock::new(2, true, cost!(Lead: 35, Silicon: 30));
     "pulverizer" => ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 25));
     "coal-centrifuge" => ProductionBlock::new(2, true, cost!(Lead: 30, Graphite: 40, Titanium: 20));
-    "incinerator" => ProductionBlock::new(1, true, cost!(Lead: 15, Graphite: 5));
+    "incinerator" => Incinerator::new(1, true, cost!(Lead: 15, Graphite: 5));
     "silicon-arc-furnace" => ProductionBlock::new(3, true, cost!(Beryllium: 70, Graphite: 80));
     "electrolyzer" => ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
     "atmospheric-concentrator" => ProductionBlock::new(3, true, cost!(Oxide: 60, Beryllium: 180, Silicon: 150));
@@ -31,7 +31,7 @@ make_register! {
     "phase-heater" => ProductionBlock::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
     "heat-redirector" => ProductionBlock::new(3, false, cost!(Tungsten: 10, Graphite: 10));
     "heat-router" => ProductionBlock::new(3, false, cost!(Tungsten: 15, Graphite: 10));
-    "slag-incinerator" => ProductionBlock::new(1, true, cost!(Tungsten: 15));
+    "slag-incinerator" => Incinerator::new(1, true, cost!(Tungsten: 15));
     "carbide-crucible" => ProductionBlock::new(3, true, cost!(Tungsten: 110, Thorium: 150, Oxide: 60));
     // slag centrifuge
     "surge-crucible" => ProductionBlock::new(3, true, cost!(Silicon: 100, Graphite: 80, Tungsten: 80, Oxide: 80));
@@ -66,3 +66,5 @@ make_simple!(
         Ok(())
     }
 );
+
+make_simple!(Incinerator);
