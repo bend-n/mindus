@@ -477,12 +477,10 @@ impl BlockLogic for BridgeBlock {
             "bridge-conveyor" => read_buffered_item_bridge(buff)?,
             "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
             "mass-driver" => buff.skip(9)?,
-
-            // "duct-bridge" | "reinforced-bridge-conduit" => todo!(),
-            // _ => unreachable!(), // surely no forget
-            _ => {}
+            // no state?
+            "duct-bridge" | "reinforced-bridge-conduit" => {}
+            _ => unreachable!(), // surely no forget
         }
-
         Ok(())
     }
 }
