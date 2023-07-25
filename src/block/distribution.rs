@@ -46,19 +46,7 @@ make_simple!(
 make_simple!(
     JunctionBlock,
     |_, _, _, _, _, _| None,
-    |_, _, _, buff: &mut DataRead| {
-        // format:
-        // - iterate 4
-        //     - u8
-        //     - iterate u8
-        //         - i64
-        for _ in 0..4 {
-            let _ = buff.read_u8()?;
-            let n = buff.read_u8()? as usize;
-            buff.skip(n * 8)?;
-        }
-        Ok(())
-    },
+    |_, _, _, buff: &mut DataRead| { read_directional_item_buffer(buff) },
     false
 );
 
@@ -486,7 +474,7 @@ impl BlockLogic for BridgeBlock {
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
         match t.block.name() {
-            // "bridge-conveyor" => read_buffered_item_bridge(buff)?,
+            "bridge-conveyor" => read_buffered_item_bridge(buff)?,
             "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
             "mass-driver" => buff.skip(9)?,
 
@@ -506,6 +494,9 @@ pub struct BridgeConvertError {
     pub y: i16,
 }
 
+/// format;
+/// - call [`read_item_bridge`]
+/// - become [`read_item_buffer`]
 fn read_buffered_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
     read_item_bridge(buff)?;
     read_item_buffer(buff)
@@ -517,11 +508,10 @@ fn read_buffered_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
 ///     l: `i64`
 fn read_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(1)?;
-    for _ in 0..buff.read_u8()? {
-        buff.skip(4)?;
-    }
-    Ok(())
+    let n = buff.read_u8()? as usize;
+    buff.skip(n * 8)
 }
+
 /// format:
 /// - link: `i32`
 /// - warmup: `f32`
@@ -532,4 +522,18 @@ fn read_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(8)?;
     let n = buff.read_u8()? as usize;
     buff.skip((n * 4) + 1)
+}
+
+/// format:
+/// - iterate 4
+///     - u8
+///     - iterate u8
+///         - i64
+fn read_directional_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
+    for _ in 0..4 {
+        let _ = buff.read_u8()?;
+        let n = buff.read_u8()? as usize;
+        buff.skip(n * 8)?;
+    }
+    Ok(())
 }
