@@ -31,7 +31,7 @@ make_simple!(
 
 make_simple!(
     DuctBlock,
-    |_, name, _, _, ctx: Option<&RenderingContext>, rot| {
+    |_, _, name, _, ctx: Option<&RenderingContext>, rot| {
         let ctx = ctx.unwrap();
         Some(tile(ctx, "distribution", "ducts", name, rot))
     },

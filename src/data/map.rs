@@ -80,7 +80,7 @@ use crate::data::renderer::*;
 use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
 use crate::item::{storage::Storage, Type as Item};
-use crate::team::Team;
+use crate::team::{self, Team};
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
@@ -238,7 +238,19 @@ impl Clone for Build<'_> {
     }
 }
 
-impl Build<'_> {
+impl<'l> Build<'l> {
+    pub fn new(block: &'l Block) -> Build<'l> {
+        Self {
+            block,
+            items: Default::default(),
+            liquids: Default::default(),
+            state: Default::default(),
+            rotation: Rotation::Up,
+            team: team::SHARDED,
+            data: 0,
+        }
+    }
+
     pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
         self.block
             .image(self.state.as_ref(), context, self.rotation)
@@ -290,7 +302,6 @@ impl Build<'_> {
             // visible flags for fog
             buff.skip(4)?;
         }
-        println!("2custom");
         // "overridden by subclasses"
         self.block.logic.read(self, reg, map, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)

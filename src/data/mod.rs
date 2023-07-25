@@ -22,7 +22,7 @@ pub mod weather;
 
 #[derive(Debug)]
 pub struct DataRead<'d> {
-    data: &'d [u8],
+    pub(crate) data: &'d [u8],
     // used with read_chunk
     read: usize,
 }

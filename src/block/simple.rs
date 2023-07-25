@@ -22,8 +22,8 @@ macro_rules! state_impl {
 
 pub(crate) use state_impl;
 
-/// draw is called with self, category, name, state, context
-/// read is called with self, category, name, reg, entity_mapping, buff
+/// draw is called with self, category, name, state, context, rotation
+/// read is called with build, reg, entity_mapping, buff
 macro_rules! make_simple {
     ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
         pub struct $name {

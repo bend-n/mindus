@@ -8,17 +8,22 @@ use crate::block::{self, *};
 use crate::content::{self, Content};
 use crate::data::dynamic::DynType;
 use crate::data::ReadError;
-use crate::team;
 use crate::unit;
 
 use super::BlockRegistry;
 
 make_simple!(SimplePayloadBlock);
+make_simple!(
+    PayloadConveyor,
+    |_, _, _, _, _, _| None,
+    read_payload_conveyor
+);
+// make_simple!(PayloadRouter, |_, _, _, _, _, _| None, read_payload_router);
 
 make_register! {
-    "payload-conveyor" => SimplePayloadBlock::new(3, false, cost!(Copper: 10, Graphite: 10));
+    "payload-conveyor" => PayloadConveyor::new(3, false, cost!(Copper: 10, Graphite: 10));
     "payload-router" => PayloadBlock::new(3, false, cost!(Copper: 10, Graphite: 15));
-    "reinforced-payload-conveyor" => SimplePayloadBlock::new(3, false, cost!(Tungsten: 10));
+    "reinforced-payload-conveyor" => PayloadConveyor::new(3, false, cost!(Tungsten: 10));
     "reinforced-payload-router" => SimplePayloadBlock::new(3, false, cost!(Tungsten: 15));
     "payload-mass-driver" => BridgeBlock::new(3, true, cost!(Tungsten: 120, Silicon: 120, Graphite: 50), 700, false);
     "large-payload-mass-driver" => BridgeBlock::new(5, true, cost!(Thorium: 200, Tungsten: 200, Silicon: 200, Graphite: 100, Oxide: 30), 1100, false);
@@ -34,12 +39,14 @@ make_register! {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// payload item cfg
 pub enum Payload {
     Empty,
     Block(block::content::Type),
     Unit(unit::Type),
 }
 
+/// a payload related block with [item cfg](Payload)
 pub struct PayloadBlock {
     size: u8,
     symmetric: bool,
@@ -105,60 +112,133 @@ impl BlockLogic for PayloadBlock {
         }
     }
 
-    /// format:
-    /// - exists: `bool`
-    /// - if !exists: ok
-    /// - type: `u8`
-    /// - if type == 1 (payload block):
-    ///     - block: `u16`
-    ///     - version: `u8`
-    ///     - [`crate::block::Block::read`] (recursion :ferrisHmm:),
-    /// - if type == 2 (paylood unit):
-    ///     - id: `u8`
-    ///     - unit read???????? TODO
     fn read(
         &self,
         _: &mut Build,
         reg: &BlockRegistry,
         entity_mapping: &crate::data::map::EntityMapping,
-        buff: &mut crate::data::DataRead,
-    ) -> Result<(), crate::data::ReadError> {
-        if !buff.read_bool()? {
-            return Ok(());
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        read_payload_block(reg, entity_mapping, buff)
+    }
+}
+
+/// format:
+/// - call [`read_payload_conveyor`]
+/// - t: [`u8`]
+/// - sort: [`u16`]
+/// - recdir: [`u8`]
+fn read_payload_router(
+    b: &mut Build,
+    reg: &BlockRegistry,
+    entity_mapping: &EntityMapping,
+    buff: &mut DataRead,
+) -> Result<(), DataReadError> {
+    read_payload_conveyor(b, reg, entity_mapping, buff)?;
+    buff.skip(4)
+}
+
+/// format:
+/// - [skip(4)](`DataRead::skip`)
+/// - rot: [`f32`]
+/// - become [`read_payload`]
+fn read_payload_conveyor(
+    _: &mut Build,
+    reg: &BlockRegistry,
+    entity_mapping: &EntityMapping,
+    buff: &mut DataRead,
+) -> Result<(), DataReadError> {
+    buff.skip(8)?;
+    read_payload(reg, entity_mapping, buff)
+}
+
+/// format:
+/// - vector: ([`f32`], [`f32`])
+/// - rotation: [`f32`]
+/// - become [`read_payload`]
+fn read_payload_block(
+    reg: &BlockRegistry,
+    entity_mapping: &EntityMapping,
+    buff: &mut DataRead,
+) -> Result<(), DataReadError> {
+    buff.skip(12)?;
+    read_payload(reg, entity_mapping, buff)
+}
+
+/// format:
+/// - exists: [`bool`]
+/// - if !exists: ok
+/// - type: [`u8`]
+/// - if type == `1` (payload block):
+///     - block: [`u16`]
+///     - version: [`u8`]
+///     - [`BlockLogic::read`] (recursion :ferrisHmm:),
+/// - if type == 2 (paylood unit):
+///     - id: [`u8`]
+///     - unit read???????? TODO
+fn read_payload(
+    reg: &BlockRegistry,
+    entity_mapping: &crate::data::map::EntityMapping,
+    buff: &mut DataRead,
+) -> Result<(), DataReadError> {
+    if !buff.read_bool()? {
+        return Ok(());
+    }
+    let t = buff.read_u8()?;
+    const BLOCK: u8 = 1;
+    const UNIT: u8 = 0;
+    match t {
+        BLOCK => {
+            let b = buff.read_u16()?;
+            let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
+            let block = reg.get(b.get_name()).unwrap();
+            block
+                .logic
+                .read(&mut Build::new(block), reg, entity_mapping, buff)?;
         }
-        let t = buff.read_u8()?;
-        const BLOCK: u8 = 1;
-        const UNIT: u8 = 0;
-        match t {
-            BLOCK => {
-                let b = buff.read_u16()?;
-                let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
-                let block = reg.get(b.get_name()).unwrap();
-                block.logic.read(
-                    &mut Build {
-                        block,
-                        items: Default::default(),
-                        liquids: Default::default(),
-                        state: None,
-                        rotation: Rotation::Up,
-                        data: 0,
-                        team: team::SHARDED,
-                    },
-                    reg,
-                    entity_mapping,
-                    buff,
-                )?;
-            }
-            UNIT => {
-                let u = buff.read_u8()?;
-                let Some(_u) = entity_mapping.get(&u) else {
+        UNIT => {
+            let u = buff.read_u8()?;
+            let Some(_u) = entity_mapping.get(&u) else {
                     return Err(ReadError::Expected("map entry"));
                 };
-                // unit::Type::try_from(u).unwrap_or(unit::Type::Alpha).read(todo!());
-            }
-            _ => return Err(ReadError::Expected("0 | 1")),
+            // unit::Type::try_from(u).unwrap_or(unit::Type::Alpha).read(todo!());
         }
-        Ok(())
+        _ => return Err(ReadError::Expected("0 | 1")),
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::registry::Registry;
+
+    use super::*;
+    #[test]
+    fn payload_conv() {
+        let mut reg = Registry::default();
+        register(&mut reg);
+        let mut r = DataRead::new(&[0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        read_payload_conveyor(
+            &mut Build::new(&PAYLOAD_CONVEYOR),
+            &reg,
+            &HashMap::default(),
+            &mut r,
+        )
+        .unwrap();
+        assert!(r.read_bool().is_err());
+        let mut r = DataRead::new(&[
+            65, 198, 232, 0, 67, 51, 255, 249, 1, 1, 0, 157, 0, 67, 197, 128, 0, 128, 1, 3,
+        ]);
+        read_payload_conveyor(
+            &mut Build::new(&PAYLOAD_CONVEYOR),
+            &reg,
+            &HashMap::default(),
+            &mut r,
+        )
+        .unwrap();
+        assert!(r.read_bool().is_err());
     }
 }
 
