@@ -469,14 +469,10 @@ impl BlockLogic for BridgeBlock {
     /// - become [`read_buffered_item_bridge`]
     /// (buffered brige)
     /// - become [`read_item_buffer`]
-    /// (mass driver) (19b)
+    /// (mass driver) (9b)
     /// - link: `i32`
     /// - rotation: `f32`
     /// - state: `i8`
-    /// - reload: `f32`
-    /// - charge: `f32`
-    /// - loaded: `bool`
-    /// - charging: `bool`
     fn read(
         &self,
         t: &mut Build,
@@ -484,15 +480,15 @@ impl BlockLogic for BridgeBlock {
         _: &crate::data::map::EntityMapping,
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
-        // match t.block.name() {
-        //     "bridge-conveyor" => read_buffered_item_bridge(buff)?,
-        //     "phase-conveyor" | "phase-conduit" | "bridge-conduit" => {} // read_item_bridge(buff)?,
-        //     "mass-driver" => {
-        //         buff.skip(19)?;
-        //     }
-        //     "duct-bridge" | "reinforced-bridge-conduit" => todo!(),
-        //     _ => unreachable!(), // surely no forget
-        // }
+        match t.block.name() {
+            // "bridge-conveyor" => read_buffered_item_bridge(buff)?,
+            "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
+            "mass-driver" => buff.skip(9)?,
+
+            // "duct-bridge" | "reinforced-bridge-conduit" => todo!(),
+            // _ => unreachable!(), // surely no forget
+            _ => {}
+        }
 
         Ok(())
     }
@@ -529,8 +525,7 @@ fn read_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
 /// - moved: `bool`
 fn read_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(8)?;
-    for _ in 0..dbg!(buff.read_u8()?) {
-        buff.skip(4)?;
-    }
-    buff.skip(1)
+    let n = buff.read_u8()? as usize;
+    buff.skip((n * 4) + 1)
+    // buff.skip(1)
 }
