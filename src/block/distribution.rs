@@ -35,13 +35,18 @@ make_simple!(
         let ctx = ctx.unwrap();
         Some(tile(ctx, "distribution", "ducts", name, rot))
     },
+    |_, _, _, buff: &mut DataRead| {
+        // format:
+        // - rec_dir: `i8`
+        buff.skip(1)
+    },
     true
 );
 
 make_simple!(
     JunctionBlock,
     |_, _, _, _, _, _| None,
-    |_, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, buff: &mut DataRead| {
         // format:
         // - iterate 4
         //     - u8
@@ -527,5 +532,4 @@ fn read_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(8)?;
     let n = buff.read_u8()? as usize;
     buff.skip((n * 4) + 1)
-    // buff.skip(1)
 }
