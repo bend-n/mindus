@@ -114,6 +114,9 @@ make_simple!(
     }
 );
 make_simple!(UnitBlock);
+make_simple!(RepairTurret => |_, _, _, buff: &mut DataRead| {
+   buff.skip(4) // rotation: [`f32`]
+});
 
 const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
 const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
@@ -129,8 +132,8 @@ make_register! {
         cost!(Lead: 2000, Titanium: 2000, Thorium: 750, Silicon: 1000, Plastanium: 450, PhaseFabric: 600));
     "tetrative-reconstructor" => ConstructorBlock::new(9, false,
         cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
-    "repair-point" => UnitBlock::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
-    "repair-turret" => UnitBlock::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
+    "repair-point" => RepairTurret::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
+    "repair-turret" => RepairTurret::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
     "tank-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Beryllium: 150), &[unit::Type::Stell]);
     "ship-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 250, Beryllium: 200), &[unit::Type::Elude]);
     "mech-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60), &[unit::Type::Merui]);
