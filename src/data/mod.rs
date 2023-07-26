@@ -152,7 +152,7 @@ impl<'d> DataRead<'d> {
                 let n = len - self.read;
                 if n != 0 {
                     #[cfg(debug_assertions)]
-                    eprintln!(
+                    println!(
                         "supposed to read {len}; read {} - skipping excess",
                         self.read
                     );

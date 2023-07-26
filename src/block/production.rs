@@ -1,6 +1,7 @@
 //! the industry part of mindustry
 use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
+use crate::data::DataRead;
 
 make_register! {
     "cultivator" => ProductionBlock::new(2, true, cost!(Copper: 25, Lead: 25, Silicon: 10));
@@ -45,7 +46,7 @@ make_register! {
 make_simple!(
     ProductionBlock,
     |_, _, _, _, _, _| None,
-    |_, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
@@ -57,7 +58,7 @@ make_simple!(
 make_simple!(
     HeatCrafter,
     |_, _, _, _, _, _| None,
-    |_, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
