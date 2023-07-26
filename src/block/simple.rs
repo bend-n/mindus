@@ -119,6 +119,9 @@ macro_rules! make_simple {
     ($name: ident, $draw: expr, $read: expr) => {
         crate::block::simple::make_simple!($name, $draw, $read, false);
     };
+    ($name: ident => $read: expr) => {
+        crate::block::simple::make_simple!($name, |_, _, _, _, _, _| None, $read);
+    };
     ($name: ident) => {
         crate::block::simple::make_simple!(
             $name,
