@@ -29,7 +29,7 @@ make_register! {
     "oxidation-chamber" => HeatCrafter::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
     "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));
     "slag-heater" => HeatCrafter::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
-    "phase-heater" => ProductionBlock::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
+    "phase-heater" => HeatCrafter::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
     "heat-redirector" => HeatConduit::new(3, false, cost!(Tungsten: 10, Graphite: 10));
     "heat-router" => HeatConduit::new(3, false, cost!(Tungsten: 15, Graphite: 10));
     "slag-incinerator" => Incinerator::new(1, true, cost!(Tungsten: 15));
@@ -40,7 +40,7 @@ make_register! {
     "phase-synthesizer" => ProductionBlock::new(3, true, cost!(Carbide: 90, Silicon: 100, Thorium: 100, Tungsten: 200));
     // heat reactor
     // sandbox only
-    "heat-source" => ProductionBlock::new(1, false, &[]);
+    "heat-source" => HeatCrafter::new(1, false, &[]);
 }
 
 make_simple!(
