@@ -111,16 +111,6 @@ impl BlockLogic for PayloadBlock {
             Payload::Unit(unit) => Ok(DynData::Content(content::Type::Unit, (*unit).into())),
         }
     }
-
-    fn read(
-        &self,
-        _: &mut Build,
-        reg: &BlockRegistry,
-        entity_mapping: &crate::data::map::EntityMapping,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
-        read_payload_block(reg, entity_mapping, buff)
-    }
 }
 
 /// format:
@@ -156,7 +146,7 @@ fn read_payload_conveyor(
 /// - vector: ([`f32`], [`f32`])
 /// - rotation: [`f32`]
 /// - become [`read_payload`]
-fn read_payload_block(
+pub(crate) fn read_payload_block(
     reg: &BlockRegistry,
     entity_mapping: &EntityMapping,
     buff: &mut DataRead,

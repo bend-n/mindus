@@ -1,6 +1,7 @@
 //! unit creation related blocks
 use thiserror::Error;
 
+use super::payload::read_payload_block;
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
@@ -268,6 +269,22 @@ impl BlockLogic for AssemblerBlock {
             0,
         );
         Some(ImageHolder::from(base))
+    }
+
+    /// format:
+    /// - call [`read_payload_block`]
+    /// - progress: [`f32`]
+    /// - plan: [`u16`]
+    /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
+    fn read(
+        &self,
+        _: &mut Build,
+        reg: &BlockRegistry,
+        mapping: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        read_payload_block(reg, mapping, buff)?;
+        buff.skip(14)
     }
 }
 
