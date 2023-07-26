@@ -14,7 +14,7 @@
 //!     - string map (`u16` for map len, iterate each, read `utf`)
 //! - content header section `<u32>`:
 //!     - iterate `i8` (should = `8`)'
-//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13//!         - item count: `u1\'6` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
+//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13//!         - item count: `u16` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
 //!         - these types all have their own modules: [`item`], [`content`], [`fluid`], [`modifier`], [`mod@unit`], [`weather`], [`sector`], [`planet`]
 //!         - iterate `u16`
 //!             - name: `utf`
