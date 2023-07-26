@@ -80,6 +80,24 @@ impl CanvasBlock {
     state_impl!(pub RgbImage);
 }
 
+fn deser_canvas_image(b: Vec<u8>, size: usize) -> RgbImage {
+    let mut p = RgbImage::new(size as u32, size as u32);
+    for i in 0..(size * size) {
+        let offset = i * 3;
+        let mut n = 0;
+        for i in 0..3 {
+            let word = (i + offset) >> 3;
+            n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
+        }
+        p.put_pixel(
+            i as u32 % size as u32,
+            i as u32 / size as u32,
+            PALETTE[n as usize],
+        )
+    }
+    p
+}
+
 impl BlockLogic for CanvasBlock {
     impl_block!();
 
@@ -89,23 +107,10 @@ impl BlockLogic for CanvasBlock {
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
-            DynData::ByteArray(b) => {
-                let mut p = RgbImage::new(self.canvas_size as u32, self.canvas_size as u32);
-                for i in 0..(self.canvas_size * self.canvas_size) as usize {
-                    let offset = i * 3;
-                    let mut n = 0;
-                    for i in 0..3 {
-                        let word = (i + offset) >> 3;
-                        n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
-                    }
-                    p.put_pixel(
-                        i as u32 % self.canvas_size as u32,
-                        i as u32 / self.canvas_size as u32,
-                        PALETTE[n as usize],
-                    )
-                }
-                Ok(Some(Self::create_state(p)))
-            }
+            DynData::ByteArray(b) => Ok(Some(Self::create_state(deser_canvas_image(
+                b,
+                self.canvas_size as usize,
+            )))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::String,
@@ -173,6 +178,26 @@ impl BlockLogic for CanvasBlock {
             self.size as u32 * 32,
             self.size as u32 * 32,
         )))
+    }
+
+    /// format:
+    /// - len: [`i32`]
+    /// - read(len) -> [`deser_canvas_image`]
+    fn read(
+        &self,
+        build: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        let n = buff.read_i32()? as usize;
+        let mut b = vec![0; n];
+        buff.read_bytes(&mut b)?;
+        build.state = Some(Self::create_state(deser_canvas_image(
+            b,
+            self.canvas_size as usize,
+        )));
+        Ok(())
     }
 }
 
