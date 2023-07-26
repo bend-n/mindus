@@ -29,8 +29,8 @@ make_register! {
     "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));
     "slag-heater" => HeatCrafter::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
     "phase-heater" => ProductionBlock::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
-    "heat-redirector" => ProductionBlock::new(3, false, cost!(Tungsten: 10, Graphite: 10));
-    "heat-router" => ProductionBlock::new(3, false, cost!(Tungsten: 15, Graphite: 10));
+    "heat-redirector" => HeatConduit::new(3, false, cost!(Tungsten: 10, Graphite: 10));
+    "heat-router" => HeatConduit::new(3, false, cost!(Tungsten: 15, Graphite: 10));
     "slag-incinerator" => Incinerator::new(1, true, cost!(Tungsten: 15));
     "carbide-crucible" => ProductionBlock::new(3, true, cost!(Tungsten: 110, Thorium: 150, Oxide: 60));
     // slag centrifuge
@@ -66,5 +66,5 @@ make_simple!(
         Ok(())
     }
 );
-
+make_simple!(HeatConduit);
 make_simple!(Incinerator);
