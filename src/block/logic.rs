@@ -305,12 +305,39 @@ impl BlockLogic for SwitchLogic {
         Box::new(*Self::get_state(state))
     }
 
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Boolean(*Self::get_state(state)))
+    }
+
+    fn read(
+        &self,
+        build: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        build.state = Some(Self::create_state(buff.read_bool()?));
+        Ok(())
+    }
+
+    fn draw(
+        &self,
+        _: &str,
+        _: &str,
+        state: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> Option<ImageHolder> {
+        let base = load("logic", "switch").unwrap();
+        if let Some(state) = state {
+            if *Self::get_state(state) {
+                let mut base = base.clone();
+                let on = load("logic", "switch-on").unwrap();
+                base.overlay(&on, 0, 0);
+                return Some(ImageHolder::from(base));
+            }
+        }
+        Some(ImageHolder::from(base))
     }
 }
 
