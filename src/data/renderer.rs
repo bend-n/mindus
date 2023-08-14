@@ -170,77 +170,91 @@ impl Renderable for Map<'_> {
             Image::alloc(scale * self.width as u32, scale * self.height as u32);
         let mut top: Image<_, 4> =
             Image::alloc(scale * self.width as u32, scale * self.height as u32);
-        for y in 0..self.height {
-            for x in 0..self.width {
-                // Map::new() allocates w*h items
-                let j = x + self.width * y;
-                let tile = unsafe { self.tiles.get_unchecked(j) };
-                let y = self.height - y - 1;
-                // draw the floor first.
-                // println!("draw {tile:?} ({x}, {y})");
-                unsafe {
-                    floor.as_mut().overlay_at(
-                        &tile.floor(scale).borrow(),
-                        scale * x as u32,
-                        scale * y as u32,
-                    )
-                };
-                if tile.has_ore() {
-                    unsafe {
-                        floor.as_mut().overlay_at(
-                            &tile.ore(scale).borrow(),
-                            scale * x as u32,
-                            scale * y as u32,
-                        )
-                    };
-                }
-
-                if let Some(build) = tile.build() {
-                    let s = build.block.get_size();
-                    let x = x
-                        - (match s {
-                            1 | 2 => 0,
-                            3 | 4 => 1,
-                            5 | 6 => 2,
-                            7 | 8 => 3,
-                            9 => 4,
-                            // SAFETY: no block too big
-                            _ => unsafe { std::hint::unreachable_unchecked() },
-                        }) as usize;
-                    let y = y
-                        - (match s {
-                            1 => 0,
-                            2 | 3 => 1,
-                            4 | 5 => 2,
-                            6 | 7 => 3,
-                            8 | 9 => 4,
-                            // SAFETY: no block too big
-                            _ => unsafe { std::hint::unreachable_unchecked() },
-                        }) as usize;
-                    let ctx = if build.block.wants_context() {
-                        let pctx = PositionContext {
-                            position: GridPos(x, y),
-                            width: self.width,
-                            height: self.height,
+        rayon::join(
+            || {
+                for y in 0..self.height {
+                    for x in 0..self.width {
+                        // Map::new() allocates w*h items
+                        let j = x + self.width * y;
+                        let tile = unsafe { self.tiles.get_unchecked(j) };
+                        let y = self.height - y - 1;
+                        // draw the floor first.
+                        // println!("draw {tile:?} ({x}, {y})");
+                        unsafe {
+                            floor.as_mut().overlay_at(
+                                &tile.floor(scale).borrow(),
+                                scale * x as u32,
+                                scale * y as u32,
+                            )
                         };
-                        let rctx = RenderingContext {
-                            cross: self.cross(j, &pctx),
-                            position: pctx,
-                        };
-                        Some(rctx)
-                    } else {
-                        None
-                    };
-                    unsafe {
-                        top.as_mut().overlay_at(
-                            &tile.build_image(ctx.as_ref(), scale).borrow(),
-                            scale * x as u32,
-                            scale * y as u32,
-                        )
-                    };
+                        if tile.has_ore() {
+                            unsafe {
+                                floor.as_mut().overlay_at(
+                                    &tile.ore(scale).borrow(),
+                                    scale * x as u32,
+                                    scale * y as u32,
+                                )
+                            };
+                        }
+                    }
                 }
-            }
-        }
+            },
+            || {
+                for y in 0..self.height {
+                    for x in 0..self.width {
+                        // Map::new() allocates w*h items
+                        let j = x + self.width * y;
+                        let tile = unsafe { self.tiles.get_unchecked(j) };
+                        let y = self.height - y - 1;
+                        // println!("draw {tile:?} ({x}, {y})");
+                        if let Some(build) = tile.build() {
+                            let s = build.block.get_size();
+                            let x = x
+                                - (match s {
+                                    1 | 2 => 0,
+                                    3 | 4 => 1,
+                                    5 | 6 => 2,
+                                    7 | 8 => 3,
+                                    9 => 4,
+                                    // SAFETY: no block too big
+                                    _ => unsafe { std::hint::unreachable_unchecked() },
+                                }) as usize;
+                            let y = y
+                                - (match s {
+                                    1 => 0,
+                                    2 | 3 => 1,
+                                    4 | 5 => 2,
+                                    6 | 7 => 3,
+                                    8 | 9 => 4,
+                                    // SAFETY: no block too big
+                                    _ => unsafe { std::hint::unreachable_unchecked() },
+                                }) as usize;
+                            let ctx = if build.block.wants_context() {
+                                let pctx = PositionContext {
+                                    position: GridPos(x, y),
+                                    width: self.width,
+                                    height: self.height,
+                                };
+                                let rctx = RenderingContext {
+                                    cross: self.cross(j, &pctx),
+                                    position: pctx,
+                                };
+                                Some(rctx)
+                            } else {
+                                None
+                            };
+                            unsafe {
+                                top.as_mut().overlay_at(
+                                    &tile.build_image(ctx.as_ref(), scale).borrow(),
+                                    scale * x as u32,
+                                    scale * y as u32,
+                                )
+                            };
+                        }
+                    }
+                }
+            },
+        );
         unsafe { floor.as_mut().overlay_at(&top.as_ref(), 0, 0) };
         floor
     }

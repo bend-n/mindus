@@ -23,6 +23,7 @@ bobbin-bits = "0.1"
 blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
 fast_image_resize = "2.7.3"
+rayon = "1.7.0"
 
 [features]
 bin = ["image/png"]
