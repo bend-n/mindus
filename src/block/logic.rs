@@ -3,14 +3,14 @@ use std::borrow::Cow;
 use std::string::FromUtf8Error;
 
 use crate::block::simple::*;
-use crate::data::dynamic::{DynSerializer, DynType};
-use crate::{block::*, Serializer};
+use crate::data::dynamic::DynType;
+use crate::{block::*, Serializable};
 
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(
     MemoryBlock =>
-    |_, _, buff: &mut DataRead| {
+    |_, buff: &mut DataRead| {
         // format:
         // - iterate [`u32`]
         //     - memory: [`f64`]
@@ -18,24 +18,6 @@ make_simple!(
         buff.skip(n * 8)
     }
 );
-
-make_register! {
-    "reinforced-message" -> MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
-    "message" -> MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
-    "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
-    "micro-processor" -> ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
-    "logic-processor" -> ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
-    "hyper-processor" -> ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
-    "memory-cell" -> MemoryBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
-    "memory-bank" -> MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
-    "logic-display" -> BasicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
-    "large-logic-display" -> BasicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
-    "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
-    // editor only
-    "world-processor" -> BasicBlock::new(1, true, &[]);
-    "world-message" -> MessageLogic::new(1, true, &[]);
-    "world-cell" -> MemoryBlock::new(1, true, &[]);
-}
 
 pub struct CanvasBlock {
     size: u8,
@@ -177,12 +159,7 @@ impl BlockLogic for CanvasBlock {
     /// format:
     /// - len: [`i32`]
     /// - read(len) -> [`deser_canvas_image`]
-    fn read(
-        &self,
-        build: &mut Build,
-        _: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
+    fn read(&self, build: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
         let n = buff.read_i32()? as usize;
         let mut b = vec![0; n];
         buff.read_bytes(&mut b)?;
@@ -251,12 +228,7 @@ impl BlockLogic for MessageLogic {
         Ok(DynData::String(Some(Self::get_state(state).clone())))
     }
 
-    fn read(
-        &self,
-        b: &mut Build,
-        _: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
+    fn read(&self, b: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
         b.state = Some(Self::create_state(buff.read_utf()?.to_string()));
         Ok(())
     }
@@ -304,12 +276,7 @@ impl BlockLogic for SwitchLogic {
         Ok(DynData::Boolean(*Self::get_state(state)))
     }
 
-    fn read(
-        &self,
-        build: &mut Build,
-        _: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
+    fn read(&self, build: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
         build.state = Some(Self::create_state(buff.read_bool()?));
         Ok(())
     }
@@ -409,12 +376,7 @@ impl BlockLogic for ProcessorLogic {
         }
     }
 
-    fn read(
-        &self,
-        b: &mut Build,
-        _: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
+    fn read(&self, b: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
         let n = buff.read_u32()? as usize;
         let mut v = vec![0; n];
         buff.read_bytes(&mut v)?;
@@ -424,7 +386,7 @@ impl BlockLogic for ProcessorLogic {
         ));
         for _ in 0..buff.read_u32()? {
             let _ = buff.read_utf()?;
-            let _ = DynSerializer.deserialize(buff).unwrap();
+            let _ = DynData::deserialize(buff).unwrap();
         }
         let memory = buff.read_u32()? as usize;
         buff.skip(memory * 8)?;

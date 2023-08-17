@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::content;
 use crate::data::command::{self, UnitCommand};
-use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
+use crate::data::{self, DataRead, DataWrite, GridPos, Serializable};
 use crate::logic::LogicField;
 use crate::team::Team;
 
@@ -106,13 +106,11 @@ pub enum DynType {
     Team,
 }
 
-pub struct DynSerializer;
-
-impl Serializer<DynData> for DynSerializer {
+impl Serializable for DynData {
     type ReadError = ReadError;
     type WriteError = WriteError;
 
-    fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<DynData, Self::ReadError> {
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<DynData, Self::ReadError> {
         match buff.read_u8()? {
             0 => Ok(DynData::Empty),
             1 => Ok(DynData::from(buff.read_i32()?)),
@@ -203,12 +201,8 @@ impl Serializer<DynData> for DynSerializer {
         }
     }
 
-    fn serialize(
-        &mut self,
-        buff: &mut DataWrite<'_>,
-        data: &DynData,
-    ) -> Result<(), Self::WriteError> {
-        match data {
+    fn serialize(&self, buff: &mut DataWrite<'_>) -> Result<(), Self::WriteError> {
+        match self {
             DynData::Empty => {
                 buff.write_u8(0)?;
                 Ok(())
@@ -416,7 +410,7 @@ mod test {
 				let mut writer = DataWrite::default();
 				for (i, d) in input.iter().enumerate()
 				{
-					assert_eq!(DynSerializer.serialize(&mut writer, d), Ok(()));
+					assert_eq!(d.serialize(&mut writer), Ok(()));
 					positions[i] = writer.get_written().len();
 				}
 				let written = writer.get_written();
@@ -424,7 +418,7 @@ mod test {
 				let mut reader = DataRead::new(written);
 				for (i, original) in input.iter().enumerate()
 				{
-					match DynSerializer.deserialize(&mut reader)
+					match DynData::deserialize(&mut reader)
 					{
 						Ok(read) => assert_eq!(*original, read, "serialization of {original:?} became {read:?}"),
 						e => assert!(false, "could not re-read {original:?} (at {i}), got {e:?}"),

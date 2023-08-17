@@ -1,17 +1,13 @@
-use mindus::build_registry;
 use mindus::Renderable;
-use mindus::SchematicSerializer;
+use mindus::Schematic;
 use std::env::Args;
 
 use crate::print_err;
 
 pub fn main(args: Args) {
-    let reg = build_registry();
-    let mut ss = SchematicSerializer(&reg);
-
     // process schematics from command line
     for curr in args {
-        match ss.deserialize_base64(&curr) {
+        match Schematic::deserialize_base64(&curr) {
             Ok(s) => {
                 s.render().save("x.png");
             }

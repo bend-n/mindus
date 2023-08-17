@@ -4,9 +4,9 @@ use thiserror::Error;
 use super::payload::{read_payload_block, read_payload_seq};
 use crate::block::simple::*;
 use crate::data::command::UnitCommand;
-use crate::data::dynamic::{DynSerializer, DynType};
+use crate::data::dynamic::DynType;
 use crate::unit;
-use crate::{block::*, Serializer};
+use crate::{block::*, Serializable};
 
 // fn is_pay(b: &str) -> bool {
 //     matches!(
@@ -51,7 +51,7 @@ make_simple!(
         };
         base
     },
-    |_, reg, buff| read_assembler(reg, buff)
+    |_, buff| read_assembler(buff)
 );
 
 /// format:
@@ -61,8 +61,8 @@ make_simple!(
 ///     - read: [`i32`]
 /// - call [`read_payload_seq`]
 /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
-fn read_assembler(reg: &BlockRegistry, buff: &mut DataRead) -> Result<(), DataReadError> {
-    read_payload_block(reg, buff)?;
+fn read_assembler(buff: &mut DataRead) -> Result<(), DataReadError> {
+    read_payload_block(buff)?;
     buff.skip(4)?;
     let n = buff.read_u8()? as usize;
     buff.skip(n * 4)?;
@@ -85,45 +85,19 @@ make_simple!(
         };
         base
     },
-    |_, reg, buff| read_payload_block(reg, buff)
+    |_, buff| read_payload_block(buff)
 );
 
 make_simple!(
-    RepairTurret => |_, _, buff: &mut DataRead| {
+    RepairTurret => |_, buff: &mut DataRead| {
         buff.skip(4) // rotation: [`f32`]
     }
 );
 
-const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
-const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
-const NAVAL_UNITS: &[unit::Type] = &[unit::Type::Risso, unit::Type::Retusa];
-
-make_register! {
-    "ground-factory" => UnitFactory::new(3, false, cost!(Copper: 50, Lead: 120, Silicon: 80), GROUND_UNITS);
-    "air-factory" => UnitFactory::new(3, false, cost!(Copper: 60, Lead: 70), AIR_UNITS);
-    "naval-factory" => UnitFactory::new(3, false, cost!(Copper: 150, Lead: 130, Metaglass: 120), NAVAL_UNITS);
-    "additive-reconstructor" => ConstructorBlock::new(3, false, cost!(Copper: 200, Lead: 120, Silicon: 90));
-    "multiplicative-reconstructor" => ConstructorBlock::new(5, false, cost!(Lead: 650, Titanium: 350, Thorium: 650, Silicon: 450));
-    "exponential-reconstructor" => ConstructorBlock::new(7, false,
-        cost!(Lead: 2000, Titanium: 2000, Thorium: 750, Silicon: 1000, Plastanium: 450, PhaseFabric: 600));
-    "tetrative-reconstructor" => ConstructorBlock::new(9, false,
-        cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
-    "repair-point" -> RepairTurret::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
-    "repair-turret" -> RepairTurret::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
-    "tank-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 200, Beryllium: 150), &[unit::Type::Stell]);
-    "ship-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 250, Beryllium: 200), &[unit::Type::Elude]);
-    "mech-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60), &[unit::Type::Merui]);
-    "tank-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 80, Silicon: 100));
-    "mech-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 250, Tungsten: 120, Silicon: 150));
-    "ship-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 100, Silicon: 150, Oxide: 40));
-    "prime-refabricator" => ConstructorBlock::new(5, true, cost!(Thorium: 250, Oxide: 200, Tungsten: 200, Silicon: 400));
-    "tank-assembler" => AssemblerBlock::new(5, true, cost!(Thorium: 500, Oxide: 150, Carbide: 80, Silicon: 500));
-    "ship-assembler" => AssemblerBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
-    "mech-assembler" => AssemblerBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
-    "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
-    "unit-repair-tower" -> BasicBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
-
-}
+pub const GROUND_UNITS: &[unit::Type] =
+    &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
+pub const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
+pub const NAVAL_UNITS: &[unit::Type] = &[unit::Type::Risso, unit::Type::Retusa];
 
 pub struct ConstructorBlock {
     size: u8,
@@ -230,16 +204,11 @@ impl BlockLogic for ConstructorBlock {
     /// - progress: [`f32`]
     /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
     /// - command: [`DynData::UnitCommand`]
-    fn read(
-        &self,
-        _: &mut Build,
-        reg: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
-        read_payload_block(reg, buff)?;
+    fn read(&self, _: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
+        read_payload_block(buff)?;
         buff.skip(12)?;
-        self.deserialize_state(DynSerializer.deserialize(buff).unwrap())
-            .unwrap();
+        // self.deserialize_state(DynData::deserialize(buff).unwrap())
+        //     .unwrap();
         Ok(())
     }
 }
@@ -351,13 +320,8 @@ impl BlockLogic for UnitFactory {
     /// - progress: [`f32`]
     /// - plan: [`u16`]
     /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
-    fn read(
-        &self,
-        _: &mut Build,
-        reg: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
-        read_payload_block(reg, buff)?;
+    fn read(&self, _: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
+        read_payload_block(buff)?;
         buff.skip(14)
     }
 }

@@ -2,7 +2,6 @@
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::distribution::BridgeBlock;
 use crate::block::simple::*;
 use crate::block::{self, *};
 use crate::content::{self, Content};
@@ -10,8 +9,6 @@ use crate::data::dynamic::DynType;
 use crate::data::entity_mapping;
 use crate::data::ReadError;
 use crate::unit;
-
-use super::BlockRegistry;
 
 make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
     match n {
@@ -69,24 +66,6 @@ make_simple!(
         base
     } // read_payload_router
 );
-
-make_register! {
-    "payload-conveyor" => PayloadConveyor::new(3, false, cost!(Copper: 10, Graphite: 10));
-    "payload-router" => PayloadRouter::new(3, false, cost!(Copper: 10, Graphite: 15));
-    "reinforced-payload-conveyor" => PayloadConveyor::new(3, false, cost!(Tungsten: 10));
-    "reinforced-payload-router" => PayloadRouter::new(3, false, cost!(Tungsten: 15));
-    "payload-mass-driver" -> BridgeBlock::new(3, true, cost!(Tungsten: 120, Silicon: 120, Graphite: 50), 700, false);
-    "large-payload-mass-driver" -> BridgeBlock::new(5, true, cost!(Thorium: 200, Tungsten: 200, Silicon: 200, Graphite: 100, Oxide: 30), 1100, false);
-    "small-deconstructor" => SimplePayloadBlock::new(3, true, cost!(Beryllium: 100, Silicon: 100, Oxide: 40, Graphite: 80));
-    "deconstructor" => SimplePayloadBlock::new(5, true, cost!(Beryllium: 250, Oxide: 100, Silicon: 250, Carbide: 250));
-    "constructor" => PayloadBlock::new(3, true, cost!(Silicon: 100, Beryllium: 150, Tungsten: 80));
-    "large-constructor" => PayloadBlock::new(5, true, cost!(Silicon: 150, Oxide: 150, Tungsten: 200, PhaseFabric: 40));
-    "payload-loader" => SimplePayloadBlock::new(3, false, cost!(Graphite: 50, Silicon: 50, Tungsten: 80));
-    "payload-unloader" => SimplePayloadBlock::new(3, false, cost!(Graphite: 50, Silicon: 50, Tungsten: 30));
-    // sandbox only
-    "payload-source" => PayloadBlock::new(5, false, &[]);
-    "payload-void" => SimplePayloadBlock::new(5, true, &[]);
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// payload item cfg
@@ -182,12 +161,8 @@ impl BlockLogic for PayloadBlock {
 /// - t: [`u8`]
 /// - sort: [`u16`]
 /// - recdir: [`u8`]
-fn read_payload_router(
-    b: &mut Build,
-    reg: &BlockRegistry,
-    buff: &mut DataRead,
-) -> Result<(), DataReadError> {
-    read_payload_conveyor(b, reg, buff)?;
+fn read_payload_router(b: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
+    read_payload_conveyor(b, buff)?;
     buff.skip(4)
 }
 
@@ -195,13 +170,9 @@ fn read_payload_router(
 /// - [`skip(4)`](`DataRead::skip`)
 /// - rot: [`f32`]
 /// - become [`read_payload`]
-fn read_payload_conveyor(
-    _: &mut Build,
-    reg: &BlockRegistry,
-    buff: &mut DataRead,
-) -> Result<(), DataReadError> {
+fn read_payload_conveyor(_: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(8)?;
-    read_payload(reg, buff)
+    read_payload(buff)
 }
 
 /// format:
@@ -216,12 +187,9 @@ pub(crate) fn read_payload_seq(buff: &mut DataRead) -> Result<(), DataReadError>
 /// - vector: ([`f32`], [`f32`])
 /// - rotation: [`f32`]
 /// - become [`read_payload`]
-pub(crate) fn read_payload_block(
-    reg: &BlockRegistry,
-    buff: &mut DataRead,
-) -> Result<(), DataReadError> {
+pub(crate) fn read_payload_block(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(12)?;
-    read_payload(reg, buff)
+    read_payload(buff)
 }
 
 /// format:
@@ -235,7 +203,7 @@ pub(crate) fn read_payload_block(
 /// - if type == 2 (paylood unit):
 ///     - id: [`u8`]
 ///     - call [`UnitClass::read`](crate::data::entity_mapping::UnitClass::read)
-fn read_payload(reg: &BlockRegistry, buff: &mut DataRead) -> Result<(), DataReadError> {
+fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
     if !buff.read_bool()? {
         return Ok(());
     }
@@ -246,8 +214,8 @@ fn read_payload(reg: &BlockRegistry, buff: &mut DataRead) -> Result<(), DataRead
         BLOCK => {
             let b = buff.read_u16()?;
             let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
-            let block = reg.get(b.get_name()).unwrap();
-            block.logic.read(&mut Build::new(block), reg, buff)?;
+            let block = BLOCK_REGISTRY.get(b.get_name()).unwrap();
+            block.logic.read(&mut Build::new(block), buff)?;
         }
         UNIT => {
             let u = buff.read_u8()? as usize;
@@ -263,20 +231,17 @@ fn read_payload(reg: &BlockRegistry, buff: &mut DataRead) -> Result<(), DataRead
 
 #[cfg(test)]
 mod tests {
-    use crate::registry::Registry;
 
     use super::*;
     #[test]
     fn payload_conv() {
-        let mut reg = Registry::default();
-        register(&mut reg);
         let mut r = DataRead::new(&[0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        read_payload_conveyor(&mut Build::new(&PAYLOAD_CONVEYOR), &reg, &mut r).unwrap();
+        read_payload_conveyor(&mut Build::new(&PAYLOAD_CONVEYOR), &mut r).unwrap();
         assert!(r.read_bool().is_err());
         let mut r = DataRead::new(&[
             65, 198, 232, 0, 67, 51, 255, 249, 1, 1, 0, 157, 0, 67, 197, 128, 0, 128, 1, 3,
         ]);
-        read_payload_conveyor(&mut Build::new(&PAYLOAD_CONVEYOR), &reg, &mut r).unwrap();
+        read_payload_conveyor(&mut Build::new(&PAYLOAD_CONVEYOR), &mut r).unwrap();
         assert!(r.read_bool().is_err());
     }
 }

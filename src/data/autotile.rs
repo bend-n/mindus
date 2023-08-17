@@ -24,10 +24,7 @@ macro_rules! conv {
         None
     };
     ($dir:tt) => {
-        Some((
-            &crate::block::distribution::CONVEYOR,
-            crate::data::autotile::dir!($dir),
-        ))
+        Some((&crate::block::CONVEYOR, crate::data::autotile::dir!($dir)))
     };
 }
 #[cfg(test)]
@@ -236,12 +233,9 @@ pub trait Crossable {
 
 #[test]
 fn test_cross() {
-    let mut reg = crate::block::BlockRegistry::default();
-    crate::block::distribution::register(&mut reg);
-    let mut ss = super::schematic::SchematicSerializer(&reg);
     macro_rules! test {
         ($schem: literal => $($a:tt,$b:tt,$c:tt,$d:tt)*) => {
-            let s = ss.deserialize_base64($schem).unwrap();
+            let s = crate::Schematic::deserialize_base64($schem).unwrap();
             let mut c = vec![];
             println!("{:#?}", s.blocks);
             for (position, _) in s.block_iter() {

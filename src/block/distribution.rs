@@ -9,7 +9,7 @@ use crate::item;
 make_simple!(
     ConveyorBlock,
     |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
-    |_, _, buff: &mut DataRead| {
+    |_, buff: &mut DataRead| {
         // format:
         // - amount: `i32`
         // - iterate amount:
@@ -28,14 +28,14 @@ make_simple!(
 make_simple!(
     DuctBlock,
     |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
-    |_, _, buff: &mut DataRead| {
+    |_, buff: &mut DataRead| {
         // format:
         // - rec_dir: `i8`
         buff.skip(1)
     }
 );
 
-make_simple!(JunctionBlock => |_, _, buff| { read_directional_item_buffer(buff) });
+make_simple!(JunctionBlock => |_, buff| { read_directional_item_buffer(buff) });
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
     let mut base = load!("duct-base", s);
     let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
@@ -118,7 +118,7 @@ make_simple!(
     // format:
     // - link: `i32`
     // - cooldown: `f32`
-    |_, _, buff: &mut DataRead| buff.skip(8)
+    |_, buff: &mut DataRead| buff.skip(8)
 );
 make_simple!(
     SurgeRouter,
@@ -127,42 +127,10 @@ make_simple!(
         unsafe { base.overlay(load!("top", s).rotate(r.rotated(false).count())) };
         base
     },
-    |_, _, buff: &mut DataRead| buff.skip(2)
+    |_, buff: &mut DataRead| buff.skip(2)
 );
 // format: id: [`i32`]
-make_simple!(UnitCargoLoader => |_, _, buff: &mut DataRead| buff.skip(4));
-
-make_register! {
-    "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
-    "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
-    "plastanium-conveyor" => StackConveyor::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
-    "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
-    "junction" -> JunctionBlock::new(1, true, cost!(Copper: 2));
-    "bridge-conveyor" -> BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
-    "phase-conveyor" -> BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
-    "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "unloader" -> ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
-    "router" -> BasicBlock::new(1, true, cost!(Copper: 3));
-    "distributor" -> BasicBlock::new(2, true, cost!(Copper: 4, Lead: 4));
-    "overflow-gate" -> BasicBlock::new(1, true, cost!(Copper: 4, Lead: 2));
-    "underflow-gate" -> BasicBlock::new(1, true, cost!(Copper: 4, Lead: 2));
-    "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
-    "duct" => DuctBlock::new(1, false, cost!(Beryllium: 1));
-    "armored-duct" => DuctBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
-    "duct-router" => ItemBlock::new(1, true, cost!(Beryllium: 10));
-    "overflow-duct" => SimpleDuctBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
-    "underflow-duct" => SimpleDuctBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
-    "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
-    "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
-    "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
-    "surge-router" => SurgeRouter::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" -> BasicBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
-    "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
-    // sandbox only
-    "item-source" -> ItemBlock::new(1, true, &[]);
-    "item-void" -> BasicBlock::new(1, true, &[]);
-}
+make_simple!(UnitCargoLoader => |_, buff: &mut DataRead| buff.skip(4));
 
 pub struct ItemBlock {
     size: u8,
@@ -262,12 +230,7 @@ impl BlockLogic for ItemBlock {
     /// (unit-cargo-unload-point)
     /// - item: `u16` as item
     /// - stale: `bool`
-    fn read(
-        &self,
-        b: &mut Build,
-        _: &BlockRegistry,
-        buff: &mut DataRead,
-    ) -> Result<(), DataReadError> {
+    fn read(&self, b: &mut Build, buff: &mut DataRead) -> Result<(), DataReadError> {
         match b.block.name() {
             "duct-unloader" => {
                 let n = buff.read_i16()?;
@@ -439,7 +402,6 @@ impl BlockLogic for BridgeBlock {
     fn read(
         &self,
         t: &mut Build,
-        r: &super::BlockRegistry,
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
         match t.block.name() {
@@ -447,7 +409,7 @@ impl BlockLogic for BridgeBlock {
             "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
             "mass-driver" => buff.skip(9)?,
             "payload-mass-driver" | "large-payload-mass-driver" => {
-                crate::block::payload::read_payload_block(r, buff)?;
+                crate::block::payload::read_payload_block(buff)?;
                 buff.skip(19)?;
             }
             // no state?

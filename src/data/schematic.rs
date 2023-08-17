@@ -4,13 +4,12 @@ use std::collections::HashMap;
 use std::fmt::{self, Write};
 use thiserror::Error;
 
-use crate::block::{self, Block, BlockRegistry, Rotation, State};
+use crate::block::{self, Block, Rotation, State, BLOCK_REGISTRY};
 use crate::data::base64;
-use crate::data::dynamic::{self, DynData, DynSerializer};
+use crate::data::dynamic::{self, DynData};
 use crate::data::renderer::*;
-use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
+use crate::data::{self, DataRead, DataWrite, GridPos, Serializable};
 use crate::item::storage::ItemStorage;
-use crate::registry::RegistryEntry;
 use crate::utils::array::Array2D;
 
 /// biggest schematic
@@ -232,10 +231,11 @@ impl<'l> Schematic<'l> {
     /// ```
     /// # use mindus::Schematic;
     /// # use mindus::block::Rotation;
+    /// # use mindus::block::DUO;
     ///
     /// let mut s = Schematic::new(5, 5);
     /// assert!(s.get(0, 0).unwrap().is_none());
-    /// s.put(0, 0, &mindus::block::turrets::DUO);
+    /// s.put(0, 0, &DUO);
     /// assert!(s.get(0, 0).unwrap().is_some());
     /// ```
     pub fn get(&self, x: usize, y: usize) -> Result<Option<&Placement<'l>>, PosError> {
@@ -266,9 +266,10 @@ impl<'l> Schematic<'l> {
     /// put a block in (same as [`Schematic::set`], but less arguments and builder-ness). panics!!!
     /// ```
     /// # use mindus::Schematic;
+    /// # use mindus::block::ROUTER;
     ///
     /// let mut s = Schematic::new(5, 5);
-    /// s.put(0, 0, &mindus::block::distribution::ROUTER);
+    /// s.put(0, 0, &ROUTER);
     /// assert!(s.get(0, 0).unwrap().is_some() == true);
     /// ```
     pub fn put(&mut self, x: usize, y: usize, block: &'l Block) -> &mut Self {
@@ -279,11 +280,12 @@ impl<'l> Schematic<'l> {
     /// set a block
     /// ```
     /// # use mindus::Schematic;
-    /// # use mindus::DynData;
+    /// # use mindus::data::dynamic::DynData;
     /// # use mindus::block::Rotation;
+    /// # use mindus::block::ROUTER;
     ///
     /// let mut s = Schematic::new(5, 5);
-    /// s.set(0, 0, &mindus::block::distribution::ROUTER, DynData::Empty, Rotation::Right);
+    /// s.set(0, 0, &ROUTER, DynData::Empty, Rotation::Right);
     /// assert!(s.get(0, 0).unwrap().is_some() == true);
     /// ```
     pub fn set(
@@ -323,12 +325,11 @@ impl<'l> Schematic<'l> {
     /// take out a block
     /// ```
     /// # use mindus::Schematic;
-    /// # use mindus::DynData;
-
+    /// # use mindus::block::DUO;
     /// # use mindus::block::Rotation;
     ///
     /// let mut s = Schematic::new(5, 5);
-    /// s.put(0, 0, &mindus::block::turrets::DUO);
+    /// s.put(0, 0, &DUO);
     /// assert!(s.get(0, 0).unwrap().is_some() == true);
     /// assert!(s.take(0, 0).unwrap().is_some() == true);
     /// assert!(s.get(0, 0).unwrap().is_none() == true);
@@ -361,11 +362,11 @@ impl<'l> Schematic<'l> {
     /// returns (cost, `is_sandbox`)
     /// ```
     /// # use mindus::Schematic;
-    /// # use mindus::DynData;
     /// # use mindus::block::Rotation;
+    /// # use mindus::block::CYCLONE;
     ///
     /// let mut s = Schematic::new(5, 5);
-    /// s.put(1, 1, &mindus::block::turrets::CYCLONE);
+    /// s.put(1, 1, &CYCLONE);
     /// assert_eq!(s.compute_total_cost().0.get_total(), 405);
     /// ```
     pub fn compute_total_cost(&self) -> (ItemStorage, bool) {
@@ -470,13 +471,10 @@ impl fmt::Display for TruncatedError {
 const SCHEMATIC_HEADER: u32 =
     ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
 
-/// `serde_schematic`
-pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'l>);
-
-impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
+impl<'l> Serializable for Schematic<'l> {
     type ReadError = ReadError;
     type WriteError = WriteError;
-    fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Schematic<'l>, Self::ReadError> {
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<Schematic<'l>, Self::ReadError> {
         let hdr = buff.read_u32()?;
         if hdr != SCHEMATIC_HEADER {
             return Err(ReadError::Header(hdr));
@@ -502,7 +500,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         block_table.reserve(num_table as usize);
         for _ in 0..num_table {
             let name = buff.read_utf()?;
-            match self.0.get(name) {
+            match BLOCK_REGISTRY.get(name) {
                 None => return Err(ReadError::NoSuchBlock(name.to_owned())),
                 Some(b) => block_table.push(b),
             }
@@ -521,7 +519,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
             let config = if version < 1 {
                 block.data_from_i32(buff.read_i32()?, pos)?
             } else {
-                DynSerializer.deserialize(&mut buff)?
+                DynData::deserialize(&mut buff)?
             };
             let rot = Rotation::from(buff.read_u8()?);
             schematic.set(pos.0, pos.1, block, config, rot)?;
@@ -529,24 +527,20 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         Ok(schematic)
     }
 
-    fn serialize(
-        &mut self,
-        buff: &mut DataWrite<'_>,
-        data: &Schematic,
-    ) -> Result<(), Self::WriteError> {
+    fn serialize(&self, buff: &mut DataWrite<'_>) -> Result<(), Self::WriteError> {
         // write the header first just in case
         buff.write_u32(SCHEMATIC_HEADER)?;
         buff.write_u8(1)?;
 
         let mut rbuff = DataWrite::default();
         // don't have to check dimensions because they're already limited to MAX_DIMENSION
-        rbuff.write_i16(data.width as i16)?;
-        rbuff.write_i16(data.height as i16)?;
-        if data.tags.len() > u8::MAX as usize {
-            return Err(WriteError::TagCount(data.tags.len()));
+        rbuff.write_i16(self.width as i16)?;
+        rbuff.write_i16(self.height as i16)?;
+        if self.tags.len() > u8::MAX as usize {
+            return Err(WriteError::TagCount(self.tags.len()));
         }
-        rbuff.write_u8(data.tags.len() as u8)?;
-        for (k, v) in &data.tags {
+        rbuff.write_u8(self.tags.len() as u8)?;
+        for (k, v) in &self.tags {
             rbuff.write_utf(k)?;
             rbuff.write_utf(v)?;
         }
@@ -554,11 +548,11 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         let mut block_map = HashMap::new();
         let mut block_table = Vec::new();
         let mut block_count = 0i32;
-        for curr in data.blocks.iter().filter_map(|b| b.as_ref()) {
+        for curr in self.blocks.iter().filter_map(|b| b.as_ref()) {
             block_count += 1;
-            if let Entry::Vacant(e) = block_map.entry(curr.block.get_name()) {
+            if let Entry::Vacant(e) = block_map.entry(curr.block.name()) {
                 e.insert(block_table.len() as u32);
-                block_table.push(curr.block.get_name());
+                block_table.push(curr.block.name());
             }
         }
         if block_table.len() > i8::MAX as usize {
@@ -571,14 +565,14 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         }
         // don't have to check data.blocks.len() because dimensions don't allow exceeding MAX_BLOCKS
         rbuff.write_i32(block_count)?;
-        for (pos, curr) in data.block_iter() {
-            rbuff.write_i8(block_map[curr.block.get_name()] as i8)?;
+        for (pos, curr) in self.block_iter() {
+            rbuff.write_i8(block_map[curr.block.name()] as i8)?;
             rbuff.write_u32(pos.into())?;
             let data = match curr.state {
                 None => DynData::Empty,
                 Some(ref s) => curr.block.serialize_state(s)?,
             };
-            DynSerializer.serialize(&mut rbuff, &data)?;
+            data.serialize(&mut rbuff)?;
             rbuff.write_u8(curr.rot.into())?;
         }
         rbuff.inflate(buff)?;
@@ -630,26 +624,24 @@ pub enum WriteError {
     Compress(#[from] super::CompressError),
 }
 
-impl<'l> SchematicSerializer<'l> {
+impl<'l> Schematic<'l> {
     /// deserializes a schematic from base64
     /// ```
     /// # use mindus::*;
     /// let string = "bXNjaAF4nGNgZmBmZmDJS8xNZeBOyslPzlYAkwzcKanFyUWZBSWZ+XkMDAxsOYlJqTnFDEzRsYwMfAWJlTn5iSm6RfmlJalFQGlGEGJkZWSYxQAAcBkUPA==";
-    /// let reg = build_registry();
-    /// let mut ss = SchematicSerializer(&reg);
-    /// let s = ss.deserialize_base64(string).unwrap();
+    /// let s = Schematic::deserialize_base64(string).unwrap();
     /// assert!(s.get(1, 1).unwrap().unwrap().block.name() == "payload-router");
     /// ```
-    pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic<'l>, R64Error> {
+    pub fn deserialize_base64(data: &str) -> Result<Schematic<'l>, R64Error> {
         let mut buff = vec![0; data.len() / 4 * 3 + 1];
         let n_out = base64::decode(data.as_bytes(), buff.as_mut())?;
-        Ok(self.deserialize(&mut DataRead::new(&buff[..n_out]))?)
+        Ok(Self::deserialize(&mut DataRead::new(&buff[..n_out]))?)
     }
 
     /// serialize a schematic to base64
-    pub fn serialize_base64(&mut self, data: &Schematic<'l>) -> Result<String, W64Error> {
+    pub fn serialize_base64(&self) -> Result<String, W64Error> {
         let mut buff = DataWrite::default();
-        self.serialize(&mut buff, data)?;
+        self.serialize(&mut buff)?;
         let buff = buff.get_written();
         // round up because of padding
         let mut text = vec![0; 4 * (buff.len() / 3 + usize::from(buff.len() % 3 != 0))];
@@ -703,14 +695,12 @@ mod test {
         ($name:ident, $($val:expr);+;) => {
             #[test]
             fn $name() {
-                let reg = crate::block::build_registry();
-                let mut ser = SchematicSerializer(&reg);
                 $(
-                    let parsed = unwrap_pretty(ser.deserialize_base64($val));
+                    let parsed = unwrap_pretty(Schematic::deserialize_base64($val));
                     println!("\x1b[38;5;2mdeserialized\x1b[0m {}", parsed.tags.get("name").unwrap());
-                    let unparsed = unwrap_pretty(ser.serialize_base64(&parsed));
+                    let unparsed = unwrap_pretty(parsed.serialize_base64());
                     println!("\x1b[38;5;2mserialized\x1b[0m {}", parsed.tags.get("name").unwrap());
-                    let parsed2 = unwrap_pretty(ser.deserialize_base64(&unparsed));
+                    let parsed2 = unwrap_pretty(Schematic::deserialize_base64(&unparsed));
                     println!("\x1b[38;5;2mredeserialized\x1b[0m {}", parsed.tags.get("name").unwrap());
                     if parsed != parsed2 {
                         #[cfg(feature = "bin")]
@@ -752,7 +742,7 @@ mod test {
                 None
             };
         }
-        use crate::block::all::*;
+        use crate::block::*;
         let mut s = Schematic::new(3, 3);
         s.put(0, 0, &DISTRIBUTOR)
             .put(0, 1, &JUNCTION)
@@ -768,10 +758,7 @@ mod test {
             pair!(2, 0, ROUTER);
             pair!( );
         ];
-        let reg = crate::block::build_registry();
-        let mut s = SchematicSerializer(&reg);
-
-        let s = s.deserialize_base64("bXNjaAF4nDXKywqAIBQA0fFRBH1itDC7C8E01IT+vgia1VkMFmOwyR3C0N0VG/Mu1ZdwtpATMEa3SazoZdVMPqcudy7/DJovpV4peAAt0xF6").unwrap();
+        let s = Schematic::deserialize_base64("bXNjaAF4nDXKywqAIBQA0fFRBH1itDC7C8E01IT+vgia1VkMFmOwyR3C0N0VG/Mu1ZdwtpATMEa3SazoZdVMPqcudy7/DJovpV4peAAt0xF6").unwrap();
         let mut it = s.block_iter();
         test_iter![it,
             pair!(0, 0, CONVEYOR);

@@ -74,8 +74,8 @@ use std::ops::{Index, IndexMut};
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::{Block, BlockRegistry, Rotation, State};
-use crate::data::dynamic::DynSerializer;
+use crate::block::{Block, Rotation, State, BLOCK_REGISTRY};
+use crate::data::dynamic::DynData;
 use crate::data::renderer::*;
 use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
@@ -84,7 +84,7 @@ use crate::team::{self, Team};
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
-use super::Serializer;
+use super::Serializable;
 use crate::content::Content;
 use crate::utils::image::ImageUtils;
 
@@ -304,7 +304,7 @@ impl<'l> Build<'l> {
         self.block.name()
     }
 
-    pub fn read(&mut self, buff: &mut DataRead<'_>, reg: &BlockRegistry) -> Result<(), ReadError> {
+    pub fn read(&mut self, buff: &mut DataRead<'_>) -> Result<(), ReadError> {
         // health
         let _ = buff.read_f32()?;
         let rot = buff.read_i8()? as i16;
@@ -338,7 +338,7 @@ impl<'l> Build<'l> {
             buff.skip(4)?;
         }
         // "overridden by subclasses"
-        self.block.read(self, reg, buff)?;
+        self.block.read(self, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
         // Ok(())
@@ -526,8 +526,7 @@ pub enum ReadError {
 }
 
 /// serde map
-pub struct MapSerializer<'l>(pub &'l BlockRegistry<'l>);
-impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
+impl<'l> Serializable for Map<'l> {
     type ReadError = ReadError;
     type WriteError = ();
     /// deserialize a map
@@ -535,7 +534,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
     /// notes:
     /// - does not deserialize data
     /// - does not deserialize entities
-    fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Map<'l>, Self::ReadError> {
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<Map<'l>, Self::ReadError> {
         let buff = buff.deflate()?;
         let mut buff = DataRead::new(&buff);
         {
@@ -599,7 +598,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     None
                 } else {
                     Some(
-                        self.0
+                        BLOCK_REGISTRY
                             .get(block.get_name())
                             .ok_or_else(|| ReadError::NoSuchBlock(block.to_string()))?,
                     )
@@ -616,7 +615,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                             println!("reading {:?}", map[i].build.as_ref().unwrap());
                             let _ = buff.read_i8()?;
 
-                            map[i].build.as_mut().unwrap().read(buff, self.0)?;
+                            map[i].build.as_mut().unwrap().read(buff)?;
                             Ok::<(), ReadError>(())
                         });
                     }
@@ -650,7 +649,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 buff.skip(4)?;
                 for _ in 0..buff.read_u32()? {
                     buff.skip(8usize)?;
-                    let _ = DynSerializer::deserialize(&mut DynSerializer, buff)?;
+                    let _ = DynData::deserialize(buff)?;
                 }
             }
             // read world entities (#412). eg units
@@ -667,11 +666,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
 
     /// serialize a map (todo)
     /// panics: always
-    fn serialize(
-        &mut self,
-        _: &mut super::DataWrite<'_>,
-        _: &Map<'_>,
-    ) -> Result<(), Self::WriteError> {
-        todo!()
+    fn serialize(&self, _: &mut super::DataWrite<'_>) -> Result<(), Self::WriteError> {
+        unimplemented!()
     }
 }

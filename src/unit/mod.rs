@@ -3,13 +3,13 @@
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
 use crate::content::content_enum;
 use crate::data::command::UnitCommand;
-use crate::data::dynamic::DynSerializer;
+use crate::data::dynamic::DynData;
 use crate::data::entity_mapping::UnitClass;
 use crate::data::{DataRead, ReadError};
 use crate::item::Type as Item;
 use crate::modifier::Type as Status;
 use crate::team::Team;
-use crate::Serializer;
+use crate::Serializable;
 
 content_enum! {
     pub enum Type / Unit for u16 | TryFromU16Error {
@@ -182,22 +182,26 @@ impl UnitClass {
         state.flag = buff.read_i64()?;
         state.health = buff.read_f32()?;
         state.is_shooting = buff.read_bool()?;
-        dbg!(&state);
-        read_tile(buff)?;
-        read_mounts(buff)?;
-        read_plans(buff)?;
-        state.rotation = buff.read_f32()?;
-        state.shield = buff.read_f32()?;
-        buff.skip(1)?; // spawned_by_core
-        state.stack = read_stack(buff)?;
-        state.status = read_status(buff)?;
-        state.team = Team::of(buff.read_u8()?);
-        let ty = Type::try_from(buff.read_u16()?).unwrap();
-        buff.skip(1)?; // update_building
-        state.velocity = (buff.read_f32()?, buff.read_f32()?);
-        state.position = (buff.read_f32()?, buff.read_f32()?);
+        // TODO apparently i fucked up my impl
+        // dbg!(&state);
+        // read_tile(buff)?;
+        // read_mounts(buff)?;
+        // read_plans(buff)?;
+        // state.rotation = buff.read_f32()?;
+        // state.shield = buff.read_f32()?;
+        // buff.skip(1)?; // spawned_by_core
+        // state.stack = read_stack(buff)?;
+        // state.status = read_status(buff)?;
+        // state.team = Team::of(buff.read_u8()?);
+        // let ty = Type::try_from(buff.read_u16()?).unwrap();
+        // buff.skip(1)?; // update_building
+        // state.velocity = (buff.read_f32()?, buff.read_f32()?);
+        // state.position = (buff.read_f32()?, buff.read_f32()?);
 
-        Ok(Unit { state, ty })
+        Ok(Unit {
+            state,
+            ty: Type::Alpha,
+        })
     }
 }
 
@@ -254,7 +258,7 @@ fn read_plan(buff: &mut DataRead) -> Result<(), ReadError> {
     buff.skip(4)?;
     if ty != 1 {
         buff.skip(4)?;
-        let _ = DynSerializer.deserialize(buff).unwrap();
+        let _ = DynData::deserialize(buff).unwrap();
     }
     Ok(())
 }

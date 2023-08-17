@@ -94,11 +94,12 @@ pub trait Renderable {
 impl Renderable for Schematic<'_> {
     /// creates a picture of a schematic. Bridges and node connections are not drawn.
     /// ```
-    /// use mindus::*;
+    /// # use mindus::*;
+    /// # use mindus::block::*;
     /// let mut s = Schematic::new(2, 3);
-    /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
-    /// s.put(0, 2, &block::distribution::ROUTER);
-    /// s.put(1, 2, &block::walls::COPPER_WALL);
+    /// s.put(0, 0, &DISTRIBUTOR);
+    /// s.put(0, 2, &ROUTER);
+    /// s.put(1, 2, &COPPER_WALL);
     /// let output /*: Image */ = s.render();
     /// ```
     fn render(&self) -> Image<Vec<u8>, 3> {
@@ -245,7 +246,6 @@ impl Renderable for Map<'_> {
 fn all_blocks() {
     use crate::block::content::Type;
     use crate::content::Content;
-    let reg = crate::block::build_registry();
     for t in 19..Type::WorldMessage as u16 {
         let t = Type::try_from(t).unwrap();
         if matches!(t, |Type::Empty| Type::SlagCentrifuge
@@ -259,7 +259,7 @@ fn all_blocks() {
             continue;
         }
         let name = dbg!(t.get_name());
-        let t = reg.get(name).unwrap();
+        let t = crate::block::BLOCK_REGISTRY.get(name).unwrap();
         let _ = t.image(
             None,
             Some(&RenderingContext {

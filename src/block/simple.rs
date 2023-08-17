@@ -54,13 +54,13 @@ macro_rules! make_simple {
                 &self,
                 _: i32,
                 _: crate::data::GridPos,
-            ) -> Result<crate::DynData, crate::block::DataConvertError> {
-                Ok(crate::DynData::Empty)
+            ) -> Result<crate::data::dynamic::DynData, crate::block::DataConvertError> {
+                Ok(crate::data::dynamic::DynData::Empty)
             }
 
             fn deserialize_state(
                 &self,
-                _: crate::DynData,
+                _: crate::data::dynamic::DynData,
             ) -> Result<Option<crate::block::State>, crate::block::DeserializeError> {
                 Ok(None)
             }
@@ -76,8 +76,8 @@ macro_rules! make_simple {
             fn serialize_state(
                 &self,
                 _: &crate::block::State,
-            ) -> Result<crate::DynData, crate::block::SerializeError> {
-                Ok(crate::DynData::Empty)
+            ) -> Result<crate::data::dynamic::DynData, crate::block::SerializeError> {
+                Ok(crate::data::dynamic::DynData::Empty)
             }
 
             fn draw(
@@ -95,16 +95,15 @@ macro_rules! make_simple {
             fn read(
                 &self,
                 build: &mut crate::data::map::Build,
-                reg: &crate::block::BlockRegistry,
                 buff: &mut crate::data::DataRead,
             ) -> Result<(), crate::data::ReadError> {
                 #[allow(clippy::redundant_closure_call)]
-                $read(build, reg, buff)
+                $read(build, buff)
             }
         }
     };
     ($name: ident, $draw: expr) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _| Ok(()));
+        crate::block::simple::make_simple!($name, $draw, |_, _| Ok(()));
     };
     ($name: ident, $draw: expr, $read: expr) => {
         crate::block::simple::make_simple!($name, $draw, $read);
@@ -116,11 +115,7 @@ macro_rules! make_simple {
         crate::block::simple::make_simple!($name, |_, _, _, _, _, scl| $draw(scl), $read);
     };
     ($name: ident / $draw: expr) => {
-        crate::block::simple::make_simple!(
-            $name,
-            |_, _, _, _, _, scl| $draw(scl),
-            |_, _, _| Ok(())
-        );
+        crate::block::simple::make_simple!($name, |_, _, _, _, _, scl| $draw(scl), |_, _| Ok(()));
     };
     ($name: ident) => {
         crate::block::simple::make_simple!($name, |_, n, _, _, _, _| unimplemented!("{n}"));

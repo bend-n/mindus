@@ -455,13 +455,16 @@ impl<'d> TryFrom<DataWrite<'d>> for Vec<u8> {
     }
 }
 /// basic serialization/deserialization functions
-pub trait Serializer<D> {
+pub trait Serializable
+where
+    Self: Sized,
+{
     type ReadError;
     type WriteError;
-
-    fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<D, Self::ReadError>;
-
-    fn serialize(&mut self, buff: &mut DataWrite<'_>, data: &D) -> Result<(), Self::WriteError>;
+    /// deserialize self from a binary buffer
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<Self, Self::ReadError>;
+    /// transform self into a binary buffer
+    fn serialize(&self, buff: &mut DataWrite<'_>) -> Result<(), Self::WriteError>;
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

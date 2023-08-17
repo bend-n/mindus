@@ -1,13 +1,11 @@
 use mindus::data::DataRead;
-use mindus::{build_registry, Renderable};
-use mindus::{MapSerializer, Serializer};
+use mindus::Renderable;
+use mindus::{Map, Serializable};
 use std::env::Args;
 use std::time::Instant;
 
 use super::print_err;
 pub fn main(args: Args) {
-    let reg = build_registry();
-    let mut ms = MapSerializer(&reg);
     let runs = std::env::var("RUNS").map_or(10u8, |x| x.parse().unwrap_or(10u8));
 
     // process schematics from command line
@@ -18,7 +16,7 @@ pub fn main(args: Args) {
             continue;
         };
         let starting_deser = Instant::now();
-        match ms.deserialize(&mut DataRead::new(&s)) {
+        match Map::deserialize(&mut DataRead::new(&s)) {
             Err(e) => print_err!(e, "fail"),
             Ok(m) => {
                 let deser_took = starting_deser.elapsed();
