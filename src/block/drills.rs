@@ -13,7 +13,7 @@ make_simple!(
         };
         base
     },
-    |_, _, _, buff: &mut DataRead| read_drill(buff)
+    |_, _, buff: &mut DataRead| read_drill(buff)
 );
 make_simple!(WallDrillBlock, |_, _, _, _, rot: Rotation, scl| {
     let mut base = load!("cliff-crusher", scl);

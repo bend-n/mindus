@@ -44,7 +44,7 @@ make_register! {
 }
 
 // format: call [`read_production_block`], seed: [`i32`]
-make_simple!(SeparatorBlock => |_, _, _, buff: &mut DataRead| buff.skip(12));
+make_simple!(SeparatorBlock => |_, _, buff: &mut DataRead| buff.skip(12));
 
 make_simple!(
     ProductionBlock,
@@ -70,7 +70,7 @@ make_simple!(
         }
         base
     },
-    |b: &mut Build<'_>, _, _, buff: &mut DataRead| {
+    |b: &mut Build<'_>, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
@@ -92,7 +92,7 @@ make_simple!(
         };
         base
     },
-    |_, _, _, buff: &mut DataRead| {
+    |_, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`

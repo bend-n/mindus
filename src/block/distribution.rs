@@ -9,7 +9,7 @@ use crate::item;
 make_simple!(
     ConveyorBlock,
     |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
-    |_, _, _, buff: &mut DataRead| {
+    |_, _, buff: &mut DataRead| {
         // format:
         // - amount: `i32`
         // - iterate amount:
@@ -28,14 +28,14 @@ make_simple!(
 make_simple!(
     DuctBlock,
     |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
-    |_, _, _, buff: &mut DataRead| {
+    |_, _, buff: &mut DataRead| {
         // format:
         // - rec_dir: `i8`
         buff.skip(1)
     }
 );
 
-make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buff) });
+make_simple!(JunctionBlock => |_, _, buff| { read_directional_item_buffer(buff) });
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
     let mut base = load!("duct-base", s);
     let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
@@ -118,15 +118,19 @@ make_simple!(
     // format:
     // - link: `i32`
     // - cooldown: `f32`
-    |_, _, _, buff: &mut DataRead| buff.skip(8)
+    |_, _, buff: &mut DataRead| buff.skip(8)
 );
-make_simple!(SurgeRouter, |_, _, _, _, r: Rotation, s| {
-    let mut base = load!("surge-router", s);
-    unsafe { base.overlay(load!("top", s).rotate(r.rotated(false).count())) };
-    base
-});
+make_simple!(
+    SurgeRouter,
+    |_, _, _, _, r: Rotation, s| {
+        let mut base = load!("surge-router", s);
+        unsafe { base.overlay(load!("top", s).rotate(r.rotated(false).count())) };
+        base
+    },
+    |_, _, buff: &mut DataRead| buff.skip(2)
+);
 // format: id: [`i32`]
-make_simple!(UnitCargoLoader => |_, _, _, buff: &mut DataRead| buff.skip(4));
+make_simple!(UnitCargoLoader => |_, _, buff: &mut DataRead| buff.skip(4));
 
 make_register! {
     "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
@@ -262,7 +266,6 @@ impl BlockLogic for ItemBlock {
         &self,
         b: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         match b.block.name() {
@@ -437,7 +440,6 @@ impl BlockLogic for BridgeBlock {
         &self,
         t: &mut Build,
         r: &super::BlockRegistry,
-        e: &crate::data::map::EntityMapping,
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
         match t.block.name() {
@@ -445,7 +447,7 @@ impl BlockLogic for BridgeBlock {
             "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
             "mass-driver" => buff.skip(9)?,
             "payload-mass-driver" | "large-payload-mass-driver" => {
-                crate::block::payload::read_payload_block(r, e, buff)?;
+                crate::block::payload::read_payload_block(r, buff)?;
                 buff.skip(19)?;
             }
             // no state?

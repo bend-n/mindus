@@ -1,9 +1,9 @@
 //! defense
 use crate::block::simple::{cost, make_simple, BasicBlock};
 use crate::block::*;
-make_simple!(HeatedBlock => |_, _, _, buff: &mut DataRead| read_heated(buff));
-make_simple!(RadarBlock => |_, _, _, buff: &mut DataRead| buff.skip(4));
-make_simple!(ShieldBlock => |_, _, _, buff: &mut DataRead| read_shield(buff));
+make_simple!(HeatedBlock => |_, _, buff: &mut DataRead| read_heated(buff));
+make_simple!(RadarBlock => |_, _, buff: &mut DataRead| buff.skip(4));
+make_simple!(ShieldBlock => |_, _, buff: &mut DataRead| read_shield(buff));
 make_register! {
     "mender" -> HeatedBlock::new(1, true, cost!(Copper: 25, Lead: 30));
     "mend-projector" -> HeatedBlock::new(2, true, cost!(Copper: 50, Lead: 100, Titanium: 25, Silicon: 40));

@@ -28,3 +28,9 @@ content_enum! {
         "invincible",
     }
 }
+
+impl Default for Type {
+    fn default() -> Self {
+        Self::None
+    }
+}

@@ -35,11 +35,11 @@ make_register! {
     "smite" -> ItemTurret::new(5, true, cost!(Oxide: 200, SurgeAlloy: 400, Silicon: 800, Carbide: 500, PhaseFabric: 300));
 }
 
-make_simple!(Turret => |_, _, _, buff: &mut DataRead| read_turret(buff));
-make_simple!(PointDefenseTurret => |_, _, _, buff: &mut DataRead| read_point_defense_turret(buff));
-make_simple!(ContinousTurret => |_, _, _, buff: &mut DataRead| read_continous_turret(buff));
-make_simple!(TractorBeamTurret => |_, _, _, buff: &mut DataRead| read_tractor_beam_turret(buff));
-make_simple!(ItemTurret => |_, _, _, buff: &mut DataRead| read_item_turret(buff));
+make_simple!(Turret => |_, _, buff: &mut DataRead| read_turret(buff));
+make_simple!(PointDefenseTurret => |_, _, buff: &mut DataRead| read_point_defense_turret(buff));
+make_simple!(ContinousTurret => |_, _, buff: &mut DataRead| read_continous_turret(buff));
+make_simple!(TractorBeamTurret => |_, _, buff: &mut DataRead| read_tractor_beam_turret(buff));
+make_simple!(ItemTurret => |_, _, buff: &mut DataRead| read_item_turret(buff));
 
 /// format:
 /// - call [`read_turret`]

@@ -61,9 +61,6 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    ///
-    /// # Safety
-    /// UB if called before [`warmup`](crate::warmup)
     #[must_use]
     pub fn image(
         &self,

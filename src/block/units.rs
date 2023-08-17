@@ -3,10 +3,10 @@ use thiserror::Error;
 
 use super::payload::{read_payload_block, read_payload_seq};
 use crate::block::simple::*;
-use crate::block::*;
 use crate::data::command::UnitCommand;
-use crate::data::dynamic::DynType;
+use crate::data::dynamic::{DynSerializer, DynType};
 use crate::unit;
+use crate::{block::*, Serializer};
 
 // fn is_pay(b: &str) -> bool {
 //     matches!(
@@ -51,7 +51,7 @@ make_simple!(
         };
         base
     },
-    |_, reg, map, buff| read_assembler(reg, map, buff)
+    |_, reg, buff| read_assembler(reg, buff)
 );
 
 /// format:
@@ -61,12 +61,8 @@ make_simple!(
 ///     - read: [`i32`]
 /// - call [`read_payload_seq`]
 /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
-fn read_assembler(
-    reg: &BlockRegistry,
-    map: &EntityMapping,
-    buff: &mut DataRead,
-) -> Result<(), DataReadError> {
-    read_payload_block(reg, map, buff)?;
+fn read_assembler(reg: &BlockRegistry, buff: &mut DataRead) -> Result<(), DataReadError> {
+    read_payload_block(reg, buff)?;
     buff.skip(4)?;
     let n = buff.read_u8()? as usize;
     buff.skip(n * 4)?;
@@ -89,11 +85,11 @@ make_simple!(
         };
         base
     },
-    |_, reg, map, buff| read_payload_block(reg, map, buff)
+    |_, reg, buff| read_payload_block(reg, buff)
 );
 
 make_simple!(
-    RepairTurret => |_, _, _, buff: &mut DataRead| {
+    RepairTurret => |_, _, buff: &mut DataRead| {
         buff.skip(4) // rotation: [`f32`]
     }
 );
@@ -238,13 +234,12 @@ impl BlockLogic for ConstructorBlock {
         &self,
         _: &mut Build,
         reg: &BlockRegistry,
-        map: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
-        read_payload_block(reg, map, buff)?;
+        read_payload_block(reg, buff)?;
         buff.skip(12)?;
-        // TODO uncomment when read_payload_block impl finished
-        // b.state = self.deserialize_state(DynSerializer.deserialize(buff).unwrap()).unwrap();
+        self.deserialize_state(DynSerializer.deserialize(buff).unwrap())
+            .unwrap();
         Ok(())
     }
 }
@@ -360,10 +355,9 @@ impl BlockLogic for UnitFactory {
         &self,
         _: &mut Build,
         reg: &BlockRegistry,
-        mapping: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
-        read_payload_block(reg, mapping, buff)?;
+        read_payload_block(reg, buff)?;
         buff.skip(14)
     }
 }

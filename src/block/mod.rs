@@ -8,7 +8,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::data::dynamic::{DynData, DynType};
-use crate::data::map::{Build, EntityMapping};
+use crate::data::map::Build;
 use crate::data::{self, renderer::*, CompressError};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
@@ -73,6 +73,7 @@ disp! {
     ConnectorBlock,
     ItemTurret,
     ConveyorBlock,
+    PayloadRouter,
     WallDrillBlock,
     DrillBlock,
     NuclearGeneratorBlock,
@@ -213,7 +214,6 @@ pub trait BlockLogic {
         &self,
         build: &mut Build,
         reg: &BlockRegistry,
-        mapping: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         Ok(())
@@ -412,10 +412,9 @@ impl Block {
         &self,
         build: &mut Build,
         reg: &BlockRegistry,
-        mapping: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
-        self.logic.read(build, reg, mapping, buff)
+        self.logic.read(build, reg, buff)
     }
 }
 

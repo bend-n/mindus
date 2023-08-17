@@ -41,7 +41,7 @@
 //!                     - chunk len: `u16`
 //!                     - if block == building:
 //!                         - revision: `i8`
-//!                         - [`read`]
+//!                         - [`Build::read`]
 //!                     - else skip `chunk len`
 //!                 - or data
 //!                     - data: `i8`
@@ -105,7 +105,6 @@ macro_rules! lo {
 	} };
 }
 
-pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
     #[must_use]
     pub const fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
@@ -305,12 +304,7 @@ impl<'l> Build<'l> {
         self.block.name()
     }
 
-    pub fn read(
-        &mut self,
-        buff: &mut DataRead<'_>,
-        reg: &BlockRegistry,
-        map: &EntityMapping,
-    ) -> Result<(), ReadError> {
+    pub fn read(&mut self, buff: &mut DataRead<'_>, reg: &BlockRegistry) -> Result<(), ReadError> {
         // health
         let _ = buff.read_f32()?;
         let rot = buff.read_i8()? as i16;
@@ -344,7 +338,7 @@ impl<'l> Build<'l> {
             buff.skip(4)?;
         }
         // "overridden by subclasses"
-        self.block.read(self, reg, map, buff)?;
+        self.block.read(self, reg, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
         // Ok(())
@@ -610,10 +604,8 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                             .ok_or_else(|| ReadError::NoSuchBlock(block.to_string()))?,
                     )
                 };
-                if central {
-                    if let Some(block) = block {
-                        map[i].set_block(block);
-                    }
+                if central && let Some(block) = block {
+                    map[i].set_block(block);
                 }
                 if entity {
                     if central {
@@ -624,12 +616,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                             println!("reading {:?}", map[i].build.as_ref().unwrap());
                             let _ = buff.read_i8()?;
 
-                            map[i]
-                                .build
-                                .as_mut()
-                                .unwrap()
-                                // map not initialized yet
-                                .read(buff, self.0, &HashMap::new())?;
+                            map[i].build.as_mut().unwrap().read(buff, self.0)?;
                             Ok::<(), ReadError>(())
                         });
                     }
@@ -652,15 +639,11 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             m = Some(map);
             Ok::<(), ReadError>(())
         })?;
-        let mut mapping = EntityMapping::new();
         buff.read_chunk(true, |buff| {
             // read entity mapping (SaveVersion.java#436)
             for _ in 0..buff.read_u16()? {
-                let id = buff.read_u16()? as u8;
-                let nam = buff.read_utf()?;
-                dbg!(nam);
-                mapping.insert(id, Box::new(Item::Copper));
-                // mapping.push(content::Type::get_name(nam));
+                buff.skip(2)?;
+                let _ = buff.read_utf()?;
             }
             // read team block plans (ghosts) (SaveVersion.java#389)
             for _ in 0..buff.read_u32()? {
@@ -673,13 +656,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             // read world entities (#412). eg units
             for _ in 0..buff.read_u32()? {
                 let len = buff.read_u16()? as usize;
-                let ty = buff.read_u8()?;
-                if !mapping.contains_key(&ty) {
-                    buff.skip(len - 1)?;
-                    continue;
-                }
-                let _id = buff.read_u32()?;
-                // TODO
+                buff.skip(len)?;
             }
             Ok::<(), ReadError>(())
         })?;

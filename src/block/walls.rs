@@ -109,7 +109,6 @@ impl BlockLogic for DoorBlock {
         &self,
         build: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         build.state = Some(Self::create_state(buff.read_bool()?));

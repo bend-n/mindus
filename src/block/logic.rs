@@ -10,7 +10,7 @@ use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(
     MemoryBlock =>
-    |_, _, _, buff: &mut DataRead| {
+    |_, _, buff: &mut DataRead| {
         // format:
         // - iterate [`u32`]
         //     - memory: [`f64`]
@@ -181,7 +181,6 @@ impl BlockLogic for CanvasBlock {
         &self,
         build: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         let n = buff.read_i32()? as usize;
@@ -256,7 +255,6 @@ impl BlockLogic for MessageLogic {
         &self,
         b: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         b.state = Some(Self::create_state(buff.read_utf()?.to_string()));
@@ -310,7 +308,6 @@ impl BlockLogic for SwitchLogic {
         &self,
         build: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         build.state = Some(Self::create_state(buff.read_bool()?));
@@ -416,7 +413,6 @@ impl BlockLogic for ProcessorLogic {
         &self,
         b: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         let n = buff.read_u32()? as usize;

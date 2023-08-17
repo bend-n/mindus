@@ -127,7 +127,6 @@ impl BlockLogic for FluidBlock {
         &self,
         b: &mut Build,
         _: &BlockRegistry,
-        _: &EntityMapping,
         buff: &mut DataRead,
     ) -> Result<(), DataReadError> {
         let f = buff.read_u16()?;

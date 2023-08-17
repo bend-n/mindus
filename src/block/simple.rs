@@ -96,16 +96,15 @@ macro_rules! make_simple {
                 &self,
                 build: &mut crate::data::map::Build,
                 reg: &crate::block::BlockRegistry,
-                entity_mapping: &crate::data::map::EntityMapping,
                 buff: &mut crate::data::DataRead,
             ) -> Result<(), crate::data::ReadError> {
                 #[allow(clippy::redundant_closure_call)]
-                $read(build, reg, entity_mapping, buff)
+                $read(build, reg, buff)
             }
         }
     };
     ($name: ident, $draw: expr) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()));
+        crate::block::simple::make_simple!($name, $draw, |_, _, _| Ok(()));
     };
     ($name: ident, $draw: expr, $read: expr) => {
         crate::block::simple::make_simple!($name, $draw, $read);
@@ -120,7 +119,7 @@ macro_rules! make_simple {
         crate::block::simple::make_simple!(
             $name,
             |_, _, _, _, _, scl| $draw(scl),
-            |_, _, _, _| Ok(())
+            |_, _, _| Ok(())
         );
     };
     ($name: ident) => {

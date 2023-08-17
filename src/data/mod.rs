@@ -13,6 +13,7 @@ pub(crate) mod autotile;
 mod base64;
 pub mod command;
 pub mod dynamic;
+pub mod entity_mapping;
 pub mod map;
 pub mod planet;
 pub mod renderer;

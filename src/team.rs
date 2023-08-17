@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::content::{Content, Type};
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Default)]
 pub struct Team(u8);
 
 impl Team {

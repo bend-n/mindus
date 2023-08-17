@@ -5,9 +5,9 @@ use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
 
-make_simple!(GeneratorBlock => |_, _, _, buff: &mut DataRead| read_generator(buff));
-make_simple!(NuclearGeneratorBlock => |_, _, _, buff: &mut DataRead| read_nuclear(buff));
-make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(buff));
+make_simple!(GeneratorBlock => |_, _, buff: &mut DataRead| read_generator(buff));
+make_simple!(NuclearGeneratorBlock => |_, _, buff: &mut DataRead| read_nuclear(buff));
+make_simple!(ImpactReactorBlock => |_, _, buff: &mut DataRead| read_impact(buff));
 make_simple!(
     Neoplasia,
     |_, _, _, _, rot: Rotation, scl| {
@@ -23,7 +23,7 @@ make_simple!(
         };
         base
     },
-    |_, _, _, buff: &mut DataRead| read_heater(buff)
+    |_, _, buff: &mut DataRead| read_heater(buff)
 );
 make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
     let mut base = load!("diode", s);
