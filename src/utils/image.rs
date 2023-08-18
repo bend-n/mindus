@@ -478,14 +478,20 @@ impl Image<Vec<u8>, 4> {
 impl Image<Vec<u8>, 3> {
     #[cfg(feature = "bin")]
     pub fn save(&self, f: impl AsRef<std::path::Path>) {
-        image::save_buffer(
-            f,
-            &self.buffer,
-            self.width(),
-            self.height(),
-            image::ColorType::Rgb8,
-        )
-        .unwrap();
+        let p = std::fs::File::create(f).unwrap();
+        let w = &mut std::io::BufWriter::new(p);
+        let mut enc = png::Encoder::new(w, self.width(), self.height());
+        enc.set_color(png::ColorType::Rgb);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2));
+        enc.set_source_chromaticities(png::SourceChromaticities::new(
+            (0.31270, 0.32900),
+            (0.64000, 0.33000),
+            (0.30000, 0.60000),
+            (0.15000, 0.06000),
+        ));
+        let mut writer = enc.write_header().unwrap();
+        writer.write_image_data(&self.buffer).unwrap();
     }
 }
 
