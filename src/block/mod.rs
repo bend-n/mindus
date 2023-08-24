@@ -1027,7 +1027,7 @@ make_register! {
     "large-shield-projector" -> ShieldBlock::new(4, true, &[]);
     "payload-source" => PayloadBlock::new(5, false, &[]);
     "payload-void" => SimplePayloadBlock::new(5, true, &[]);
-    "item-source" -> ItemBlock::new(1, true, &[]);
+    "item-source" => ItemBlock::new(1, true, &[]);
     "item-void" -> BasicBlock::new(1, true, &[]);
     "heat-source" => HeatCrafter::new(1, false, &[]);
 }
