@@ -784,7 +784,7 @@ make_register! {
     "phase-conveyor" -> BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "unloader" -> ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
+    "unloader" => ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
     "router" -> BasicBlock::new(1, true, cost!(Copper: 3));
     "distributor" -> BasicBlock::new(2, true, cost!(Copper: 4, Lead: 4));
     "overflow-gate" -> BasicBlock::new(1, true, cost!(Copper: 4, Lead: 2));
