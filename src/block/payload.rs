@@ -203,7 +203,7 @@ pub(crate) fn read_payload_block(buff: &mut DataRead) -> Result<(), DataReadErro
 /// - if type == 2 (paylood unit):
 ///     - id: [`u8`]
 ///     - call [`UnitClass::read`](crate::data::entity_mapping::UnitClass::read)
-fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
+pub fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
     if !buff.read_bool()? {
         return Ok(());
     }
@@ -222,7 +222,7 @@ fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
             let Some(&Some(u)) = entity_mapping::ID.get(u) else {
                 return Err(ReadError::Expected("map entry"));
             };
-            let _ = u.read(buff)?;
+            let _ = u.read(buff);
         }
         _ => return Err(ReadError::Expected("0 | 1")),
     }
