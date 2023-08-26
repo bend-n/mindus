@@ -74,7 +74,7 @@ use std::ops::{Index, IndexMut};
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::{Block, Rotation, State, BLOCK_REGISTRY};
+use crate::block::{Block, Rotation, State};
 use crate::data::dynamic::DynData;
 use crate::data::renderer::*;
 use crate::data::DataRead;
@@ -594,15 +594,7 @@ impl<'l> Serializable for Map<'l> {
                 let central = if entity { buff.read_bool()? } else { false };
                 let block = BlockEnum::try_from(block_id)
                     .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
-                let block = if block == BlockEnum::Air {
-                    None
-                } else {
-                    Some(
-                        BLOCK_REGISTRY
-                            .get(block.get_name())
-                            .ok_or_else(|| ReadError::NoSuchBlock(block.to_string()))?,
-                    )
-                };
+                let block = block.to_block();
                 if central && let Some(block) = block {
                     map[i].set_block(block);
                 }

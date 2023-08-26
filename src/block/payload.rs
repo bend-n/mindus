@@ -4,7 +4,7 @@ use thiserror::Error;
 use crate::block::content::Type as BlockEnum;
 use crate::block::simple::*;
 use crate::block::{self, *};
-use crate::content::{self, Content};
+use crate::content;
 use crate::data::dynamic::DynType;
 use crate::data::entity_mapping;
 use crate::data::ReadError;
@@ -215,8 +215,10 @@ pub fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
         BLOCK => {
             let b = buff.read_u16()?;
             buff.skip(1)?;
-            let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
-            let block = BLOCK_REGISTRY.get(b.get_name()).unwrap();
+            let block = BlockEnum::try_from(b)
+                .unwrap_or(BlockEnum::Router)
+                .to_block()
+                .expect("payload should not be a environment block");
             let mut b = Build::new(block);
             let _ = b.read(buff);
         }

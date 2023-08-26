@@ -578,6 +578,17 @@ macro_rules! make_register {
         pub static BLOCK_REGISTRY: phf::Map<&str, &Block> = phf::phf_map! {$(
             $field => &[<$field:snake:upper>],
         )+};
+
+        impl content::Type {
+            pub fn to_block(self) -> Option<&'static Block> {
+                // static L: &[&Block] = &[$(&[<$field:snake:upper>],)+];
+                // L.get(self as usize).copied()
+                match self {
+                    $(content::Type::[<$field:camel>] => Some(&[<$field:snake:upper>]),)+
+                    _ => None,
+                }
+            }
+        }
     }};
     (impl $field: literal => $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
@@ -615,7 +626,6 @@ make_register! {
     "ore-wall-thorium": 1;
     "ore-wall-tungsten": 1;
     "graphitic-wall": 1;
-    "graphitic-wall-large": 2;
     "dacite": 1;
     "dirt": 1;
     "arkycite-floor": 1;
@@ -654,83 +664,61 @@ make_register! {
     "build1": 1;
     "boulder": 1;
     "arkyic-vent": 1;
-    "arkyic-wall-large": 2;
     "arkyic-wall": 1;
-    "beryllic-stone-wall-large": 2;
     "beryllic-stone-wall": 1;
     "beryllic-stone": 1;
     "bluemat": 1;
     "carbon-vent": 1;
-    "carbon-wall-large": 2;
     "carbon-wall": 1;
     "cliff": 1;
     "core-zone": 1;
     "crater-stone": 1;
     "crystal-floor": 1;
-    "crystalline-stone-wall-large": 2;
     "crystalline-stone-wall": 1;
     "crystalline-stone": 1;
     "crystalline-vent": 3;
-    "dacite-wall-large": 2;
     "dacite-wall": 1;
-    "dark-metal-large": 2;
     "dark-metal": 1;
     "metal-floor-damaged": 1;
     "dense-red-stone": 1;
-    "dirt-wall-large": 2;
     "dirt-wall": 1;
-    "dune-wall-large": 2;
     "dune-wall": 1;
     "ferric-craters": 1; // ferris section
-    "ferric-stone-wall-large": 2;
     "ferric-stone-wall": 1;
     "ferric-stone": 1;
-    "ice-wall-large": 2;
     "ice-wall": 1;
     "pebbles": 1;
     "pine": 1;
     "pooled-cryofluid": 1;
     "red-diamond-wall": 1;
-    "red-ice-wall-large": 2;
     "red-ice-wall": 1;
     "red-ice": 1;
     "red-stone-vent": 1;
-    "red-stone-wall-large": 2;
     "red-stone-wall": 1;
     "red-stone": 1;
     "redmat": 1;
-    "regolith-wall-large": 2;
     "regolith-wall": 1;
     "regolith": 1;
     "rhyolite-crater": 1;
     "rhyolite-vent": 1;
-    "rhyolite-wall-large": 2;
     "rhyolite-wall": 1;
     "rhyolite": 1;
     "rough-rhyolite": 1;
-    "salt-wall-large": 2;
     "salt-wall": 1;
-    "sand-wall-large": 2;
     "sand-wall": 1;
-    "shale-wall-large": 2;
     "shale-wall": 1;
-    "shrubs-large": 2;
     "shrubs": 1;
     "snow-pine": 1;
-    "snow-wall-large": 2;
     "snow-wall": 1;
     "spawn": 1;
     "spore-moss": 1;
     "spore-pine": 1;
-    "spore-wall-large": 2;
     "spore-wall": 1;
-    "stone-wall-large": 2;
     "stone-wall": 1;
     "tainted-water": 1;
     "tar": 1;
     "yellow-stone-plates": 1;
     "yellow-stone-vent": 1;
-    "yellow-stone-wall-large": 2;
     "yellow-stone-wall": 1;
     // props
     "yellow-stone-boulder": 1;
@@ -1022,7 +1010,6 @@ make_register! {
     "world-cell" -> MemoryBlock::new(1, true, &[]);
     "liquid-source" => FluidBlock::new(1, true, &[]);
     "liquid-void" -> BasicBlock::new(1, true, &[]);
-    "barrier-projector" -> BasicBlock::new(3, true, &[]);
     "shield-projector" -> ShieldBlock::new(3, true, &[]);
     "large-shield-projector" -> ShieldBlock::new(4, true, &[]);
     "payload-source" => PayloadBlock::new(5, false, &[]);
