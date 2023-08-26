@@ -5,6 +5,7 @@
     unchecked_math,
     slice_as_chunks,
     slice_swap_unchecked,
+    portable_simd,
     let_chains,
     effects
 )]
