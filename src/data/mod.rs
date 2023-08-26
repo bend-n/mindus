@@ -139,28 +139,26 @@ impl<'d> DataRead<'d> {
         } else {
             self.read_u16()? as usize
         };
-        self.read = 0;
+        let rb4 = self.read;
         let r = f(self);
+        let read = self.read - rb4;
         match r {
             Err(e) => {
                 // skip this chunk
-                assert!(
-                    len >= self.read,
-                    "overread; supposed to read {len}; read {}",
-                    self.read
-                );
-                let n = len - self.read;
+                assert!(len >= read, "overread; supposed to read {len}; read {read}");
+                let n = len - read;
                 if n != 0 {
                     #[cfg(debug_assertions)]
-                    println!(
-                        "supposed to read {len}; read {} - skipping excess",
-                        self.read
-                    );
+                    println!("supposed to read {len}; read {read} - skipping excess");
                     self.skip(n)?;
                 };
                 Err(e)
             }
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
+                debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
+                Ok(())
+            }
         }
     }
 

@@ -8,7 +8,12 @@
     let_chains,
     effects
 )]
-#![allow(clippy::missing_safety_doc, clippy::missing_const_for_fn, clippy::perf)]
+#![warn(
+    clippy::missing_safety_doc,
+    clippy::missing_const_for_fn,
+    clippy::dbg_macro,
+    clippy::perf
+)]
 pub mod block;
 mod content;
 pub mod data;

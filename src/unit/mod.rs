@@ -1,6 +1,7 @@
 //! units
 //!
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
+use crate::block::payload::read_payload;
 use crate::content::content_enum;
 use crate::data::command::UnitCommand;
 use crate::data::dynamic::DynData;
@@ -177,36 +178,89 @@ impl UnitClass {
         let mut state = UnitState::default();
         read_abilities(buff)?;
         state.ammo = buff.read_f32()?;
-        state.controller = Controller::read(buff)?;
-        state.elevation = buff.read_f32()?;
-        state.flag = buff.read_i64()?;
-        state.health = buff.read_f32()?;
-        state.is_shooting = buff.read_bool()?;
-        // TODO apparently i fucked up my impl
-        // dbg!(&state);
-        // read_tile(buff)?;
-        // read_mounts(buff)?;
-        // read_plans(buff)?;
-        // state.rotation = buff.read_f32()?;
-        // state.shield = buff.read_f32()?;
-        // buff.skip(1)?; // spawned_by_core
-        // state.stack = read_stack(buff)?;
-        // state.status = read_status(buff)?;
-        // state.team = Team::of(buff.read_u8()?);
-        // let ty = Type::try_from(buff.read_u16()?).unwrap();
-        // buff.skip(1)?; // update_building
-        // state.velocity = (buff.read_f32()?, buff.read_f32()?);
-        // state.position = (buff.read_f32()?, buff.read_f32()?);
-
-        Ok(Unit {
-            state,
-            ty: Type::Alpha,
-        })
+        match self {
+            Self::Block
+            | Self::Legs
+            | Self::Elevated
+            | Self::Crawl
+            | Self::Boat
+            | Self::Tank
+            | Self::Air => {
+                state.controller = Controller::read(buff)?;
+                state.elevation = buff.read_f32()?;
+                state.flag = buff.read_i64()?;
+                state.health = buff.read_f32()?;
+                state.is_shooting = buff.read_bool()?;
+                read_tile(buff)?;
+                read_mounts(buff)?;
+            }
+            Self::Mech => {
+                buff.skip(4)?; // base rotation
+                state.controller = Controller::read(buff)?;
+                state.elevation = buff.read_f32()?;
+                state.flag = buff.read_i64()?;
+                state.health = buff.read_f32()?;
+                state.is_shooting = buff.read_bool()?;
+                read_tile(buff)?;
+                read_mounts(buff)?;
+            }
+            Self::Payload => {
+                state.controller = Controller::read(buff)?;
+                state.elevation = buff.read_f32()?;
+                state.flag = buff.read_i64()?;
+                state.health = buff.read_f32()?;
+                state.is_shooting = buff.read_bool()?;
+                read_tile(buff)?;
+                read_mounts(buff)?;
+                for _ in 0..buff.read_i32()? {
+                    // recursion more!
+                    // this is unreliable, as read_payload may not read the full block.
+                    // if read_plans reports a error, with a payload unit, this is why
+                    let _ = read_payload(buff);
+                }
+            }
+            Self::Bomb => {
+                state.controller = Controller::read(buff)?;
+                state.elevation = buff.read_f32()?;
+                state.flag = buff.read_i64()?;
+                state.health = buff.read_f32()?;
+                state.is_shooting = buff.read_bool()?;
+                buff.skip(4)?; // lifetime
+                read_tile(buff)?;
+                read_mounts(buff)?;
+            }
+            Self::Tethered => {
+                buff.skip(4)?;
+                state.controller = Controller::read(buff)?;
+                state.elevation = buff.read_f32()?;
+                state.flag = buff.read_i64()?;
+                state.health = buff.read_f32()?;
+                state.is_shooting = buff.read_bool()?;
+                read_tile(buff)?;
+                read_mounts(buff)?;
+                for _ in 0..buff.read_i32()? {
+                    // recursion more!
+                    read_payload(buff)?;
+                }
+            }
+        }
+        read_plans(buff)?;
+        state.rotation = buff.read_f32()?;
+        state.shield = buff.read_f32()?;
+        buff.skip(1)?; // spawned_by_core
+        state.stack = read_stack(buff)?;
+        state.status = read_status(buff)?;
+        state.team = Team::of(buff.read_u8()?);
+        let ty = Type::try_from(buff.read_u16()?).unwrap();
+        buff.skip(1)?; // update_building
+        state.velocity = (buff.read_f32()?, buff.read_f32()?);
+        state.position = (buff.read_f32()?, buff.read_f32()?);
+        Ok(Unit { state, ty })
     }
 }
 
 /// format:
-/// - iterate [u8]
+/// - iterate [`u8`]
 ///     - ability: [`f32`]
 fn read_abilities(buff: &mut DataRead) -> Result<(), ReadError> {
     let n = buff.read_u8()? as usize;
@@ -225,7 +279,7 @@ fn read_tile(buff: &mut DataRead) -> Result<(), ReadError> {
 ///     - x aim: [`f32`]
 ///     - y aim: [`f32`]
 fn read_mounts(buff: &mut DataRead) -> Result<(), ReadError> {
-    let n = dbg!(buff.read_u8()? as usize);
+    let n = buff.read_u8()? as usize;
     buff.skip(n * 9)
 }
 
@@ -235,7 +289,7 @@ fn read_mounts(buff: &mut DataRead) -> Result<(), ReadError> {
 /// - iterate `plan_count`
 ///     - call [`read_plan`]
 fn read_plans(buff: &mut DataRead) -> Result<(), ReadError> {
-    let used = dbg!(buff.read_i32()?);
+    let used = buff.read_i32()?;
     if used == -1 {
         return Ok(());
     }
@@ -280,12 +334,14 @@ fn read_stack(buff: &mut DataRead) -> Result<(Option<Item>, u32), ReadError> {
 /// format:
 /// - iterate [`i32`]
 ///     - status: [`u16`] attempt into [`Status`]
+///     - duration: [`f32`]
 fn read_status(buff: &mut DataRead) -> Result<[Status; 3], ReadError> {
     let mut status = [Status::None, Status::None, Status::None];
     for i in 0..buff.read_i32()? {
-        let this = Status::try_from(buff.read_u16()?).unwrap_or_default();
-        if i < 3 {
-            status[i as usize] = this;
+        let this = Status::try_from(buff.read_u16()?);
+        buff.skip(4)?;
+        if let Ok(s) = this && i < 3 {
+            status[i as usize] = s;
         }
     }
     Ok(status)

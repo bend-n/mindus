@@ -84,7 +84,7 @@ use crate::team::{self, Team};
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
-use super::Serializable;
+use super::{entity_mapping, Serializable};
 use crate::content::Content;
 use crate::utils::image::ImageUtils;
 
@@ -655,7 +655,14 @@ impl<'l> Serializable for Map<'l> {
             // read world entities (#412). eg units
             for _ in 0..buff.read_u32()? {
                 let len = buff.read_u16()? as usize;
-                buff.skip(len)?;
+                let id = buff.read_u8()? as usize;
+                let Some(&Some(u)) = entity_mapping::ID.get(id) else {
+                    buff.skip(len - 1)?;
+                    continue;
+                    // return Ok(());
+                };
+                buff.skip(4)?;
+                let _ = u.read(buff)?;
             }
             Ok::<(), ReadError>(())
         })?;

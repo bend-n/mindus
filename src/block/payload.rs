@@ -64,7 +64,8 @@ make_simple!(
             base.overlay(& load!(concat "over" => n which is ["payload-router" | "reinforced-payload-router"], s));
         }
         base
-    } // read_payload_router
+    },
+    read_payload_router
 );
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -203,7 +204,7 @@ pub(crate) fn read_payload_block(buff: &mut DataRead) -> Result<(), DataReadErro
 /// - if type == 2 (paylood unit):
 ///     - id: [`u8`]
 ///     - call [`UnitClass::read`](crate::data::entity_mapping::UnitClass::read)
-fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
+pub fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
     if !buff.read_bool()? {
         return Ok(());
     }
@@ -213,9 +214,11 @@ fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
     match t {
         BLOCK => {
             let b = buff.read_u16()?;
+            buff.skip(1)?;
             let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
             let block = BLOCK_REGISTRY.get(b.get_name()).unwrap();
-            block.logic.read(&mut Build::new(block), buff)?;
+            let mut b = Build::new(block);
+            let _ = b.read(buff);
         }
         UNIT => {
             let u = buff.read_u8()? as usize;
