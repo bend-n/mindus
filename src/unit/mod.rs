@@ -251,6 +251,9 @@ impl UnitClass {
         state.stack = read_stack(buff)?;
         state.status = read_status(buff)?;
         state.team = Team::of(buff.read_u8()?);
+        if self == Self::Bomb {
+            buff.skip(4)?; // time
+        }
         let ty = Type::try_from(buff.read_u16()?).unwrap();
         buff.skip(1)?; // update_building
         state.velocity = (buff.read_f32()?, buff.read_f32()?);
