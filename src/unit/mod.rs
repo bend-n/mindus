@@ -214,7 +214,9 @@ impl UnitClass {
                 read_mounts(buff)?;
                 for _ in 0..buff.read_i32()? {
                     // recursion more!
-                    read_payload(buff)?;
+                    // this is unreliable, as read_payload may not read the full block.
+                    // if read_plans reports a error, with a payload unit, this is why
+                    let _ = read_payload(buff);
                 }
             }
             Self::Bomb => {

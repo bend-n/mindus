@@ -64,7 +64,8 @@ make_simple!(
             base.overlay(& load!(concat "over" => n which is ["payload-router" | "reinforced-payload-router"], s));
         }
         base
-    } // read_payload_router
+    },
+    read_payload_router
 );
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -213,16 +214,18 @@ pub fn read_payload(buff: &mut DataRead) -> Result<(), DataReadError> {
     match t {
         BLOCK => {
             let b = buff.read_u16()?;
+            buff.skip(1)?;
             let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
             let block = BLOCK_REGISTRY.get(b.get_name()).unwrap();
-            block.logic.read(&mut Build::new(block), buff)?;
+            let mut b = Build::new(block);
+            let _ = b.read(buff);
         }
         UNIT => {
             let u = buff.read_u8()? as usize;
             let Some(&Some(u)) = entity_mapping::ID.get(u) else {
                 return Err(ReadError::Expected("map entry"));
             };
-            let _ = u.read(buff);
+            let _ = u.read(buff)?;
         }
         _ => return Err(ReadError::Expected("0 | 1")),
     }

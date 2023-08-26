@@ -662,7 +662,7 @@ impl<'l> Serializable for Map<'l> {
                     // return Ok(());
                 };
                 buff.skip(4)?;
-                u.read(buff).unwrap();
+                let _ = u.read(buff)?;
             }
             Ok::<(), ReadError>(())
         })?;
