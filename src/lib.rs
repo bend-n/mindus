@@ -7,7 +7,8 @@
     slice_swap_unchecked,
     portable_simd,
     let_chains,
-    effects
+    effects,
+    test
 )]
 #![warn(
     clippy::missing_safety_doc,

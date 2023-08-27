@@ -39,14 +39,14 @@ impl std::ops::Mul<u32> for Scale {
 #[macro_export]
 macro_rules! load {
 	("empty", $scale:expr) => {
-		 ImageHolder::from(match $scale {
+        $crate::utils::image::ImageHolder::from(match $scale {
             $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::EMPTY,
             $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::EMPTY,
             $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::EMPTY,
         }.copy())
 	};
     ($name:literal, $scale:expr) => { paste::paste! {
-        ImageHolder::from(match $scale {
+        $crate::utils::image::ImageHolder::from(match $scale {
             $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::[<$name:snake:upper>],

@@ -1,7 +1,23 @@
-use super::{really_unsafe_index, unsafe_assert, Image, Overlay, OverlayAt};
+use super::{really_unsafe_index, unsafe_assert, Image};
 use std::simd::SimdInt;
 use std::simd::SimdPartialOrd;
 use std::simd::{simd_swizzle, Simd};
+
+pub trait OverlayAt<W> {
+    /// Overlay with => self at coordinates x, y, without blending
+    /// # Safety
+    ///
+    /// UB if x, y is out of bounds
+    unsafe fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
+}
+
+pub trait Overlay<W> {
+    /// Overlay with => self (does not blend)
+    /// # Safety
+    ///
+    /// UB if a.width != b.width || a.height != b.height
+    unsafe fn overlay(&mut self, with: &W) -> &mut Self;
+}
 
 #[inline]
 pub unsafe fn blit(rgb: &mut [u8], rgba: &[u8]) {
@@ -106,5 +122,48 @@ impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 4> {
         }
 
         self
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    extern crate test;
+    use test::{black_box, Bencher};
+
+    use super::*;
+    use crate::{data::renderer::Scale, load};
+
+    #[bench]
+    fn overlay_4on3at(bench: &mut Bencher) {
+        let mut v = vec![0u8; 3 * 56 * 56];
+        let mut a: Image<_, 3> = Image::new(
+            56.try_into().unwrap(),
+            56.try_into().unwrap(),
+            v.as_mut_slice(),
+        );
+        let b = load!("interplanetary-accelerator", Scale::Eigth);
+        bench.iter(|| unsafe {
+            black_box(a.overlay_at(&b.borrow(), 0, 0));
+            black_box(a.overlay_at(&b.borrow(), 28, 0));
+            black_box(a.overlay_at(&b.borrow(), 28, 28));
+            black_box(a.overlay_at(&b.borrow(), 0, 28));
+        });
+    }
+
+    #[bench]
+    fn overlay_4on4at(bench: &mut Bencher) {
+        let mut v = vec![0u8; 4 * 56 * 56];
+        let mut a: Image<_, 4> = Image::new(
+            56.try_into().unwrap(),
+            56.try_into().unwrap(),
+            v.as_mut_slice(),
+        );
+        let b = load!("interplanetary-accelerator", Scale::Eigth);
+        bench.iter(|| unsafe {
+            black_box(a.overlay_at(&b.borrow(), 0, 0));
+            black_box(a.overlay_at(&b.borrow(), 28, 0));
+            black_box(a.overlay_at(&b.borrow(), 28, 28));
+            black_box(a.overlay_at(&b.borrow(), 0, 28));
+        });
     }
 }

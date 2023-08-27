@@ -6,22 +6,7 @@ use affine::*;
 mod holder;
 mod overlay;
 pub use holder::*;
-
-pub trait OverlayAt<W> {
-    /// Overlay with => self at coordinates x, y, without blending
-    /// # Safety
-    ///
-    /// UB if x, y is out of bounds
-    unsafe fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
-}
-
-pub trait Overlay<W> {
-    /// Overlay with => self (does not blend)
-    /// # Safety
-    ///
-    /// UB if a.width != b.width || a.height != b.height
-    unsafe fn overlay(&mut self, with: &W) -> &mut Self;
-}
+pub use overlay::*;
 
 pub trait RepeatNew {
     type Output;
