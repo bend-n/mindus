@@ -86,7 +86,6 @@ use crate::{block::content, data::*, fluid, item, modifier, unit};
 
 use super::{entity_mapping, Serializable};
 use crate::content::Content;
-use crate::utils::image::ImageUtils;
 
 /// a tile in a map
 #[derive(Clone)]

@@ -3,7 +3,7 @@ pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
 use super::GridPos;
 use crate::block::Rotation;
-pub(crate) use crate::utils::{Image, ImageHolder, ImageUtils, Overlay, Repeat};
+pub(crate) use crate::utils::{Image, ImageHolder, ImageUtils, Overlay, OverlayAt, Repeat};
 use crate::Map;
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -237,7 +237,7 @@ impl Renderable for Map<'_> {
                 }
             }
         }
-        unsafe { floor.as_mut().overlay_at(&top.as_ref(), 0, 0) };
+        unsafe { floor.as_mut().overlay(&top.as_ref()) };
         floor
     }
 }

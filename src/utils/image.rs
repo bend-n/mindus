@@ -4,12 +4,20 @@ use std::simd::SimdPartialOrd;
 use std::simd::{simd_swizzle, Simd};
 use std::{num::NonZeroU32, slice::SliceIndex};
 
-pub trait Overlay<W> {
+pub trait OverlayAt<W> {
     /// Overlay with => self at coordinates x, y, without blending
     /// # Safety
     ///
     /// UB if x, y is out of bounds
     unsafe fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
+}
+
+pub trait Overlay<W> {
+    /// Overlay with => self (does not blend)
+    /// # Safety
+    ///
+    /// UB if a.width != b.width || a.height != b.height
+    unsafe fn overlay(&mut self, with: &W) -> &mut Self;
 }
 
 pub trait RepeatNew {
@@ -22,14 +30,8 @@ pub trait RepeatNew {
 }
 
 pub trait ImageUtils {
-    type With<'a>;
     /// Tint this image with the color
     fn tint(&mut self, color: (u8, u8, u8)) -> &mut Self;
-    /// Overlay with => self (does not blend)
-    /// # Safety
-    ///
-    /// UB if a.width != b.width || a.height != b.height
-    unsafe fn overlay(&mut self, with: Self::With<'_>) -> &mut Self;
     /// rotate (squares only)
     /// # Safety
     ///
@@ -58,7 +60,7 @@ macro_rules! unsafe_assert {
     }};
 }
 
-impl Overlay<Image<&[u8], 3>> for Image<&mut [u8], 3> {
+impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
@@ -121,7 +123,7 @@ pub unsafe fn blit(rgb: &mut [u8], rgba: &[u8]) {
     }
 }
 
-impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
+impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 3> {
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         unsafe_assert!(x + with.width() <= self.width());
         unsafe_assert!(y + with.height() <= self.height());
@@ -142,7 +144,27 @@ impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
     }
 }
 
-impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
+impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
+    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
+        unsafe_assert!(self.width() == with.width());
+        unsafe_assert!(self.height() == with.height());
+        for (i, chunk) in with
+            .buffer
+            .chunks_exact(with.width() as usize * 4)
+            .enumerate()
+        {
+            blit(
+                self.buffer.get_unchecked_mut(
+                    i * with.width() as usize * 3..(i + 1) * with.width() as usize * 3,
+                ),
+                chunk,
+            );
+        }
+        self
+    }
+}
+
+impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 4> {
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
@@ -282,6 +304,28 @@ pub unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS
     }
 }
 
+impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
+    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
+        unsafe_assert!(self.width() == with.width());
+        unsafe_assert!(self.height() == with.height());
+        for (i, other_pixels) in with.chunked().enumerate() {
+            if other_pixels[3] >= 128 {
+                unsafe {
+                    let own_pixels = self
+                        .buffer
+                        .get_unchecked_mut(i.unchecked_mul(4)..i.unchecked_mul(4).unchecked_add(4));
+                    std::ptr::copy_nonoverlapping(
+                        other_pixels.as_ptr(),
+                        own_pixels.as_mut_ptr(),
+                        4,
+                    );
+                }
+            }
+        }
+        self
+    }
+}
+
 impl ImageUtils for Image<&mut [u8], 4> {
     unsafe fn rotate(&mut self, times: u8) -> &mut Self {
         match times {
@@ -299,26 +343,6 @@ impl ImageUtils for Image<&mut [u8], 4> {
             *r = (*r as f32 * tr) as u8;
             *g = (*g as f32 * tg) as u8;
             *b = (*b as f32 * tb) as u8;
-        }
-        self
-    }
-    type With<'a> = &'a Image<&'a [u8], 4>;
-    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        unsafe_assert!(self.width() == with.width());
-        unsafe_assert!(self.height() == with.height());
-        for (i, other_pixels) in with.chunked().enumerate() {
-            if other_pixels[3] >= 128 {
-                unsafe {
-                    let own_pixels = self
-                        .buffer
-                        .get_unchecked_mut(i.unchecked_mul(4)..i.unchecked_mul(4).unchecked_add(4));
-                    std::ptr::copy_nonoverlapping(
-                        other_pixels.as_ptr(),
-                        own_pixels.as_mut_ptr(),
-                        4,
-                    );
-                }
-            }
         }
         self
     }
@@ -578,9 +602,16 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     }
 }
 
-impl Overlay<ImageHolder<4>> for ImageHolder<4> {
+impl OverlayAt<ImageHolder<4>> for ImageHolder<4> {
     unsafe fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
         self.borrow_mut().overlay_at(&with.borrow(), x, y);
+        self
+    }
+}
+
+impl Overlay<ImageHolder<4>> for ImageHolder<4> {
+    unsafe fn overlay(&mut self, with: &Self) -> &mut Self {
+        self.borrow_mut().overlay(&with.borrow());
         self
     }
 }
@@ -588,11 +619,6 @@ impl Overlay<ImageHolder<4>> for ImageHolder<4> {
 impl ImageUtils for ImageHolder<4> {
     fn tint(&mut self, color: (u8, u8, u8)) -> &mut Self {
         self.borrow_mut().tint(color);
-        self
-    }
-    type With<'a> = &'a Self;
-    unsafe fn overlay(&mut self, with: &Self) -> &mut Self {
-        self.borrow_mut().overlay(&with.borrow());
         self
     }
 
