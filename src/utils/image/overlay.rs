@@ -81,17 +81,24 @@ impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 3> {
 
 impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
-        for j in 0..with.height() {
-            let i_x = j as usize * with.width() as usize * 3
-                ..(j as usize + 1) * with.width() as usize * 3;
-            let o_x = ((j as usize + y as usize) * self.width() as usize + x as usize) * 3
-                ..((j as usize + y as usize) * self.width() as usize
-                    + x as usize
-                    + with.width() as usize)
-                    * 3;
-            let a = unsafe { self.buffer.get_unchecked_mut(o_x) };
-            let b = unsafe { with.buffer.get_unchecked(i_x) };
-            a.copy_from_slice(b);
+        macro_rules! o3x3 {
+            ($n:expr) => {{
+                for j in 0..($n as usize) {
+                    let i_x = j * ($n as usize) * 3..(j + 1) * ($n as usize) * 3;
+                    let o_x = ((j + y as usize) * self.width() as usize + x as usize) * 3
+                        ..((j + y as usize) * self.width() as usize + x as usize + ($n as usize))
+                            * 3;
+                    let a = unsafe { self.buffer.get_unchecked_mut(o_x) };
+                    let b = unsafe { with.buffer.get_unchecked(i_x) };
+                    a.copy_from_slice(b);
+                }
+            }};
+        }
+        // let it unroll
+        match with.width() {
+            8 => o3x3!(8),
+            16 => o3x3!(16), // this branch makes 8x8 0.16 times slower; but 16x16 0.2 times faster.
+            _ => o3x3!(with.width()),
         }
         self
     }

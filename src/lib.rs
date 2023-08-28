@@ -1,11 +1,11 @@
 //! crate for dealing with mindustry
 #![feature(
-    array_chunks,
-    const_trait_impl,
-    unchecked_math,
-    slice_as_chunks,
     slice_swap_unchecked,
+    const_trait_impl,
+    slice_as_chunks,
+    unchecked_math,
     portable_simd,
+    array_chunks,
     trace_macros,
     let_chains,
     effects,
