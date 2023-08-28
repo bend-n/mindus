@@ -6,6 +6,7 @@
     slice_as_chunks,
     slice_swap_unchecked,
     portable_simd,
+    trace_macros,
     let_chains,
     effects,
     test

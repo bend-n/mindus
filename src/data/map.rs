@@ -143,7 +143,7 @@ impl<'l> Tile<'l> {
     }
 
     #[inline]
-    pub(crate) fn floor(&self, s: Scale) -> ImageHolder<4> {
+    pub(crate) fn floor(&self, s: Scale) -> ImageHolder<3> {
         lo!(self.floor => [
 			| "darksand"
 			| "sand-floor"
@@ -196,10 +196,10 @@ impl<'l> Tile<'l> {
 
     /// Draw the floor of this tile
     #[must_use]
-    pub fn floor_image(&self, s: Scale) -> ImageHolder<4> {
+    pub fn floor_image(&self, s: Scale) -> ImageHolder<3> {
         let mut floor = self.floor(s);
         if self.has_ore() {
-            unsafe { floor.overlay(&self.ore(s)) };
+            unsafe { floor.borrow_mut().overlay(&self.ore(s).borrow()) };
         }
         floor
     }

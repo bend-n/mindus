@@ -49,13 +49,13 @@ macro_rules! assert_unchecked {
 }
 use assert_unchecked;
 
-impl RepeatNew for Image<&[u8], 4> {
-    type Output = Image<Vec<u8>, 4>;
+impl RepeatNew for Image<&[u8], 3> {
+    type Output = Image<Vec<u8>, 3>;
     unsafe fn repeated(&self, x: u32, y: u32) -> Self::Output {
         let mut img = Image::alloc(x, y); // could probably optimize this a ton but eh
         for x in 0..(x / self.width()) {
             for y in 0..(y / self.height()) {
-                let a: &mut Image<&mut [u8], 4> = &mut img.as_mut();
+                let a: &mut Image<&mut [u8], 3> = &mut img.as_mut();
                 // SAFETY: caller upholds
                 unsafe { a.overlay_at(self, x * self.width(), y * self.height()) };
             }
@@ -303,20 +303,6 @@ impl<const CHANNELS: usize> Image<Vec<u8>, CHANNELS> {
     }
 }
 
-impl Image<Vec<u8>, 4> {
-    pub fn remove_channel(&mut self) -> Image<Vec<u8>, 3> {
-        let mut new = vec![0; self.width() as usize * self.height() as usize * 3];
-        for (&[r, g, b, _], [nr, ng, nb]) in self
-            .buffer
-            .array_chunks::<4>()
-            .zip(new.array_chunks_mut::<3>())
-        {
-            (*nr, *ng, *nb) = (r, g, b);
-        }
-        Image::new(self.width, self.height, new)
-    }
-}
-
 impl Image<Vec<u8>, 3> {
     #[cfg(feature = "bin")]
     pub fn save(&self, f: impl AsRef<std::path::Path>) {
@@ -354,16 +340,6 @@ pub(self) use img;
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn rem_chnl_test() {
-        let mut img: Image<_, 4> = Image::alloc(2, 1);
-        unsafe { img.set_pixel(1, 0, [255, 165, 0, 241]) };
-        assert_eq!(unsafe { img.pixel(1, 0) }, [255, 165, 0, 241]);
-        assert_eq!(unsafe { img.pixel(0, 0) }, [0, 0, 0, 0]);
-        let img = img.remove_channel();
-        assert_eq!(unsafe { img.pixel(1, 0) }, [255, 165, 0]);
-    }
 
     #[test]
     fn scale() {

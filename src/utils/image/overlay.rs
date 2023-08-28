@@ -79,6 +79,24 @@ impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 3> {
     }
 }
 
+impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
+    unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            let i_x = j as usize * with.width() as usize * 3
+                ..(j as usize + 1) * with.width() as usize * 3;
+            let o_x = ((j as usize + y as usize) * self.width() as usize + x as usize) * 3
+                ..((j as usize + y as usize) * self.width() as usize
+                    + x as usize
+                    + with.width() as usize)
+                    * 3;
+            let a = unsafe { self.buffer.get_unchecked_mut(o_x) };
+            let b = unsafe { with.buffer.get_unchecked(i_x) };
+            a.copy_from_slice(b);
+        }
+        self
+    }
+}
+
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
         unsafe { assert_unchecked!(self.width() == with.width()) };
@@ -135,36 +153,56 @@ mod bench {
     use crate::{data::renderer::Scale, load};
 
     #[bench]
-    fn overlay_4on3at(bench: &mut Bencher) {
-        let mut v = vec![0u8; 3 * 56 * 56];
+    fn overlay_3on3at(bench: &mut Bencher) {
+        let mut v = vec![0u8; 3 * 64 * 64];
         let mut a: Image<_, 3> = Image::new(
-            56.try_into().unwrap(),
-            56.try_into().unwrap(),
+            64.try_into().unwrap(),
+            64.try_into().unwrap(),
             v.as_mut_slice(),
         );
-        let b = load!("interplanetary-accelerator", Scale::Eigth);
+        let b = load!("darksand", Scale::Eigth);
         bench.iter(|| unsafe {
-            black_box(a.overlay_at(&b.borrow(), 0, 0));
-            black_box(a.overlay_at(&b.borrow(), 28, 0));
-            black_box(a.overlay_at(&b.borrow(), 28, 28));
-            black_box(a.overlay_at(&b.borrow(), 0, 28));
+            for x in 0..16 {
+                for y in 0..16 {
+                    black_box(a.overlay_at(&b.borrow(), x, y));
+                }
+            }
+        });
+    }
+
+    #[bench]
+    fn overlay_4on3at(bench: &mut Bencher) {
+        let mut v = vec![0u8; 3 * 64 * 64];
+        let mut a: Image<_, 3> = Image::new(
+            64.try_into().unwrap(),
+            64.try_into().unwrap(),
+            v.as_mut_slice(),
+        );
+        let b = load!("salt-wall", Scale::Eigth);
+        bench.iter(|| unsafe {
+            for x in 0..16 {
+                for y in 0..16 {
+                    black_box(a.overlay_at(&b.borrow(), x, y));
+                }
+            }
         });
     }
 
     #[bench]
     fn overlay_4on4at(bench: &mut Bencher) {
-        let mut v = vec![0u8; 4 * 56 * 56];
+        let mut v = vec![0u8; 4 * 64 * 64];
         let mut a: Image<_, 4> = Image::new(
-            56.try_into().unwrap(),
-            56.try_into().unwrap(),
+            64.try_into().unwrap(),
+            64.try_into().unwrap(),
             v.as_mut_slice(),
         );
-        let b = load!("interplanetary-accelerator", Scale::Eigth);
+        let b = load!("salt-wall", Scale::Eigth);
         bench.iter(|| unsafe {
-            black_box(a.overlay_at(&b.borrow(), 0, 0));
-            black_box(a.overlay_at(&b.borrow(), 28, 0));
-            black_box(a.overlay_at(&b.borrow(), 28, 28));
-            black_box(a.overlay_at(&b.borrow(), 0, 28));
+            for x in 0..16 {
+                for y in 0..16 {
+                    black_box(a.overlay_at(&b.borrow(), x, y));
+                }
+            }
         });
     }
 }

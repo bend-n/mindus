@@ -38,13 +38,6 @@ impl std::ops::Mul<u32> for Scale {
 
 #[macro_export]
 macro_rules! load {
-	("empty", $scale:expr) => {
-        $crate::utils::image::ImageHolder::from(match $scale {
-            $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::EMPTY,
-            $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::EMPTY,
-            $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::EMPTY,
-        }.copy())
-	};
     ($name:literal, $scale:expr) => { paste::paste! {
         $crate::utils::image::ImageHolder::from(match $scale {
             $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::[<$name:snake:upper>],
@@ -149,10 +142,12 @@ impl Renderable for Schematic<'_> {
                 // canvas has a shadow
                 let p2 = unsafe { canvas.pixel(x, y) };
                 let p = unsafe { bg.pixel_mut(x, y) };
-                crate::utils::image::blend(p.try_into().unwrap(), p2);
+                let mut p3 = [p[0], p[1], p[2], 255];
+                crate::utils::image::blend(&mut p3, p2);
+                p.copy_from_slice(&p3[..3]);
             }
         }
-        bg.remove_channel()
+        bg
     }
 }
 
