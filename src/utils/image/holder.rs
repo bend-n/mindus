@@ -40,14 +40,15 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
 
 impl OverlayAt<ImageHolder<4>> for ImageHolder<4> {
     unsafe fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
-        self.borrow_mut().overlay_at(&with.borrow(), x, y);
+        // SAFETY: this is basically a deref impl, the caller upholds the safety invariants
+        unsafe { self.borrow_mut().overlay_at(&with.borrow(), x, y) };
         self
     }
 }
 
 impl Overlay<ImageHolder<4>> for ImageHolder<4> {
     unsafe fn overlay(&mut self, with: &Self) -> &mut Self {
-        self.borrow_mut().overlay(&with.borrow());
+        unsafe { self.borrow_mut().overlay(&with.borrow()) };
         self
     }
 }
@@ -63,7 +64,7 @@ impl ImageUtils for ImageHolder<4> {
             return self;
         }
         // borrow mut may clone, so try to avoid
-        self.borrow_mut().rotate(times);
+        unsafe { self.borrow_mut().rotate(times) };
         self
     }
 

@@ -18,28 +18,30 @@ make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
                 "small-deconstructor" => "factory-in-3",
                 _ => "factory-in-5",
             });
-            unsafe {
-                base.overlay(r#in.rotate(r.rotated(false).count()))
-                    .overlay(&load!(scl -> match n {
-                        "small-deconstructor" => "small-deconstructor-top",
-                        "deconstructor" => "deconstructor-top",
-                        _ => "payload-void-top",
-                    }))
-            };
+            unsafe { r#in.rotate(r.rotated(false).count()) };
+            unsafe { base.overlay(&r#in) };
+            let top = load!(scl -> match n {
+                "small-deconstructor" => "small-deconstructor-top",
+                "deconstructor" => "deconstructor-top",
+                _ => "payload-void-top",
+            });
+            unsafe { base.overlay(&top) };
             base
         }
         // "payload-loader" | "payload-unloader"
         _ => {
             let mut base = load!(from n which is ["payload-loader" | "payload-unloader"], scl);
             let mut input = load!("factory-in-3-dark", scl);
+            unsafe { input.rotate(r.rotated(false).count()) };
+            unsafe { base.overlay(&input) };
+
             let mut output = load!("factory-out-3-dark", scl);
-            unsafe {
-                base.overlay(input.rotate(r.rotated(false).count()))
-                .overlay(output.rotate(r.rotated(false).count()))
-                .overlay(
-                    &load!(concat "top" => n which is ["payload-loader" | "payload-unloader"], scl),
-                )
-            };
+            unsafe { output.rotate(r.rotated(false).count()) };
+            unsafe { base.overlay(&output) };
+
+            let top =
+                load!(concat "top" => n which is ["payload-loader" | "payload-unloader"], scl);
+            unsafe { base.overlay(&top) };
             base
         }
     }
@@ -59,10 +61,10 @@ make_simple!(
     PayloadRouter,
     |_, n, _, _, r: Rotation, s| {
         let mut base = load!(from n which is ["payload-router" | "reinforced-payload-router"], s);
-        unsafe {
-            base.rotate(r.rotated(false).count());
-            base.overlay(& load!(concat "over" => n which is ["payload-router" | "reinforced-payload-router"], s));
-        }
+        unsafe { base.rotate(r.rotated(false).count()) };
+        let over =
+            load!(concat "over" => n which is ["payload-router" | "reinforced-payload-router"], s);
+        unsafe { base.overlay(&over) };
         base
     },
     read_payload_router
@@ -115,11 +117,10 @@ impl BlockLogic for PayloadBlock {
             "large-constructor" => "factory-out-5-dark",
             _ => "factory-out-5",
         });
-        unsafe {
-            out.rotate(r.rotated(false).count());
-            base.overlay(&out);
-            base.overlay(&load!(concat "top" => name which is ["constructor" | "large-constructor" | "payload-source"], s))
-        };
+        unsafe { out.rotate(r.rotated(false).count()) };
+        unsafe { base.overlay(&out) };
+        let top = load!(concat "top" => name which is ["constructor" | "large-constructor" | "payload-source"], s);
+        unsafe { base.overlay(&top) };
         base
     }
 

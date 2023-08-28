@@ -11,8 +11,10 @@
     test
 )]
 #![warn(
-    clippy::missing_safety_doc,
+    clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
+    clippy::missing_safety_doc,
+    unsafe_op_in_unsafe_fn,
     clippy::dbg_macro,
     clippy::perf
 )]

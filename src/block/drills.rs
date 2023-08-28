@@ -7,16 +7,18 @@ make_simple!(
     |_, name, _, _, rot: Rotation, s| {
         let mut base =
             load!(from name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
-        unsafe {
-            base.overlay(load!(concat "top" => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s).rotate(rot.rotated(false).count()) )
-        };
+        let mut top = load!(concat "top" => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
+        unsafe { top.rotate(rot.rotated(false).count()) };
+        unsafe { base.overlay(&top) };
         base
     },
     |_, buff: &mut DataRead| read_drill(buff)
 );
 make_simple!(WallDrillBlock, |_, _, _, _, rot: Rotation, scl| {
     let mut base = load!("cliff-crusher", scl);
-    unsafe { base.overlay(load!("cliff-crusher-top", scl).rotate(rot.rotated(false).count())) };
+    let mut top = load!("cliff-crusher-top", scl);
+    unsafe { top.rotate(rot.rotated(false).count()) };
+    unsafe { base.overlay(&top) };
     base
 });
 

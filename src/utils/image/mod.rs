@@ -35,19 +35,19 @@ pub trait ImageUtils {
     fn scale(self, to: u32) -> Image<Vec<u8>, 4>;
 }
 
-macro_rules! unsafe_assert {
+macro_rules! assert_unchecked {
     ($cond:expr) => {{
         if !$cond {
             #[cfg(debug_assertions)]
+            let _ = ::core::ptr::NonNull::<()>::dangling().as_ref(); // force unsafe wrapping block
+            #[cfg(debug_assertions)]
             panic!("assertion failed: {} returned false", stringify!($cond));
             #[cfg(not(debug_assertions))]
-            unsafe {
-                std::hint::unreachable_unchecked()
-            };
+            std::hint::unreachable_unchecked()
         }
     }};
 }
-pub(self) use unsafe_assert;
+use assert_unchecked;
 
 impl RepeatNew for Image<&[u8], 4> {
     type Output = Image<Vec<u8>, 4>;
@@ -56,7 +56,8 @@ impl RepeatNew for Image<&[u8], 4> {
         for x in 0..(x / self.width()) {
             for y in 0..(y / self.height()) {
                 let a: &mut Image<&mut [u8], 4> = &mut img.as_mut();
-                a.overlay_at(self, x * self.width(), y * self.height());
+                // SAFETY: caller upholds
+                unsafe { a.overlay_at(self, x * self.width(), y * self.height()) };
             }
         }
         img
@@ -65,20 +66,17 @@ impl RepeatNew for Image<&[u8], 4> {
 
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        unsafe_assert!(self.width() == with.width());
-        unsafe_assert!(self.height() == with.height());
+        // SAFETY: caller upholds these
+        unsafe { assert_unchecked!(self.width() == with.width()) };
+        unsafe { assert_unchecked!(self.height() == with.height()) };
         for (i, other_pixels) in with.chunked().enumerate() {
             if other_pixels[3] >= 128 {
+                let idx_begin = unsafe { i.unchecked_mul(4) };
+                let idx_end = unsafe { idx_begin.unchecked_add(4) };
+                let own_pixels = unsafe { self.buffer.get_unchecked_mut(idx_begin..idx_end) };
                 unsafe {
-                    let own_pixels = self
-                        .buffer
-                        .get_unchecked_mut(i.unchecked_mul(4)..i.unchecked_mul(4).unchecked_add(4));
-                    std::ptr::copy_nonoverlapping(
-                        other_pixels.as_ptr(),
-                        own_pixels.as_mut_ptr(),
-                        4,
-                    );
-                }
+                    std::ptr::copy_nonoverlapping(other_pixels.as_ptr(), own_pixels.as_mut_ptr(), 4)
+                };
             }
         }
         self
@@ -164,9 +162,8 @@ impl ImageUtils for Image<&mut [u8], 4> {
 #[inline]
 unsafe fn really_unsafe_index(x: u32, y: u32, w: u32) -> usize {
     // y * w + x
-    (y as usize)
-        .unchecked_mul(w as usize)
-        .unchecked_add(x as usize)
+    let tmp = unsafe { (y as usize).unchecked_mul(w as usize) };
+    unsafe { tmp.unchecked_add(x as usize) }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -227,15 +224,18 @@ impl<T: std::ops::Deref<Target = [u8]>, const CHANNELS: usize> Image<T, CHANNELS
     pub unsafe fn slice(&self, x: u32, y: u32) -> impl SliceIndex<[u8], Output = [u8]> {
         debug_assert!(x < self.width(), "x out of bounds");
         debug_assert!(y < self.height(), "y out of bounds");
-        let index = really_unsafe_index(x, y, self.width()).unchecked_mul(CHANNELS);
+        let index = unsafe { really_unsafe_index(x, y, self.width()) };
+        let index = unsafe { index.unchecked_mul(CHANNELS) };
         debug_assert!(self.buffer.len() > index);
-        index..index.unchecked_add(CHANNELS)
+        index..unsafe { index.unchecked_add(CHANNELS) }
     }
 
     #[inline]
     pub fn chunked(&self) -> impl Iterator<Item = &[u8; CHANNELS]> {
-        unsafe_assert!(self.buffer.len() > CHANNELS);
-        unsafe_assert!(self.buffer.len() % CHANNELS == 0);
+        // SAFETY: 0 sized images illegal
+        unsafe { assert_unchecked!(self.buffer.len() > CHANNELS) };
+        // SAFETY: no half pixels!
+        unsafe { assert_unchecked!(self.buffer.len() % CHANNELS == 0) };
         self.buffer.array_chunks::<CHANNELS>()
     }
 
@@ -245,7 +245,9 @@ impl<T: std::ops::Deref<Target = [u8]>, const CHANNELS: usize> Image<T, CHANNELS
     /// Refer to [`slice`]
     #[inline]
     pub unsafe fn pixel(&self, x: u32, y: u32) -> [u8; CHANNELS] {
-        *(self.buffer.get_unchecked(self.slice(x, y)).as_ptr().cast())
+        let idx = unsafe { self.slice(x, y) };
+        let ptr = unsafe { self.buffer.get_unchecked(idx).as_ptr().cast() };
+        unsafe { *ptr }
     }
 }
 
@@ -256,18 +258,30 @@ impl<T: std::ops::DerefMut<Target = [u8]>, const CHANNELS: usize> Image<T, CHANN
     /// Refer to [`slice`]
     #[inline]
     pub unsafe fn pixel_mut(&mut self, x: u32, y: u32) -> &mut [u8] {
-        let idx = self.slice(x, y);
-        self.buffer.get_unchecked_mut(idx)
+        let idx = unsafe { self.slice(x, y) };
+        unsafe { self.buffer.get_unchecked_mut(idx) }
     }
 
     #[inline]
     pub fn chunked_mut(&mut self) -> impl Iterator<Item = &mut [u8; CHANNELS]> {
+        // SAFETY: 0 sized images are not allowed
+        unsafe { assert_unchecked!(self.buffer.len() > CHANNELS) };
+        // SAFETY: buffer cannot have half pixels
+        unsafe { assert_unchecked!(self.buffer.len() % CHANNELS == 0) };
         self.buffer.array_chunks_mut::<CHANNELS>()
     }
 
+    /// Set the pixel at x, y
+    ///
+    /// # Safety
+    ///
+    /// UB if x, y is out of bounds.
     #[inline]
     pub unsafe fn set_pixel(&mut self, x: u32, y: u32, px: [u8; CHANNELS]) {
-        std::ptr::copy_nonoverlapping(px.as_ptr(), self.pixel_mut(x, y).as_mut_ptr(), CHANNELS);
+        // SAFETY: Caller says that x, y is in bounds
+        let out = unsafe { self.pixel_mut(x, y) };
+        // SAFETY: px must be CHANNELS long
+        unsafe { std::ptr::copy_nonoverlapping(px.as_ptr(), out.as_mut_ptr(), CHANNELS) };
     }
 }
 

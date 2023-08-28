@@ -12,22 +12,19 @@ make_simple!(
         // electrolyzer exclusive
         // ozone <- e(^) -> hydrogen
         let mut base = load!("electrolyzer", s);
-        unsafe {
-            base.overlay(
-                load!(s -> match r {
-                    Rotation::Up | Rotation::Left => "electrolyzer-hydrogen-output1"
-                    Rotation::Down | Rotation::Right => "electrolyzer-hydrogen-output2"
-                })
-                .rotate(r.count()),
-            );
-            base.overlay(
-                load!(s -> match r {
-                    Rotation::Down | Rotation::Right => "electrolyzer-ozone-output1"
-                    Rotation::Up | Rotation::Left => "electrolyzer-ozone-output2"
-                })
-                .rotate(r.mirrored(true, true).count()),
-            );
-        }
+        let mut hydro = load!(s -> match r {
+            Rotation::Up | Rotation::Left => "electrolyzer-hydrogen-output1"
+            Rotation::Down | Rotation::Right => "electrolyzer-hydrogen-output2"
+        });
+        unsafe { hydro.rotate(r.count()) };
+        unsafe { base.overlay(&hydro) };
+
+        let mut ozone = load!(s -> match r {
+            Rotation::Down | Rotation::Right => "electrolyzer-ozone-output1"
+            Rotation::Up | Rotation::Left => "electrolyzer-ozone-output2"
+        });
+        unsafe { ozone.rotate(r.mirrored(true, true).count()) };
+        unsafe { base.overlay(&ozone) };
         base
     },
     |b: &mut Build<'_>, buff: &mut DataRead| {
@@ -44,12 +41,16 @@ make_simple!(
     HeatCrafter,
     |_, n, _, _, r: Rotation, s| {
         let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s);
-        unsafe {
-            base.overlay(match r {
-            Rotation::Up | Rotation::Right => load!(concat "top1" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s),
-            Rotation::Down | Rotation::Left => load!(concat "top2" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
-        }.rotate(r.rotated(false).count()))
+        let mut top = match r {
+            Rotation::Up | Rotation::Right => {
+                load!(concat "top1" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+            }
+            Rotation::Down | Rotation::Left => {
+                load!(concat "top2" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+            }
         };
+        unsafe { top.rotate(r.rotated(false).count()) };
+        unsafe { base.overlay(&top) };
         base
     },
     |_, buff: &mut DataRead| {
@@ -63,18 +64,15 @@ make_simple!(
 );
 make_simple!(HeatConduit, |_, n, _, _, r: Rotation, s| {
     let mut base = load!(from n which is ["heat-router" | "heat-redirector"], s);
-    unsafe {
-        base.overlay(
-            match r {
-                Rotation::Up | Rotation::Right => {
-                    load!(concat "top1" => n which is ["heat-router" | "heat-redirector"], s)
-                }
-                Rotation::Down | Rotation::Left => {
-                    load!(concat "top2" => n which is ["heat-router" | "heat-redirector"], s)
-                }
-            }
-            .rotate(r.rotated(false).count()),
-        )
+    let mut top = match r {
+        Rotation::Up | Rotation::Right => {
+            load!(concat "top1" => n which is ["heat-router" | "heat-redirector"], s)
+        }
+        Rotation::Down | Rotation::Left => {
+            load!(concat "top2" => n which is ["heat-router" | "heat-redirector"], s)
+        }
     };
+    unsafe { top.rotate(r.rotated(false).count()) };
+    unsafe { base.overlay(&top) };
     base
 });

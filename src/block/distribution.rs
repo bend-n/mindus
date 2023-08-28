@@ -39,12 +39,10 @@ make_simple!(JunctionBlock => |_, buff| { read_directional_item_buffer(buff) });
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
     let mut base = load!("duct-base", s);
     let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
-    unsafe {
-        // SAFETY: any load() is square
-        top.rotate(rot.rotated(false).count());
-        // SAFETY: same size
-        base.overlay(&top);
-    }
+    // SAFETY: any load!() is square
+    unsafe { top.rotate(rot.rotated(false).count()) };
+    // SAFETY: same size
+    unsafe { base.overlay(&top) };
     base
 });
 
@@ -124,7 +122,9 @@ make_simple!(
     SurgeRouter,
     |_, _, _, _, r: Rotation, s| {
         let mut base = load!("surge-router", s);
-        unsafe { base.overlay(load!("top", s).rotate(r.rotated(false).count())) };
+        let mut top = load!("top", s);
+        unsafe { top.rotate(r.rotated(false).count()) };
+        unsafe { base.overlay(&top) };
         base
     },
     |_, buff: &mut DataRead| buff.skip(2)
@@ -206,17 +206,14 @@ impl BlockLogic for ItemBlock {
             unsafe { p.overlay(top.tint(item.color())) };
             return p;
         }
-        match name {
-            "duct-router" => {
-                unsafe { p.overlay(load!("top", s).rotate(rot.rotated(false).count())) };
-            }
-            "duct-unloader" => {
-                unsafe {
-                    p.overlay(load!("duct-unloader-top", s).rotate(rot.rotated(false).count()))
-                };
-            }
-            _ => {}
-        };
+        if matches!(name, "duct-router" | "duct-unloader") {
+            let mut top = load!(s -> match name {
+                "duct-router" => "top",
+                "duct-unloader" => "duct-unloader-top",
+            });
+            unsafe { top.rotate(rot.rotated(false).count()) };
+            unsafe { p.overlay(&top) };
+        }
         p
     }
 
@@ -442,10 +439,8 @@ impl BlockLogic for BridgeBlock {
                         _ => "reinforced-bridge-conduit-dir",
                     }
                 );
-                unsafe {
-                    arrow.rotate(r.rotated(false).count());
-                    base.overlay(&arrow)
-                };
+                unsafe { arrow.rotate(r.rotated(false).count()) };
+                unsafe { base.overlay(&arrow) };
                 base
             }
             // "bridge-conveyor" | "phase-conveyor" | "bridge-conduit" | "phase-conduit" | "payload-mass-driver" | "large-payload-mass-driver"

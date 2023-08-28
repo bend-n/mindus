@@ -4,15 +4,12 @@ use super::Image;
 pub fn rot_180<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() / 2 {
         for x in 0..img.width() {
-            // SAFETY: this is safe because it cannot be out of bounds
-            unsafe {
-                let p = img.pixel(x, y);
-                let x2 = img.width() - x - 1;
-                let y2 = img.height() - y - 1;
-                let p2 = img.pixel(x2, y2);
-                img.set_pixel(x, y, p2);
-                img.set_pixel(x2, y2, p);
-            }
+            let p = unsafe { img.pixel(x, y) };
+            let x2 = img.width() - x - 1;
+            let y2 = img.height() - y - 1;
+            let p2 = unsafe { img.pixel(x2, y2) };
+            unsafe { img.set_pixel(x, y, p2) };
+            unsafe { img.set_pixel(x2, y2, p) };
         }
     }
 
@@ -20,15 +17,11 @@ pub fn rot_180<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
         let middle = img.height() / 2;
 
         for x in 0..img.width() / 2 {
-            // SAFETY: this is safe because it cannot be out of bounds
-            unsafe {
-                let p = img.pixel(x, middle);
-                let x2 = img.width() - x - 1;
-
-                let p2 = img.pixel(x2, middle);
-                img.set_pixel(x, middle, p2);
-                img.set_pixel(x2, middle, p);
-            }
+            let p = unsafe { img.pixel(x, middle) };
+            let x2 = img.width() - x - 1;
+            let p2 = unsafe { img.pixel(x2, middle) };
+            unsafe { img.set_pixel(x, middle, p2) };
+            unsafe { img.set_pixel(x2, middle, p) };
         }
     }
 }
@@ -42,10 +35,13 @@ unsafe fn transpose<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>)
     for i in 0..size {
         for j in i..size {
             for c in 0..CHANNELS {
-                img.buffer.swap_unchecked(
-                    (i * size + j) as usize * CHANNELS + c,
-                    (j * size + i) as usize * CHANNELS + c,
-                );
+                // SAFETY: caller gurantees rectangularity
+                unsafe {
+                    img.buffer.swap_unchecked(
+                        (i * size + j) as usize * CHANNELS + c,
+                        (j * size + i) as usize * CHANNELS + c,
+                    )
+                };
             }
         }
     }
@@ -60,7 +56,8 @@ unsafe fn transpose<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>)
 #[inline]
 pub unsafe fn rot_90<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     flip_v(img);
-    transpose(img);
+    // SAFETY: caller ensures rectangularity
+    unsafe { transpose(img) };
 }
 
 /// Rotate a image 270 degrees clockwise, or 90 degrees anti clockwise.
@@ -72,22 +69,22 @@ pub unsafe fn rot_90<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>
 #[inline]
 pub unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     flip_h(img);
-    transpose(img);
+    // SAFETY: caller ensures rectangularity
+    unsafe { transpose(img) };
 }
 
 /// Flip a image vertically.
 pub fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() / 2 {
         for x in 0..img.width() {
-            // SAFETY: cant overflow
-            unsafe {
-                let y2 = img.height().unchecked_sub(y).unchecked_sub(1);
-                // SAFETY: within bounds
-                let p2 = img.pixel(x, y2);
-                let p = img.pixel(x, y);
-                img.set_pixel(x, y2, p);
-                img.set_pixel(x, y, p2);
-            }
+            // SAFETY: i think this is unsound if the image is big enough
+            let y2 = unsafe { img.height().unchecked_sub(y) };
+            let y2 = unsafe { y2.unchecked_sub(1) };
+            // SAFETY: within bounds
+            let p2 = unsafe { img.pixel(x, y2) };
+            let p = unsafe { img.pixel(x, y) };
+            unsafe { img.set_pixel(x, y2, p) };
+            unsafe { img.set_pixel(x, y, p2) };
         }
     }
 }
@@ -96,14 +93,12 @@ pub fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
 pub fn flip_h<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() {
         for x in 0..img.width() / 2 {
-            // SAFETY: This cannot be out of bounds
-            unsafe {
-                let x2 = img.width().unchecked_sub(x).unchecked_sub(1);
-                let p2 = img.pixel(x2, y);
-                let p = img.pixel(x, y);
-                img.set_pixel(x2, y, p);
-                img.set_pixel(x, y, p2);
-            }
+            let x2 = unsafe { img.width().unchecked_sub(x) };
+            let x2 = unsafe { x2.unchecked_sub(1) };
+            let p2 = unsafe { img.pixel(x2, y) };
+            let p = unsafe { img.pixel(x, y) };
+            unsafe { img.set_pixel(x2, y, p) };
+            unsafe { img.set_pixel(x, y, p2) };
         }
     }
 }
