@@ -64,25 +64,6 @@ impl RepeatNew for Image<&[u8], 3> {
     }
 }
 
-impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
-    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        // SAFETY: caller upholds these
-        unsafe { assert_unchecked!(self.width() == with.width()) };
-        unsafe { assert_unchecked!(self.height() == with.height()) };
-        for (i, other_pixels) in with.chunked().enumerate() {
-            if other_pixels[3] >= 128 {
-                let idx_begin = unsafe { i.unchecked_mul(4) };
-                let idx_end = unsafe { idx_begin.unchecked_add(4) };
-                let own_pixels = unsafe { self.buffer.get_unchecked_mut(idx_begin..idx_end) };
-                unsafe {
-                    std::ptr::copy_nonoverlapping(other_pixels.as_ptr(), own_pixels.as_mut_ptr(), 4)
-                };
-            }
-        }
-        self
-    }
-}
-
 impl ImageUtils for Image<&mut [u8], 4> {
     unsafe fn rotate(&mut self, times: u8) -> &mut Self {
         match times {

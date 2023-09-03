@@ -58,7 +58,29 @@ pub unsafe fn blit(rgb: &mut [u8], rgba: &[u8]) {
     }
 }
 
+
+impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
+    #[inline]
+    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
+        // SAFETY: caller upholds these
+        unsafe { assert_unchecked!(self.width() == with.width()) };
+        unsafe { assert_unchecked!(self.height() == with.height()) };
+        for (i, other_pixels) in with.chunked().enumerate() {
+            if other_pixels[3] >= 128 {
+                let idx_begin = unsafe { i.unchecked_mul(4) };
+                let idx_end = unsafe { idx_begin.unchecked_add(4) };
+                let own_pixels = unsafe { self.buffer.get_unchecked_mut(idx_begin..idx_end) };
+                unsafe {
+                    std::ptr::copy_nonoverlapping(other_pixels.as_ptr(), own_pixels.as_mut_ptr(), 4)
+                };
+            }
+        }
+        self
+    }
+}
+
 impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 3> {
+    #[inline]
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         // SAFETY: caller upholds these
         unsafe { assert_unchecked!(x + with.width() <= self.width()) };
@@ -80,6 +102,7 @@ impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 3> {
 }
 
 impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
+    #[inline]
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
         macro_rules! o3x3 {
             ($n:expr) => {{
@@ -105,6 +128,7 @@ impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
 }
 
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
+    #[inline]
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
         unsafe { assert_unchecked!(self.width() == with.width()) };
         unsafe { assert_unchecked!(self.height() == with.height()) };
@@ -125,6 +149,7 @@ impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
 }
 
 impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 4> {
+    #[inline]
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
