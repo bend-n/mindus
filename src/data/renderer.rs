@@ -232,6 +232,20 @@ impl Renderable for Map<'_> {
                 }
             }
         }
+        for entity in &self.entities {
+            // bounds checks
+            let (x, y) = (
+                entity.state.position.0 as u32,
+                self.height as u32 - entity.state.position.1 as u32 - 1,
+            );
+            if x < 10 || x as usize > self.width - 10 || y < 10 || y as usize > self.height - 10 {
+                continue;
+            }
+            unsafe {
+                top.as_mut()
+                    .overlay_at(&entity.draw(scale).borrow(), scale * x, scale * y)
+            };
+        }
         unsafe { floor.as_mut().overlay(&top.as_ref()) };
         floor
     }

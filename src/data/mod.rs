@@ -126,14 +126,11 @@ impl<'d> DataRead<'d> {
         Ok(len)
     }
 
-    pub fn read_chunk<E>(
+    pub fn read_chunk<E: Error + From<ReadError>, T>(
         &mut self,
         big: bool,
-        f: impl FnOnce(&mut DataRead) -> Result<(), E>,
-    ) -> Result<(), E>
-    where
-        E: Error + From<ReadError>,
-    {
+        f: impl FnOnce(&mut DataRead) -> Result<T, E>,
+    ) -> Result<T, E> {
         let len = if big {
             self.read_u32()? as usize
         } else {
@@ -154,10 +151,10 @@ impl<'d> DataRead<'d> {
                 };
                 Err(e)
             }
-            Ok(_) => {
+            Ok(v) => {
                 debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
                 debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
-                Ok(())
+                Ok(v)
             }
         }
     }

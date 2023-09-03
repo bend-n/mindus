@@ -81,6 +81,7 @@ use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
 use crate::item::{storage::Storage, Type as Item};
 use crate::team::{self, Team};
+use crate::unit::Unit;
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
@@ -423,6 +424,7 @@ pub struct Map<'l> {
     pub width: usize,
     pub height: usize,
     pub tags: HashMap<String, String>,
+    pub entities: Vec<Unit>,
     /// row major 2d array
     /// ```rs
     /// (0, 0), (1, 0), (2, 0)
@@ -488,6 +490,7 @@ impl<'l> Map<'l> {
             height,
             width,
             tags,
+            entities: vec![],
         }
     }
 }
@@ -562,8 +565,7 @@ impl<'l> Serializable for Map<'l> {
         // map section
         let mut w = 0;
         let mut h = 0;
-        let mut m = None;
-        buff.read_chunk(true, |buff| {
+        let mut map = buff.read_chunk(true, |buff| {
             w = buff.read_u16()? as usize;
             h = buff.read_u16()? as usize;
             let mut map = Map::new(w, h, tags);
@@ -626,10 +628,9 @@ impl<'l> Serializable for Map<'l> {
                 }
                 i += 1;
             }
-            m = Some(map);
-            Ok::<(), ReadError>(())
+            Ok::<_, ReadError>(map)
         })?;
-        buff.read_chunk(true, |buff| {
+        map.entities = buff.read_chunk(true, |buff| {
             // read entity mapping (SaveVersion.java#436)
             for _ in 0..buff.read_u16()? {
                 buff.skip(2)?;
@@ -644,7 +645,9 @@ impl<'l> Serializable for Map<'l> {
                 }
             }
             // read world entities (#412). eg units
-            for _ in 0..buff.read_u32()? {
+            let n = buff.read_u32()?;
+            let mut entities = Vec::with_capacity(n as usize);
+            for _ in 0..n {
                 let len = buff.read_u16()? as usize;
                 let id = buff.read_u8()? as usize;
                 let Some(&Some(u)) = entity_mapping::ID.get(id) else {
@@ -653,13 +656,13 @@ impl<'l> Serializable for Map<'l> {
                     // return Ok(());
                 };
                 buff.skip(4)?;
-                let _ = u.read(buff)?;
+                entities.push(u.read(buff)?);
             }
-            Ok::<(), ReadError>(())
+            Ok::<_, ReadError>(entities)
         })?;
         // skip custom chunks
         buff.skip_chunk()?;
-        Ok(m.unwrap())
+        Ok(map)
     }
 
     /// serialize a map (todo)

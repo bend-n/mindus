@@ -69,15 +69,17 @@ fn main() {
                 continue;
             }
             let rgb = path.components().any(|c| c.as_os_str() == "floors");
+            let env = path.components().any(|c| c.as_os_str() == "environment");
             let path = kebab2bigsnek(path.with_extension("").file_name().unwrap().to_str().unwrap());
             if matches!(path.as_str(), "CLIFF_CRUSHER_ROTATOR" | "NEOPLASIA_REACTOR_CENTER" | "FLUX_REACTOR_MID" | "EDGE" | "PHASE_CONVEYOR_BRIDGE" | "BRIDGE_ARROW" | "DUCT_BRIDGE_BRIDGE" | "DUCT_BRIDGE_ARROW" | "LAUNCHPOD" | "BRIDGE_CONVEYOR_BRIDGE" | "BRIDGE_CONVEYOR_ARROW" | "PHASE_CONVEYOR_ARROW" | "REINFORCED_BRIDGE_CONDUIT_ARROW" | "REINFORCED_BRIDGE_CONDUIT_BRIDGE" | "PHASE_CONDUIT_BRIDGE" | "BRIDGE_CONDUIT_ARROW" | "PHASE_CONDUIT_ARROW" | "BRIDGE_CONDUIT_BRIDGE" | "PLATED_CONDUIT_CAP") {
                 continue
             }
+            println!("do {path}");
             macro_rules! writ {
                 ($ext:ident / $scale:literal) => {
                     let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
                     // boulders
-                    let (mx, my) = if p.width() + p.height() == 48+48 {
+                    let (mx, my) = if env && p.width() + p.height() == 48+48 {
                         (32, 32)
                     // vents (dont match VENT_CONDENSER, do match (RHYOLITE_VENT)
                     } else if path.contains("_VENT")

@@ -10,76 +10,93 @@ use crate::data::{DataRead, ReadError};
 use crate::item::Type as Item;
 use crate::modifier::Type as Status;
 use crate::team::Team;
+use crate::utils::ImageHolder;
 use crate::Serializable;
 
-content_enum! {
-    pub enum Type / Unit for u16 | TryFromU16Error {
-        "dagger",
-        "mace",
-        "fortress",
-        "scepter",
-        "reign",
-        "nova",
-        "pulsar",
-        "quasar",
-        "vela",
-        "corvus",
-        "crawler",
-        "atrax",
-        "spiroct",
-        "arkyid",
-        "toxopid",
-        "flare",
-        "horizon",
-        "zenith",
-        "antumbra",
-        "eclipse",
-        "mono",
-        "poly",
-        "mega",
-        "quad",
-        "oct",
-        "risso",
-        "minke",
-        "bryde",
-        "sei",
-        "omura",
-        "retusa",
-        "oxynoe",
-        "cyerce",
-        "aegires",
-        "navanax",
-        "alpha",
-        "beta",
-        "gamma",
-        "stell",
-        "locus",
-        "precept",
-        "vanquish",
-        "conquer",
-        "merui",
-        "cleroi",
-        "anthicus",
-        "anthicus-missile",
-        "tecta",
-        "collaris",
-        "elude",
-        "avert",
-        "obviate",
-        "quell",
-        "quell-missile",
-        "disrupt",
-        "disrupt-missile",
-        "renale",
-        "latum",
-        "evoke",
-        "incite",
-        "emanate",
-        "block",
-        "manifold",
-        "assembly-drone",
-        "scathe-missile",
-    }
+macro_rules! units {
+    ($($unit:literal,)+ $(,)?) => { paste::paste! {
+        content_enum! (pub enum Type / Unit for u16 | TryFromU16Error {
+            $($unit,)+
+        });
+
+        impl Type {
+            fn draw(self, s: crate::data::renderer::Scale) -> ImageHolder<4> {
+                match self {
+                    $(Type::[<$unit:camel>] => units!(@help $unit + s),)+
+                }
+            }
+        }
+    } };
+    (@help "block" + $s:expr) => { crate::data::renderer::load!("empty4", $s) };
+    (@help $v:literal + $s:expr) => { crate::data::renderer::load!($v, $s) };
+}
+
+units! {
+    "dagger",
+    "mace",
+    "fortress",
+    "scepter",
+    "reign",
+    "nova",
+    "pulsar",
+    "quasar",
+    "vela",
+    "corvus",
+    "crawler",
+    "atrax",
+    "spiroct",
+    "arkyid",
+    "toxopid",
+    "flare",
+    "horizon",
+    "zenith",
+    "antumbra",
+    "eclipse",
+    "mono",
+    "poly",
+    "mega",
+    "quad",
+    "oct",
+    "risso",
+    "minke",
+    "bryde",
+    "sei",
+    "omura",
+    "retusa",
+    "oxynoe",
+    "cyerce",
+    "aegires",
+    "navanax",
+    "alpha",
+    "beta",
+    "gamma",
+    "stell",
+    "locus",
+    "precept",
+    "vanquish",
+    "conquer",
+    "merui",
+    "cleroi",
+    "anthicus",
+    "anthicus-missile",
+    "tecta",
+    "collaris",
+    "elude",
+    "avert",
+    "obviate",
+    "quell",
+    "quell-missile",
+    "disrupt",
+    "disrupt-missile",
+    "renale",
+    "latum",
+    "evoke",
+    "incite",
+    "emanate",
+    "block",
+    "manifold",
+    "assembly-drone",
+    "scathe-missile",
 }
 
 #[derive(Default, Debug)]
@@ -257,7 +274,10 @@ impl UnitClass {
         let ty = Type::try_from(buff.read_u16()?).unwrap();
         buff.skip(1)?; // update_building
         state.velocity = (buff.read_f32()?, buff.read_f32()?);
-        state.position = (buff.read_f32()?, buff.read_f32()?);
+        state.position = (
+            (buff.read_f32()? / 8.0).floor(),
+            (buff.read_f32()? / 8.0).floor(),
+        );
         Ok(Unit { state, ty })
     }
 }
@@ -348,4 +368,11 @@ fn read_status(buff: &mut DataRead) -> Result<[Status; 3], ReadError> {
         }
     }
     Ok(status)
+}
+
+impl Unit {
+    #[inline]
+    pub fn draw(&self, s: crate::data::renderer::Scale) -> ImageHolder<4> {
+        self.ty.draw(s)
+    }
 }
