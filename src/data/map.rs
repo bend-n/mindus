@@ -445,26 +445,6 @@ macro_rules! cond {
 }
 
 impl<'l> Crossable for Map<'l> {
-    // N
-    // cond!(pos.position.1 >= (pos.height - 1) as u16, get(j + 1)),
-    // // E
-    // cond!(
-    //     pos.position.0 >= (pos.height - 1) as u16,
-    //     get(j + pos.height)
-    // ),
-    // // S
-    // cond!(
-    //     pos.position.1 == 0 || pos.position.1 >= pos.height as u16,
-    // cond!(pos.position.1 >= (pos.height - 1), get(j + 1)),
-    //      // E
-    //      cond!(pos.position.0 >= (pos.height - 1), get(j + pos.height)),
-    //      // S
-    //      cond!(
-    //          pos.position.1 == 0 || pos.position.1 >= pos.height,
-    //          get(j - 1)
-    //      ),
-    //      // W
-    //      cond!(j < pos.height, get(j - pos.height)),
     fn cross(&self, j: usize, c: &PositionContext) -> Cross {
         let get = |i| {
             let b = &self[i];
@@ -486,12 +466,16 @@ impl<'l> Map<'l> {
     #[must_use]
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
-            tiles: vec![Tile::new(BlockEnum::Air, BlockEnum::Air); width * height],
+            tiles: Vec::with_capacity(width * height),
             height,
             width,
             tags,
             entities: vec![],
         }
+    }
+
+    fn push(&mut self, t: Tile<'l>) {
+        self.tiles.push(t);
     }
 }
 
@@ -576,11 +560,11 @@ impl<'l> Serializable for Map<'l> {
                 let overlay_id = buff.read_u16()?;
                 let floor = BlockEnum::try_from(floor_id).unwrap_or(BlockEnum::Stone);
                 let ore = BlockEnum::try_from(overlay_id).unwrap_or(BlockEnum::Air);
-                map[i] = Tile::new(floor, ore);
+                map.push(Tile::new(floor, ore));
                 let consecutives = buff.read_u8()? as usize;
                 if consecutives > 0 {
-                    for i in (i + 1)..(i + 1 + consecutives) {
-                        map[i] = Tile::new(floor, ore);
+                    for _ in 0..consecutives {
+                        map.push(Tile::new(floor, ore));
                     }
                     i += consecutives;
                 }

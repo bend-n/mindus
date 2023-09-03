@@ -58,7 +58,6 @@ pub unsafe fn blit(rgb: &mut [u8], rgba: &[u8]) {
     }
 }
 
-
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
     #[inline]
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
