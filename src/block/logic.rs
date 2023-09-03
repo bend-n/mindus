@@ -335,8 +335,7 @@ fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDes
     buff.read_bytes(&mut code)?;
     let code = String::from_utf8(code)?;
     let link_cnt = buff.read_u32()? as usize;
-    let mut links = vec![];
-    links.reserve(link_cnt);
+    let mut links = Vec::with_capacity(link_cnt);
     for _ in 0..link_cnt {
         let name = buff.read_utf()?;
         let x = buff.read_i16()?;

@@ -66,7 +66,7 @@ where
     }
 
     pub fn reserve(&mut self, n: usize) {
-        self.base.reserve(n)
+        self.base.reserve_exact(n)
     }
 
     /// get item count of certain element
