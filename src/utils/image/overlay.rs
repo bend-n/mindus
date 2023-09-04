@@ -61,9 +61,8 @@ pub unsafe fn blit(rgb: &mut [u8], rgba: &[u8]) {
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
     #[inline]
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        // SAFETY: caller upholds these
-        unsafe { assert_unchecked!(self.width() == with.width()) };
-        unsafe { assert_unchecked!(self.height() == with.height()) };
+        debug_assert!(self.width() == with.width());
+        debug_assert!(self.height() == with.height());
         for (i, other_pixels) in with.chunked().enumerate() {
             if other_pixels[3] >= 128 {
                 let idx_begin = unsafe { i.unchecked_mul(4) };
@@ -129,8 +128,8 @@ impl OverlayAt<Image<&[u8], 3>> for Image<&mut [u8], 3> {
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
     #[inline]
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        unsafe { assert_unchecked!(self.width() == with.width()) };
-        unsafe { assert_unchecked!(self.height() == with.height()) };
+        debug_assert!(self.width() == with.width());
+        debug_assert!(self.height() == with.height());
         for (i, chunk) in with
             .buffer
             .chunks_exact(with.width() as usize * 4)
@@ -152,21 +151,14 @@ impl OverlayAt<Image<&[u8], 4>> for Image<&mut [u8], 4> {
     unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                // TODO: see how many unchecked maths i can get rid of
-                let index_begin = unsafe { really_unsafe_index(i, j, with.width()) };
-                let index_begin = unsafe { index_begin.unchecked_mul(4) };
-                let index_end = unsafe { index_begin.unchecked_add(4) };
-                let their_px = unsafe { with.buffer.get_unchecked(index_begin..index_end) };
+                let index = unsafe { really_unsafe_index(i, j, with.width()) };
+                let their_px = unsafe { with.buffer.get_unchecked(index * 4..index * 4 + 4) };
                 if unsafe { *their_px.get_unchecked(3) } >= 128 {
                     let x = unsafe { i.unchecked_add(x) };
                     let y = unsafe { j.unchecked_add(y) };
-                    let index_begin = unsafe { really_unsafe_index(x, y, self.width()) };
-                    let index_begin = unsafe { index_begin.unchecked_mul(4) };
-                    let index_end = unsafe { index_begin.unchecked_add(4) };
-                    let our_px = unsafe { self.buffer.get_unchecked_mut(index_begin..index_end) };
-                    unsafe {
-                        std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 4)
-                    };
+                    let index = unsafe { really_unsafe_index(x, y, self.width()) };
+                    let our_px = unsafe { self.buffer.get_unchecked_mut(index * 4..index * 4 + 4) };
+                    our_px.copy_from_slice(their_px);
                 }
             }
         }
