@@ -77,9 +77,7 @@ pub unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS
 pub fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() / 2 {
         for x in 0..img.width() {
-            // SAFETY: i think this is unsound if the image is big enough
-            let y2 = unsafe { img.height().unchecked_sub(y) };
-            let y2 = unsafe { y2.unchecked_sub(1) };
+            let y2 = img.height() - y - 1;
             // SAFETY: within bounds
             let p2 = unsafe { img.pixel(x, y2) };
             let p = unsafe { img.pixel(x, y) };
@@ -93,8 +91,7 @@ pub fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
 pub fn flip_h<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() {
         for x in 0..img.width() / 2 {
-            let x2 = unsafe { img.width().unchecked_sub(x) };
-            let x2 = unsafe { x2.unchecked_sub(1) };
+            let x2 = img.width() - x - 1;
             let p2 = unsafe { img.pixel(x2, y) };
             let p = unsafe { img.pixel(x, y) };
             unsafe { img.set_pixel(x2, y, p) };
