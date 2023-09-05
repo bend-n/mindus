@@ -1,16 +1,5 @@
 //! crate for dealing with mindustry
-#![feature(
-    slice_swap_unchecked,
-    const_trait_impl,
-    slice_as_chunks,
-    unchecked_math,
-    portable_simd,
-    array_chunks,
-    trace_macros,
-    let_chains,
-    effects,
-    test
-)]
+#![feature(const_trait_impl, let_chains, effects, array_chunks)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
