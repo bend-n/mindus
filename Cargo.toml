@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "4.0.15"
+version = "4.0.17"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -19,7 +19,6 @@ base64 = "0.21"
 paste = "1.0"
 strconv = "0.1"
 amap = "0.1"
-png = { version = "0.17", features = ["unstable"], optional = true }
 color-hex = "0.2"
 thiserror = "1.0"
 bobbin-bits = "0.1"
@@ -27,9 +26,10 @@ blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
 fast_image_resize = "2.7"
 phf = { version = "0.11", features = ["macros"] }
+fimg = { version = "0.2", default-features = false }
 
 [features]
-bin = ["png"]
+bin = ["fimg/save"]
 default = ["bin"]
 
 [build-dependencies]

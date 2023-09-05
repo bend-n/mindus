@@ -68,16 +68,6 @@ impl ImageUtils for ImageHolder<4> {
         self
     }
 
-    fn flip_h(&mut self) -> &mut Self {
-        self.borrow_mut().flip_h();
-        self
-    }
-
-    fn flip_v(&mut self) -> &mut Self {
-        self.borrow_mut().flip_v();
-        self
-    }
-
     fn shadow(&mut self) -> &mut Self {
         self.borrow_mut().shadow();
         self

@@ -3,7 +3,7 @@ pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
 use super::GridPos;
 use crate::block::Rotation;
-pub(crate) use crate::utils::{Image, ImageHolder, ImageUtils, Overlay, OverlayAt, Repeat};
+pub(crate) use crate::utils::*;
 use crate::Map;
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
