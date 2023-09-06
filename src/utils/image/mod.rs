@@ -31,7 +31,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
 
     fn tint(&mut self, (r, g, b): (u8, u8, u8)) -> &mut Self {
         let [tr, tg, tb] = [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0];
-        for [r, g, b, _] in self.buffer.array_chunks_mut::<4>() {
+        for [r, g, b, _] in self.chunked_mut() {
             *r = (*r as f32 * tr) as u8;
             *g = (*g as f32 * tg) as u8;
             *b = (*b as f32 * tb) as u8;
@@ -41,21 +41,24 @@ impl ImageUtils for Image<&mut [u8], 4> {
 
     // this function is very cold but im removing image so might as well use fir
     fn scale(self, to: u32) -> Image<Vec<u8>, 4> {
-        let from =
-            fr::Image::from_slice_u8(self.width, self.height, self.buffer, fr::PixelType::U8x4)
-                .unwrap();
-        let to = to.try_into().unwrap();
-        let mut dst = fr::Image::new(to, to, fr::PixelType::U8x4);
+        let from = fr::Image::from_slice_u8(
+            self.width().try_into().unwrap(),
+            self.height().try_into().unwrap(),
+            self.take_buffer(),
+            fr::PixelType::U8x4,
+        )
+        .unwrap();
+        let toz = to.try_into().unwrap();
+        let mut dst = fr::Image::new(toz, toz, fr::PixelType::U8x4);
         fr::Resizer::new(fr::ResizeAlg::Nearest)
             .resize(&from.view(), &mut dst.view_mut())
             .unwrap();
-        Image::new(to, to, dst.into_vec())
+        Image::build(to, to).buf(dst.into_vec())
     }
 
     fn shadow(&mut self) -> &mut Self {
-        let mut shadow: Image<Vec<u8>, 4> =
-            Image::new(self.width, self.height, self.buffer.to_vec());
-        for [r, g, b, a] in shadow.buffer.array_chunks_mut() {
+        let mut shadow: Image<Vec<u8>, 4> = self.to_owned();
+        for [r, g, b, a] in shadow.chunked_mut() {
             if *a < 128 {
                 *r /= 10;
                 *g /= 10;
@@ -63,16 +66,14 @@ impl ImageUtils for Image<&mut [u8], 4> {
             }
         }
         blurslice::gaussian_blur_bytes::<4>(
-            &mut shadow.buffer,
+            unsafe { shadow.buffer_mut() },
             self.width() as usize,
             self.height() as usize,
             9.0,
         )
         .unwrap();
-        for ([r, g, b, a], &[from_r, from_g, from_b, from_a]) in self
-            .buffer
-            .array_chunks_mut()
-            .zip(shadow.buffer.array_chunks())
+        for ([r, g, b, a], &[from_r, from_g, from_b, from_a]) in
+            self.chunked_mut().zip(shadow.chunked())
         {
             if *a == 0 {
                 (*r, *g, *b, *a) = (from_r, from_g, from_b, from_a);

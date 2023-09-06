@@ -134,7 +134,7 @@ impl BlockLogic for CanvasBlock {
                 Scale::Eigth => 1,
             };
             let mut img = Image::alloc(p.width(), p.height());
-            for ([r, g, b, a], &y) in img.chunked_mut().zip(p.buffer.iter()) {
+            for ([r, g, b, a], &y) in img.chunked_mut().zip(p.buffer().iter()) {
                 (*r, *g, *b) = PALETTE[y as usize];
                 *a = 255;
             }
@@ -149,7 +149,7 @@ impl BlockLogic for CanvasBlock {
         }
 
         let mut def = Image::alloc(s * self.size as u32, s * self.size as u32);
-        for [r, g, b, a] in def.buffer.array_chunks_mut::<4>() {
+        for [r, g, b, a] in def.chunked_mut() {
             (*r, *g, *b) = PALETTE[0];
             *a = 255;
         }

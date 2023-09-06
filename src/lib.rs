@@ -1,5 +1,5 @@
 //! crate for dealing with mindustry
-#![feature(const_trait_impl, let_chains, effects, array_chunks)]
+#![feature(const_trait_impl, let_chains, effects)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,

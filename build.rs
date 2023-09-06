@@ -38,17 +38,17 @@ fn main() {
     let mut n = 22usize;
 
     wr!(full => "pub mod full {{");
-    wr!(full => "pub static EMPTY4: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, &[0; 32 * 32 * 4]);");
-    wr!(full => "pub static EMPTY: Image<&[u8], 3> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, &[0; 32 * 32 * 3]);");
+    wr!(full => "pub static EMPTY4: Image<&[u8], 4> = Image::make::<32, 32>();");
+    wr!(full => "pub static EMPTY: Image<&[u8], 3> = Image::make::<32, 32>();");
 
     wr!(quar => "pub mod quar {{");
     // forced to do this because try_into isnt const
-    wr!(quar => "pub static EMPTY4: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, &[0; 8 * 8 * 4]);");
-    wr!(quar => "pub static EMPTY: Image<&[u8], 3> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, &[0; 8 * 8 * 3]);");
+    wr!(quar => "pub static EMPTY4: Image<&[u8], 4> = Image::make::<8, 8>();");
+    wr!(quar => "pub static EMPTY: Image<&[u8], 3> = Image::make::<8, 8>();");
 
     wr!(eigh => "pub mod eigh {{");
-    wr!(eigh => "pub static EMPTY4: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, &[0; 4 * 4 * 4]);");
-    wr!(eigh => "pub static EMPTY: Image<&[u8], 3> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, &[0; 4 * 4 * 3]);");
+    wr!(eigh => "pub static EMPTY4: Image<&[u8], 4> = Image::make::<4, 4>();");
+    wr!(eigh => "pub static EMPTY: Image<&[u8], 3> = Image::make::<4, 4>();");
 
     for mut file in [&full, &quar, &eigh] {
         wr!(file => "use crate::utils::Image;");
@@ -78,6 +78,7 @@ fn main() {
             macro_rules! writ {
                 ($ext:ident / $scale:literal) => {
                     let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
+                    let out_path = format!("{}/{n}-{}", o.display(), stringify!($ext));
                     // boulders
                     let (mx, my) = if env && p.width() + p.height() == 48+48 {
                         (32, 32)
@@ -103,16 +104,10 @@ fn main() {
                     let y = new.height();
                     if rgb {
                         buf.write_all(&new.into_rgb8().into_raw()).unwrap();
-                        wr!($ext =>
-                            r#"pub(crate) static {path}: Image<&[u8], 3> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked( {x} ) }}, unsafe {{ std::num::NonZeroU32::new_unchecked( {y} ) }}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")));"#,
-                            stringify!($ext)
-                        );
+                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 3> = unsafe {{ Image::new(std::num::NonZeroU32::new_unchecked({x}), std::num::NonZeroU32::new_unchecked({y}), include_bytes!("{out_path}")) }};"#);
                     } else {
                         buf.write_all(&new.into_rgba8().into_raw()).unwrap();
-                        wr!($ext =>
-                            r#"pub(crate) static {path}: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked( {x} ) }}, unsafe {{ std::num::NonZeroU32::new_unchecked( {y} ) }}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")));"#,
-                            stringify!($ext)
-                        );
+                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 4> = unsafe {{ Image::new(std::num::NonZeroU32::new_unchecked({x}), std::num::NonZeroU32::new_unchecked({y}), include_bytes!("{out_path}")) }};"#);
                     }
                 };
             }

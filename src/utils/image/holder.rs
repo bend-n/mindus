@@ -10,7 +10,7 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     pub fn own(self) -> Image<Vec<u8>, CHANNELS> {
         match self {
             Self::Own(x) => x,
-            Self::Borrow(x) => Image::new(x.width, x.height, x.buffer.to_vec()),
+            Self::Borrow(x) => x.to_owned(),
         }
     }
 }
@@ -29,9 +29,9 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     #[inline]
     pub fn borrow_mut(&mut self) -> Image<&mut [u8], CHANNELS> {
         match self {
-            Self::Own(x) => Image::new(x.width, x.height, &mut x.buffer),
-            Self::Borrow(_) => {
-                *self = Self::from(std::mem::replace(self, Self::from(Image::default())).own());
+            Self::Own(x) => x.as_mut(),
+            Self::Borrow(x) => {
+                *self = Self::from(x.to_owned());
                 self.borrow_mut()
             }
         }
