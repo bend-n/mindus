@@ -1,76 +1,47 @@
-use crate::content::numeric_enum;
+pub mod executor;
+mod field;
+pub(crate) mod instructions;
+pub(crate) mod lexer;
+pub(crate) mod memory;
+pub(crate) mod parser;
 
-numeric_enum! {
-    pub enum LogicField for u8 | TryFromU8Error
-    {
-        TotalItems, FirstItem, TotalLiquids, TotalPower, ItemCapacity, LiquidCapacity, PowerCapacity, PowerNetCapacity, PowerNetStored, PowerNetIn,
-        PowerNetOut, Ammo, AmmoCapacity, Health, MaxHealth, Heat, Efficiency, Progress, Timescale, Rotation, PosX, PosY, ShootX, ShootY, Size, Dead, Range,
-        Shooting, Boosting, MineX, MineY, Mining, Speed, Team, Type, Flag, Controlled, Controller, Name, PayloadCount, PayloadType, Enabled, Shoot, ShootP,
-        Config, Color
+pub(crate) use field::{LogicField, TryFromU8Error};
+
+pub use executor::{Limit, LogicExecutor};
+pub use parser::ParserError;
+
+impl<'s> TryFrom<&'s str> for LogicExecutor<'s> {
+    type Error = ParserError<'s>;
+    fn try_from(value: &'s str) -> Result<Self, Self::Error> {
+        let tokens = lexer::lex(value);
+        lexer::print_stream(lexer::lex(value));
+        let executor = parser::parse(tokens)?;
+        Ok(executor)
     }
 }
 
-impl LogicField {
-    #[must_use]
-    pub const fn is_readable(self) -> bool {
-        use LogicField::{
-            Ammo, AmmoCapacity, Boosting, Color, Controlled, Controller, Dead, Efficiency, Enabled,
-            FirstItem, Flag, Health, Heat, ItemCapacity, LiquidCapacity, MaxHealth, MineX, MineY,
-            Mining, Name, PayloadCount, PayloadType, PosX, PosY, PowerCapacity, PowerNetCapacity,
-            PowerNetIn, PowerNetOut, PowerNetStored, Progress, Range, Rotation, ShootX, ShootY,
-            Shooting, Size, Speed, Team, Timescale, TotalItems, TotalLiquids, TotalPower, Type,
-        };
-        matches!(
-            self,
-            TotalItems
-                | FirstItem
-                | TotalLiquids
-                | TotalPower
-                | ItemCapacity
-                | LiquidCapacity
-                | PowerCapacity
-                | PowerNetCapacity
-                | PowerNetStored
-                | PowerNetIn
-                | PowerNetOut
-                | Ammo
-                | AmmoCapacity
-                | Health
-                | MaxHealth
-                | Heat
-                | Efficiency
-                | Progress
-                | Timescale
-                | Rotation
-                | PosX
-                | PosY
-                | ShootX
-                | ShootY
-                | Size
-                | Dead
-                | Range
-                | Shooting
-                | Boosting
-                | MineX
-                | MineY
-                | Mining
-                | Speed
-                | Team
-                | Type
-                | Flag
-                | Controlled
-                | Controller
-                | Name
-                | PayloadCount
-                | PayloadType
-                | Enabled
-                | Color
-        )
-    }
-
-    #[must_use]
-    pub const fn is_writable(self) -> bool {
-        use LogicField::{Color, Config, Enabled, Shoot, ShootP};
-        matches!(self, Enabled | Shoot | ShootP | Config | Color)
-    }
+#[test]
+fn execute() -> Result<(), ParserError<'static>> {
+    let mut lex = LogicExecutor::try_from(
+        r#"
+    set n 50
+    set previous 0
+    set fib 1
+    op add end n 1
+    set i 2
+loop:
+    jump ret greaterThanEq i end
+    op add tmp previous fib
+    set previous fib
+    set fib tmp
+    op add i i 1
+    jump loop always
+ret:
+    print fib
+    stop
+    "#,
+    )?;
+    lex.run(Limit::Unlimited, Limit::Unlimited);
+    assert_eq!(lex.inner.output, "12586269025");
+    Ok(())
 }
