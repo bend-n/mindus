@@ -88,7 +88,6 @@ macro_rules! make_simple {
                 rot: crate::block::Rotation,
                 scale: crate::data::renderer::Scale,
             ) -> crate::data::renderer::ImageHolder<4> {
-                #[allow(clippy::redundant_closure_call)]
                 $draw(self, name, state, context, rot, scale)
             }
 
@@ -97,7 +96,6 @@ macro_rules! make_simple {
                 build: &mut crate::data::map::Build,
                 buff: &mut crate::data::DataRead,
             ) -> Result<(), crate::data::ReadError> {
-                #[allow(clippy::redundant_closure_call)]
                 $read(build, buff)
             }
         }

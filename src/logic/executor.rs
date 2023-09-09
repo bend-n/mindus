@@ -18,6 +18,13 @@ impl std::fmt::Debug for Instruction {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Peripherals {
+    pub cells: Vec<Vec<u8>>,
+    pub displays: Vec<fimg::Image<Vec<u8>, 4>>,
+    pub output: String,
+}
+
 #[derive(Debug)]
 pub(crate) enum ProgramInstruction<'s> {
     Code(&'s str),
@@ -66,6 +73,12 @@ impl std::fmt::Debug for LAddress<'_> {
 }
 
 pub struct LogicExecutor<'varnames> {
+    /// if limited, will run n instructions before exiting.
+    pub instruction_limit: Limit,
+    /// if limtited, will loop(go from a end to the start) n times before exiting
+    /// both unlimited does not mean this function will never return;
+    /// a `Stop` instruction will break the loop.
+    pub iteration_limit: Limit,
     pub(crate) inner: ExecutorContext<'varnames>,
     pub(crate) program: Vec<ProgramInstruction<'varnames>>,
     pub instructions_ran: usize,
@@ -76,9 +89,7 @@ pub struct ExecutorContext<'varnames> {
     pub constants: Vec<LVar<'varnames>>,
     pub memory: LRegistry<'varnames>,
     pub counter: usize,
-    pub cells: Vec<Vec<u8>>,
-    pub displays: Vec<fimg::Image<Vec<u8>, 4>>,
-    pub output: String,
+    pub peripherals: Peripherals,
 }
 
 impl<'s> ExecutorContext<'s> {
@@ -123,7 +134,7 @@ impl<'s> ExecutorContext<'s> {
 
 impl<'s> LogicExecutor<'s> {
     pub fn output(&self) -> &str {
-        &self.inner.output
+        &self.inner.peripherals.output
     }
 
     pub(crate) fn next(&self) -> Instruction {
@@ -139,7 +150,7 @@ impl<'s> LogicExecutor<'s> {
         LAddress::Const(self.inner.constants.len() - 1)
     }
 
-    pub(crate) fn addr(&self, var: &'s str) -> LAddress<'s> {
+    pub(crate) const fn addr(&self, var: &'s str) -> LAddress<'s> {
         LAddress::Name(var)
     }
 
@@ -168,14 +179,10 @@ impl<'s> LogicExecutor<'s> {
         }
     }
 
-    /// instructions:
-    /// if limited, will run n instructions before exiting.
-    /// iterations:
-    /// if limtited, will loop(go from a end to the start) n times before exiting
-    /// unlimited does not mean this function will never return;
-    /// a `Stop` instruction will break the loop.
-    pub fn run(&mut self, instructions: Limit, iterations: Limit) {
-        while !instructions.reached(self.instructions_ran) && !iterations.reached(self.iterations) {
+    pub fn run(&mut self) {
+        while !self.instruction_limit.reached(self.instructions_ran)
+            && !self.iteration_limit.reached(self.iterations)
+        {
             match self.run_current() {
                 Flow::Continue => {}
                 Flow::Exit => break,

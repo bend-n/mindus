@@ -1,5 +1,6 @@
 //! crate for dealing with mindustry
-#![feature(const_trait_impl, let_chains, effects, try_blocks)]
+#![feature(const_trait_impl, let_chains, effects, try_blocks, const_option)]
+#![allow(clippy::redundant_closure_call)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,

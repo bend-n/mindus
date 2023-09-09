@@ -45,6 +45,7 @@ struct LVarWrap<'varname> {
 }
 
 /// cleared every loop
+#[derive(Default)]
 pub struct LRegistry<'varnames>(Vec<LVarWrap<'varnames>>);
 
 impl std::fmt::Debug for LRegistry<'_> {
@@ -58,10 +59,6 @@ impl std::fmt::Debug for LRegistry<'_> {
 impl<'s> LRegistry<'s> {
     pub fn clear(&mut self) {
         self.0.clear();
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(Vec::with_capacity(capacity))
     }
 
     pub fn get(&self, adr: &'s str) -> LVar<'s> {

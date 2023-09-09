@@ -1,10 +1,9 @@
 use crate::logic::{executor::LAddress, instructions::ConditionOp};
 
 use super::{
-    executor::{ExecutorContext, Instruction, LogicExecutor, ProgramInstruction},
+    executor::{Instruction, LogicExecutor, ProgramInstruction},
     instructions::{AlwaysJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Set, Stop},
     lexer::Token,
-    memory::LRegistry,
 };
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError<'s> {
@@ -26,7 +25,8 @@ pub enum ParserError<'s> {
 
 pub fn parse<'source>(
     mut tokens: impl Iterator<Item = Token<'source>>,
-) -> Result<LogicExecutor<'source>, ParserError<'source>> {
+    executor: &mut LogicExecutor<'source>,
+) -> Result<(), ParserError<'source>> {
     // maps start to 0
     let mut labels = Vec::new();
     #[derive(Debug)]
@@ -39,19 +39,6 @@ pub fn parse<'source>(
         Always,
     }
     let mut unfinished_jumps = Vec::new();
-    let mut executor = LogicExecutor {
-        instructions_ran: 0,
-        iterations: 0,
-        program: Vec::with_capacity(10),
-        inner: ExecutorContext {
-            displays: Vec::new(),
-            output: String::with_capacity(11),
-            constants: Vec::with_capacity(5),
-            memory: LRegistry::with_capacity(10),
-            counter: 0,
-            cells: Vec::new(),
-        },
-    };
     macro_rules! tok {
         () => {
             dbg!(tokens.next()).ok_or(ParserError::UnexpectedEof)
@@ -151,7 +138,7 @@ pub fn parse<'source>(
                 executor.noop();
             }
             // label:
-            Token::Ident(v) if v.ends_with(":") => {
+            Token::Ident(v) if v.ends_with(':') => {
                 labels.push((&v[..v.len() - 1], executor.next()));
             }
             // print "5"
@@ -235,13 +222,12 @@ pub fn parse<'source>(
         nextline!();
     }
 
-    for (j, l, Instruction(i)) in dbg!(unfinished_jumps) {
+    for (j, l, Instruction(i)) in unfinished_jumps {
         let to = labels
             .iter()
             .find(|(v, _)| v == &l)
             .ok_or(ParserError::LabelNotFound(l))?
             .1;
-        dbg!(&executor.program[i]);
         executor.program[i] = ProgramInstruction::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
             UJump::Sometimes { a, b, op } => Instr::from(Jump { a, b, op, to }),
@@ -249,18 +235,15 @@ pub fn parse<'source>(
     }
 
     // check jump validity
-    for i in dbg!(&executor.program) {
-        match i {
-            ProgramInstruction::Instr(i) => match i {
-                Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to }) => {
-                    if !executor.valid(*to) {
-                        return Err(ParserError::InvalidJump(*to));
-                    }
-                }
-                _ => {}
-            },
-            _ => {}
+    for i in &executor.program {
+        if let ProgramInstruction::Instr(
+            Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to }),
+        ) = i
+        {
+            if !executor.valid(*to) {
+                return Err(ParserError::InvalidJump(*to));
+            }
         }
     }
-    Ok(executor)
+    Ok(())
 }

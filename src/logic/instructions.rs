@@ -13,10 +13,8 @@
 //! draw
 //! packcolor
 //! ```
-use std::f64::consts::PI;
-
 use enum_dispatch::enum_dispatch;
-pub use private::LInstruction;
+use std::f64::consts::PI;
 
 use super::{
     executor::{Cell, Display, ExecutorContext, Instruction, LAddress},
@@ -48,16 +46,11 @@ pub(crate) enum Instr<'v> {
     AlwaysJump(AlwaysJump),
 }
 
-mod private {
-    #![allow(unused_variables)]
-    use crate::logic::executor::ExecutorContext;
-
-    use super::*;
-    #[enum_dispatch]
-    pub trait LInstruction<'v> {
-        fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
-            Flow::Continue
-        }
+#[enum_dispatch]
+pub trait LInstruction<'v> {
+    #[allow(unused_variables)]
+    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+        Flow::Continue
     }
 }
 
@@ -317,7 +310,7 @@ impl LInstruction<'_> for Print<'_> {
     fn run(&self, exec: &mut ExecutorContext<'_>) -> Flow {
         use std::fmt::Write;
 
-        write!(exec.output, "{}", exec.get(self.val)).unwrap();
+        write!(exec.peripherals.output, "{}", exec.get(self.val)).unwrap();
         Flow::Continue
     }
 }

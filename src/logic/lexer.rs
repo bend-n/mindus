@@ -126,7 +126,7 @@ pub enum Token<'strings> {
     Ident(&'strings str),
 }
 
-pub fn lex<'source>(s: &'source str) -> impl Iterator<Item = Token> {
+pub fn lex(s: &str) -> impl Iterator<Item = Token> {
     Token::lexer(s).filter_map(Result::ok)
 }
 
