@@ -6,9 +6,21 @@ use super::{
 };
 
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct Display(usize);
+pub struct Display(usize);
 #[derive(Debug, Copy, Clone)]
-pub(crate) struct Cell(usize);
+// negative means bank, positive means cell
+pub struct Memory(pub(crate) i8);
+impl Memory {
+    pub(crate) fn limit(self, i: usize) -> usize {
+        if self.0 < 0 {
+            i.min(BANK_SIZE)
+        } else {
+            i.min(CELL_SIZE)
+        }
+    }
+}
+const BANK_SIZE: usize = 512;
+const CELL_SIZE: usize = 64;
 #[derive(Copy, Clone)]
 pub struct Instruction(pub usize);
 
@@ -20,7 +32,6 @@ impl std::fmt::Debug for Instruction {
 
 #[derive(Debug, Default)]
 pub struct Peripherals {
-    pub cells: Vec<Vec<u8>>,
     pub displays: Vec<fimg::Image<Vec<u8>, 4>>,
     pub output: String,
 }
@@ -86,6 +97,10 @@ pub struct LogicExecutor<'varnames> {
 }
 
 pub struct ExecutorContext<'varnames> {
+    // maximum of 128 elements, so can use ~60KB
+    pub cells: Vec<f64>, // [64] | [64] | [f64; 64] // screw world cells
+    // maximum of 127 elements, so can use ~500KB
+    pub banks: Vec<f64>, // [512] | [512] | [f64; 512]
     pub constants: Vec<LVar<'varnames>>,
     pub memory: LRegistry<'varnames>,
     pub counter: usize,
@@ -93,6 +108,16 @@ pub struct ExecutorContext<'varnames> {
 }
 
 impl<'s> ExecutorContext<'s> {
+    pub fn mem(&mut self, Memory(m): Memory) -> &mut [f64] {
+        if m < 0 {
+            let m = (m + 1).abs() as usize;
+            &mut self.banks[m * BANK_SIZE..m * BANK_SIZE + BANK_SIZE]
+        } else {
+            let m = m as usize;
+            &mut self.cells[m * CELL_SIZE..m * CELL_SIZE + CELL_SIZE]
+        }
+    }
+
     pub fn set(&mut self, a: LAddress<'s>, b: LAddress<'s>) -> bool {
         match a {
             LAddress::Const(_) => false,
@@ -135,6 +160,22 @@ impl<'s> ExecutorContext<'s> {
 impl<'s> LogicExecutor<'s> {
     pub fn output(&self) -> &str {
         &self.inner.peripherals.output
+    }
+
+    pub(crate) fn bank(&mut self, n: usize) -> Memory {
+        assert!(n != 0);
+        if n * BANK_SIZE > self.inner.banks.len() {
+            self.inner.banks.resize(n * BANK_SIZE, 0.0);
+        }
+        Memory(-(((self.inner.banks.len() - BANK_SIZE) / BANK_SIZE) as i8) - 1)
+    }
+
+    pub(crate) fn cell(&mut self, n: usize) -> Memory {
+        assert!(n != 0);
+        if n * CELL_SIZE > self.inner.cells.len() {
+            self.inner.cells.resize(n * CELL_SIZE, 0.0);
+        }
+        Memory(((self.inner.cells.len() - CELL_SIZE) / CELL_SIZE) as i8)
     }
 
     pub(crate) fn next(&self) -> Instruction {

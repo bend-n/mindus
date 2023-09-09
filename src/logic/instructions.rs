@@ -17,7 +17,7 @@ use enum_dispatch::enum_dispatch;
 use std::f64::consts::PI;
 
 use super::{
-    executor::{Cell, Display, ExecutorContext, Instruction, LAddress},
+    executor::{Display, ExecutorContext, Instruction, LAddress, Memory},
     lexer::Token,
     memory::LVar,
 };
@@ -33,7 +33,7 @@ pub enum Flow {
 #[enum_dispatch(LInstruction)]
 pub(crate) enum Instr<'v> {
     Read(Read<'v>),
-    Write(Write),
+    Write(Write<'v>),
     Set(Set<'v>),
     Op1(Op1<'v>),
     Op2(Op2<'v>),
@@ -56,19 +56,40 @@ pub trait LInstruction<'v> {
 
 #[derive(Debug)]
 pub struct Read<'v> {
+    // index guranteed to never be out of bounds
     pub(crate) index: usize,
     pub(crate) output: LAddress<'v>,
-    pub(crate) from: Cell,
+    pub(crate) container: Memory,
 }
-impl LInstruction<'_> for Read<'_> {}
+
+impl<'v> LInstruction<'v> for Read<'v> {
+    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+        let to = exec.mem(self.container)[self.index];
+        let Some(out) = exec.get_mut(self.output) else {
+            return Flow::Continue;
+        };
+        *out = LVar::from(to);
+        Flow::Continue
+    }
+}
 
 #[derive(Debug)]
-pub struct Write {
+pub struct Write<'v> {
+    // index guranteed to never be out of bounds
     pub(crate) index: usize,
-    pub(crate) set: u64,
-    pub(crate) to: Cell,
+    pub(crate) set: LAddress<'v>,
+    pub(crate) container: Memory,
 }
-impl LInstruction<'_> for Write {}
+
+impl<'v> LInstruction<'v> for Write<'v> {
+    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+        let LVar::Num(n) = exec.get(self.set) else {
+            return Flow::Continue;
+        };
+        exec.mem(self.container)[self.index] = n;
+        Flow::Continue
+    }
+}
 #[derive(Debug)]
 pub struct Set<'v> {
     pub(crate) from: LAddress<'v>,

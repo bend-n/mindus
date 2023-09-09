@@ -27,15 +27,6 @@ pub struct ProcessorBuilder {
     iteration_limit: Limit,
 }
 
-pub enum Cell {
-    /// 64 slots
-    MemoryCell,
-    /// 128 slots
-    WorldCell,
-    /// 512 (!!!) slots
-    MemoryBank,
-}
-
 impl Default for ProcessorBuilder {
     fn default() -> Self {
         Self {
@@ -75,18 +66,6 @@ impl ProcessorBuilder {
         }
     }
 
-    pub fn cell(mut self, cell: Cell) -> Self {
-        self.peripherals.cells.push(vec![
-            0;
-            match cell {
-                Cell::MemoryCell => 64,
-                Cell::WorldCell => 128,
-                Cell::MemoryBank => 512,
-            }
-        ]);
-        self
-    }
-
     pub fn program(self, program: &str) -> Result<LogicExecutor<'_>, ParserError<'_>> {
         let Self {
             peripherals,
@@ -98,6 +77,8 @@ impl ProcessorBuilder {
             iterations: 0,
             program: Vec::new(),
             inner: ExecutorContext {
+                cells: Vec::new(),
+                banks: Vec::new(),
                 constants: Vec::new(),
                 memory: LRegistry::default(),
                 counter: 0,
@@ -106,6 +87,8 @@ impl ProcessorBuilder {
             instruction_limit,
             iteration_limit,
         };
+        #[cfg(debug_assertions)]
+        lexer::print_stream(lexer::lex(program));
         parser::parse(lexer::lex(program), &mut executor)?;
         Ok(executor)
     }
@@ -113,23 +96,28 @@ impl ProcessorBuilder {
 
 #[cfg(test)]
 mod test {
+    use super::executor::Memory;
     use super::*;
 
     macro_rules! test {
-        (run $fn:ident.mlog;
-        expect output = $to_be:literal $(;)?) => {
+        (run $fn:ident.mlog $($times:literal times)?;
+        $(output = $to_be:literal $(;)?)?
+        $(cell[$cell_n:literal][$cell_index:literal] = $what:literal $(;)?)?
+        ) => {
             #[test]
             fn $fn() -> Result<(), ParserError<'static>> {
                 let mut lex = LogicExecutor::build()
                     .unlimit_instructions()
-                    .limit_iterations(1)
+                    $(.limit_iterations($times))?
                     .program(include_str!(concat!(stringify!($fn), ".mlog")))?;
                 lex.run();
-                assert_eq!(lex.output(), $to_be);
+                $(assert_eq!(lex.output(), $to_be);)?
+                $(assert_eq!(lex.inner.mem(Memory($cell_n))[$cell_index], $what);)?
                 Ok(())
             }
         };
     }
 
-    test!(run fib.mlog; expect output = "12586269025");
+    test!(run fib.mlog; output = "12586269025");
+    test!(run celliterate.mlog 500 times; cell[0][0] = 500.0);
 }

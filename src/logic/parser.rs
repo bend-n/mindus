@@ -1,4 +1,7 @@
-use crate::logic::{executor::LAddress, instructions::ConditionOp};
+use crate::logic::{
+    executor::LAddress,
+    instructions::{ConditionOp, Read, Write},
+};
 
 use super::{
     executor::{Instruction, LogicExecutor, ProgramInstruction},
@@ -15,12 +18,21 @@ pub enum ParserError<'s> {
     ExpectedIdentifier(Token<'s>),
     #[error("expected jump target, got {0:?}")]
     ExpectedJump(Token<'s>),
+    #[error("expected number, got {0:?}")]
+    ExpectedNum(Token<'s>),
+    #[error("expected operator, got {0:?}")]
+    ExpectedOperator(Token<'s>),
+    #[error("expected integer, got {0:?}")]
+    ExpectedInt(Token<'s>),
     #[error("unable to find lable {0:?}")]
     LabelNotFound(&'s str),
-    #[error("expected operator, found {0:?}")]
-    ExpectedOperator(Token<'s>),
     #[error("unable to jump to instruction {0:?}")]
     InvalidJump(Instruction),
+    // no, you cannot have bank9223372036854775807
+    #[error("cannot get cell>{0:?}")]
+    MemoryTooFar(usize),
+    #[error("unknown memory type {0:?}, expected (cell)|(bank)")]
+    InvalidMemoryType(&'s str),
 }
 
 pub fn parse<'source>(
@@ -111,6 +123,28 @@ pub fn parse<'source>(
             }
         };
     }
+    macro_rules! take_int {
+        ($tok:expr) => {
+            match $tok {
+                Token::Num(n) if n.fract() == 0.0 && n >= 0.0 => Ok(n as usize),
+                t => Err(ParserError::ExpectedInt(t)),
+            }
+        };
+    }
+    macro_rules! take_memory {
+        () => {{
+            let container = take_ident!(tok!()?)?;
+            let cell_n = take_int!(tok!()?)?;
+            if cell_n > 126 || cell_n == 0 {
+                return Err(ParserError::MemoryTooFar(cell_n));
+            }
+            match container {
+                "bank" => executor.bank(cell_n),
+                "cell" => executor.cell(cell_n),
+                _ => return Err(ParserError::InvalidMemoryType(container)),
+            }
+        }};
+    }
     macro_rules! take_ident {
         ($tok:expr) => {{
             let tok = $tok;
@@ -174,11 +208,8 @@ pub fn parse<'source>(
                         executor.program.push(ProgramInstruction::UnfinishedJump);
                         unfinished_jumps.push((UJump::Sometimes { a, b, op }, i, executor.last()));
                     }
-                } else if let Token::Num(n) = tok {
-                    if n.fract() != 0.0 {
-                        return Err(ParserError::ExpectedJump(Token::Num(n)));
-                    }
-                    let to = Instruction(n as usize);
+                } else if let Ok(n) = take_int!(tok) {
+                    let to = Instruction(n);
                     let op = tok!()?;
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
@@ -210,6 +241,29 @@ pub fn parse<'source>(
                 } else {
                     return Err(ParserError::ExpectedOperator(op));
                 }
+            }
+            // write 5.0 bank1 4 (aka bank1[4] = 5.0)
+            Token::Write => {
+                let set = take_var!(tok!()?)?;
+                let container = take_memory!();
+                let index = container.limit(take_int!(tok!()?)?);
+
+                executor.add(Write {
+                    index,
+                    set,
+                    container,
+                });
+            }
+            // read result cell1 4 (aka result = cell1[4])
+            Token::Read => {
+                let output = take_var!(tok!()?)?;
+                let container = take_memory!();
+                let index = container.limit(take_int!(tok!()?)?);
+                executor.add(Read {
+                    index,
+                    output,
+                    container,
+                });
             }
             // end
             Token::End => {
