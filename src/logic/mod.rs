@@ -111,31 +111,25 @@ impl ProcessorBuilder {
     }
 }
 
-#[test]
-fn execute() -> Result<(), ParserError<'static>> {
-    let mut lex = ProcessorBuilder::default()
-        .unlimit_instructions()
-        .limit_iterations(1)
-        .program(
-            r#"
-    set n 50
-    set previous 0
-    set fib 1
-    op add end n 1
-    set i 2
-loop:
-    jump ret greaterThanEq i end
-    op add tmp previous fib
-    set previous fib
-    set fib tmp
-    op add i i 1
-    jump loop always
-ret:
-    print fib
-    stop
-    "#,
-        )?;
-    lex.run();
-    assert_eq!(lex.output(), "12586269025");
-    Ok(())
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    macro_rules! test {
+        (run $fn:ident.mlog;
+        expect output = $to_be:literal $(;)?) => {
+            #[test]
+            fn $fn() -> Result<(), ParserError<'static>> {
+                let mut lex = LogicExecutor::build()
+                    .unlimit_instructions()
+                    .limit_iterations(1)
+                    .program(include_str!(concat!(stringify!($fn), ".mlog")))?;
+                lex.run();
+                assert_eq!(lex.output(), $to_be);
+                Ok(())
+            }
+        };
+    }
+
+    test!(run fib.mlog; expect output = "12586269025");
 }

@@ -5,12 +5,6 @@ pub enum LVar<'string> {
     String(&'string str),
 }
 
-impl LVar<'_> {
-    pub fn null(&mut self) {
-        *self = Self::Null;
-    }
-}
-
 impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
