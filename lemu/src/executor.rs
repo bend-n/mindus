@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::{io::Write, num::NonZeroUsize};
 
 use super::{
     instructions::{Flow, Instr, LInstruction},
@@ -31,9 +31,9 @@ impl std::fmt::Debug for Instruction {
 }
 
 #[derive(Debug, Default)]
-pub struct Peripherals {
+pub struct Peripherals<W: Write> {
     pub displays: Vec<fimg::Image<Vec<u8>, 4>>,
-    pub output: String,
+    pub output: W,
 }
 
 #[derive(Debug)]
@@ -83,20 +83,20 @@ impl std::fmt::Debug for LAddress<'_> {
     }
 }
 
-pub struct LogicExecutor<'varnames> {
+pub struct LogicExecutor<'varnames, W: Write> {
     /// if limited, will run n instructions before exiting.
     pub instruction_limit: Limit,
     /// if limtited, will loop(go from a end to the start) n times before exiting
     /// both unlimited does not mean this function will never return;
     /// a `Stop` instruction will break the loop.
     pub iteration_limit: Limit,
-    pub(crate) inner: ExecutorContext<'varnames>,
+    pub(crate) inner: ExecutorContext<'varnames, W>,
     pub(crate) program: Vec<ProgramInstruction<'varnames>>,
     pub instructions_ran: usize,
     pub iterations: usize,
 }
 
-pub struct ExecutorContext<'varnames> {
+pub struct ExecutorContext<'varnames, W: Write> {
     // maximum of 128 elements, so can use ~60KB
     pub cells: Vec<f64>, // [64] | [64] | [f64; 64] // screw world cells
     // maximum of 127 elements, so can use ~500KB
@@ -104,10 +104,10 @@ pub struct ExecutorContext<'varnames> {
     pub constants: Vec<LVar<'varnames>>,
     pub memory: LRegistry<'varnames>,
     pub counter: usize,
-    pub peripherals: Peripherals,
+    pub peripherals: Peripherals<W>,
 }
 
-impl<'s> ExecutorContext<'s> {
+impl<'s, W: Write> ExecutorContext<'s, W> {
     pub fn mem(&mut self, Memory(m): Memory) -> &mut [f64] {
         if m < 0 {
             let m = (m + 1).unsigned_abs() as usize;
@@ -157,8 +157,8 @@ impl<'s> ExecutorContext<'s> {
     }
 }
 
-impl<'s> LogicExecutor<'s> {
-    pub fn output(&self) -> &str {
+impl<'s, W: Write> LogicExecutor<'s, W> {
+    pub const fn output(&self) -> &W {
         &self.inner.peripherals.output
     }
 

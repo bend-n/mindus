@@ -14,6 +14,8 @@ pub(crate) mod lexer;
 pub(crate) mod memory;
 pub(crate) mod parser;
 
+use std::io::Write;
+
 pub use executor::{Limit, LogicExecutor};
 pub use parser::ParserError;
 
@@ -22,19 +24,31 @@ use self::{
     memory::LRegistry,
 };
 
-impl LogicExecutor<'_> {
-    pub fn build() -> ProcessorBuilder {
+impl<W: Write + Default> LogicExecutor<'_, W> {
+    pub fn build() -> ProcessorBuilder<W> {
         ProcessorBuilder::default()
     }
 }
+impl<W: Write> LogicExecutor<'_, W> {
+    pub fn with_output(w: W) -> ProcessorBuilder<W> {
+        ProcessorBuilder {
+            peripherals: Peripherals {
+                displays: Vec::new(),
+                output: w,
+            },
+            instruction_limit: Limit::Unlimited,
+            iteration_limit: Limit::limited(1),
+        }
+    }
+}
 
-pub struct ProcessorBuilder {
-    peripherals: Peripherals,
+pub struct ProcessorBuilder<W: Write> {
+    peripherals: Peripherals<W>,
     instruction_limit: Limit,
     iteration_limit: Limit,
 }
 
-impl Default for ProcessorBuilder {
+impl<W: Write + Default> Default for ProcessorBuilder<W> {
     fn default() -> Self {
         Self {
             peripherals: Peripherals::default(),
@@ -44,7 +58,7 @@ impl Default for ProcessorBuilder {
     }
 }
 
-impl ProcessorBuilder {
+impl<W: Write> ProcessorBuilder<W> {
     pub fn limit_iterations(self, n: usize) -> Self {
         Self {
             iteration_limit: Limit::limited(n),
@@ -73,7 +87,7 @@ impl ProcessorBuilder {
         }
     }
 
-    pub fn program(self, program: &str) -> Result<LogicExecutor<'_>, ParserError<'_>> {
+    pub fn program(self, program: &str) -> Result<LogicExecutor<'_, W>, ParserError<'_>> {
         let Self {
             peripherals,
             instruction_limit,
@@ -113,7 +127,8 @@ mod test {
         ) => {
             #[test]
             fn $fn() -> Result<(), ParserError<'static>> {
-                let mut lex = LogicExecutor::build()
+                let v = vec![];
+                let mut lex = LogicExecutor::with_output(v)
                     .unlimit_instructions()
                     $(.limit_iterations($times))?
                     .program(include_str!(concat!(stringify!($fn), ".mlog")))?;
@@ -125,6 +140,6 @@ mod test {
         };
     }
 
-    test!(run fib.mlog; output = "12586269025");
+    test!(run fib.mlog; output = b"12586269025");
     test!(run celliterate.mlog 500 times; cell[0][0] = 500.0);
 }

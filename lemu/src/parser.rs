@@ -1,3 +1,5 @@
+use std::io::Write as Wr;
+
 use super::{
     executor::{Instruction, LAddress, LogicExecutor, ProgramInstruction},
     instructions::{
@@ -33,9 +35,9 @@ pub enum ParserError<'s> {
     InvalidMemoryType(&'s str),
 }
 
-pub fn parse<'source>(
+pub fn parse<'source, W: Wr>(
     mut tokens: impl Iterator<Item = Token<'source>>,
-    executor: &mut LogicExecutor<'source>,
+    executor: &mut LogicExecutor<'source, W>,
 ) -> Result<(), ParserError<'source>> {
     // maps start to 0
     let mut labels = Vec::new();

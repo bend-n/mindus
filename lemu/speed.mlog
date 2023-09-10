@@ -1,0 +1,7 @@
+set n 1000000000
+loop:
+  jump ret lessThanEq n 0
+  op sub n n 1
+  jump loop always
+ret:
+  end

@@ -15,6 +15,7 @@
 //! ```
 use enum_dispatch::enum_dispatch;
 use std::f64::consts::PI;
+use std::io::Write as Wr;
 
 use super::{
     executor::{Display, ExecutorContext, Instruction, LAddress, Memory},
@@ -49,7 +50,7 @@ pub(crate) enum Instr<'v> {
 #[enum_dispatch]
 pub trait LInstruction<'v> {
     #[allow(unused_variables)]
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         Flow::Continue
     }
 }
@@ -63,7 +64,7 @@ pub struct Read<'v> {
 }
 
 impl<'v> LInstruction<'v> for Read<'v> {
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         let to = exec.mem(self.container)[self.index];
         let Some(out) = exec.get_mut(self.output) else {
             return Flow::Continue;
@@ -82,7 +83,7 @@ pub struct Write<'v> {
 }
 
 impl<'v> LInstruction<'v> for Write<'v> {
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         let LVar::Num(n) = exec.get(self.set) else {
             return Flow::Continue;
         };
@@ -96,7 +97,7 @@ pub struct Set<'v> {
     pub(crate) to: LAddress<'v>,
 }
 impl<'v> LInstruction<'v> for Set<'v> {
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         exec.set(self.from, self.to);
         Flow::Continue
     }
@@ -190,7 +191,7 @@ pub struct Op1<'v> {
     pub(crate) out: LAddress<'v>,
 }
 impl<'s> LInstruction<'s> for Op1<'s> {
-    fn run(&self, exec: &mut ExecutorContext<'s>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
         let x = self.op.run(exec.get(self.x));
         if let Some(y) = exec.get_mut(self.out) {
             *y = x;
@@ -298,7 +299,7 @@ pub struct Op2<'v> {
     pub(crate) out: LAddress<'v>,
 }
 impl<'v> LInstruction<'v> for Op2<'v> {
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         let x = self.op.run(exec.get(self.a), exec.get(self.b));
         if let Some(y) = exec.get_mut(self.out) {
             *y = x;
@@ -328,9 +329,7 @@ pub struct Print<'v> {
     pub(crate) val: LAddress<'v>,
 }
 impl LInstruction<'_> for Print<'_> {
-    fn run(&self, exec: &mut ExecutorContext<'_>) -> Flow {
-        use std::fmt::Write;
-
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         write!(exec.peripherals.output, "{}", exec.get(self.val)).unwrap();
         Flow::Continue
     }
@@ -372,7 +371,7 @@ pub struct AlwaysJump {
     pub(crate) to: Instruction,
 }
 impl LInstruction<'_> for AlwaysJump {
-    fn run(&self, exec: &mut ExecutorContext<'_>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         exec.jump(self.to);
         Flow::Stay
     }
@@ -387,7 +386,7 @@ pub struct Jump<'v> {
 }
 impl<'v> LInstruction<'v> for Jump<'v> {
     #[allow(unused_variables)]
-    fn run(&self, exec: &mut ExecutorContext<'v>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         if self.op.run(exec.get(self.a), exec.get(self.b)) {
             exec.jump(self.to);
             Flow::Stay
@@ -400,7 +399,7 @@ impl<'v> LInstruction<'v> for Jump<'v> {
 #[derive(Debug)]
 pub struct Stop {}
 impl LInstruction<'_> for Stop {
-    fn run(&self, _: &mut ExecutorContext<'_>) -> Flow {
+    fn run<W: Wr>(&self, _: &mut ExecutorContext<'_, W>) -> Flow {
         Flow::Exit
     }
 }
