@@ -14,12 +14,9 @@ mod content;
 pub mod data;
 pub mod fluid;
 pub mod item;
-pub mod logic;
 pub mod modifier;
 mod team;
 pub mod unit;
 mod utils;
 #[doc(inline)]
 pub use data::{map::Map, renderer::Renderable, schematic::Schematic, Serializable};
-#[doc(inline)]
-pub use logic::LogicExecutor;

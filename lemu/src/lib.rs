@@ -1,11 +1,18 @@
+#![feature(let_chains)]
+#![allow(clippy::redundant_closure_call)]
+#![warn(
+    clippy::multiple_unsafe_ops_per_block,
+    clippy::missing_const_for_fn,
+    clippy::missing_safety_doc,
+    unsafe_op_in_unsafe_fn,
+    clippy::dbg_macro,
+    clippy::perf
+)]
 mod executor;
-mod field;
 pub(crate) mod instructions;
 pub(crate) mod lexer;
 pub(crate) mod memory;
 pub(crate) mod parser;
-
-pub(crate) use field::{LogicField, TryFromU8Error};
 
 pub use executor::{Limit, LogicExecutor};
 pub use parser::ParserError;

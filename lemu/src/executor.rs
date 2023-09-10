@@ -110,7 +110,7 @@ pub struct ExecutorContext<'varnames> {
 impl<'s> ExecutorContext<'s> {
     pub fn mem(&mut self, Memory(m): Memory) -> &mut [f64] {
         if m < 0 {
-            let m = (m + 1).abs() as usize;
+            let m = (m + 1).unsigned_abs() as usize;
             &mut self.banks[m * BANK_SIZE..m * BANK_SIZE + BANK_SIZE]
         } else {
             let m = m as usize;

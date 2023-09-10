@@ -1,11 +1,9 @@
-use crate::logic::{
-    executor::LAddress,
-    instructions::{ConditionOp, Read, Write},
-};
-
 use super::{
-    executor::{Instruction, LogicExecutor, ProgramInstruction},
-    instructions::{AlwaysJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Set, Stop},
+    executor::{Instruction, LAddress, LogicExecutor, ProgramInstruction},
+    instructions::{
+        AlwaysJump, ConditionOp, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
+        Stop, Write,
+    },
     lexer::Token,
 };
 #[derive(thiserror::Error, Debug)]

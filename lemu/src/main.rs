@@ -1,6 +1,8 @@
-use mindus::LogicExecutor;
-use std::env::Args;
-pub fn main(args: Args) {
+use lemu::LogicExecutor;
+
+fn main() {
+    let mut args = std::env::args();
+    args.next().unwrap(); // path to executable
     for file in args {
         let f = std::fs::read_to_string(file).unwrap();
         let mut lex = LogicExecutor::build().program(&f).unwrap();
