@@ -258,7 +258,7 @@ pub(crate) fn parse<'source, W: Wr>(
                         let op = op.try_into().map_err(|_| ParserError::ExpectedOp(op))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
-                        executor.add(Jump { op, a, b, to });
+                        executor.add(Jump::new(op, to, a, b));
                     }
                 } else {
                     return Err(ParserError::ExpectedJump(tok));
@@ -271,12 +271,12 @@ pub(crate) fn parse<'source, W: Wr>(
                     // assigning to a var is useless but legal
                     let out = take_var!(tok!()?)?;
                     let x = take_var!(tok!()?)?;
-                    executor.add(Op1 { x, op, out });
+                    executor.add(Op1::new(op, x, out));
                 } else if let Ok(op) = MathOp2::try_from(op) {
                     let out = take_var!(tok!()?)?;
                     let a = take_var!(tok!()?)?;
                     let b = take_var!(tok!()?)?;
-                    executor.add(Op2 { a, b, op, out });
+                    executor.add(Op2::new(op, a, b, out));
                 } else {
                     return Err(ParserError::ExpectedOp(op));
                 }
@@ -396,7 +396,7 @@ pub(crate) fn parse<'source, W: Wr>(
             .1;
         executor.program[i] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
-            UJump::Sometimes { a, b, op } => Instr::from(Jump { a, b, op, to }),
+            UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b)),
         });
     }
 

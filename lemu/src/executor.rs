@@ -58,7 +58,7 @@ impl Limit {
 }
 
 impl Limit {
-    pub(crate) fn reached(self, n: usize) -> bool {
+    pub(crate) const fn reached(self, n: usize) -> bool {
         match self {
             Self::Limited(v) => v.get() <= n,
             Self::Unlimited => false,
@@ -187,8 +187,8 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
         fn cst<const N: usize>(a: Vec<f64>) -> Box<[[f64; N]]> {
             let len = a.len();
             let ptr: *mut [f64] = Box::into_raw(a.into());
-            let ptr = core::ptr::slice_from_raw_parts_mut(ptr as *mut [f64; N], len / N)
-                as *mut [[f64; N]];
+            let ptr: *mut [[f64; N]] =
+                core::ptr::slice_from_raw_parts_mut(ptr as *mut [f64; N], len / N);
             unsafe { Box::from_raw(ptr) }
         }
         let Self {

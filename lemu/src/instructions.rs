@@ -183,10 +183,10 @@ macro_rules! get_num {
 }
 
 impl MathOp1 {
-    fn run(self, v: LVar<'_>) -> LVar<'_> {
+    const fn get_fn(self) -> fn(LVar<'_>) -> LVar<'_> {
         macro_rules! num {
             ($c:expr) => {
-                LVar::from($c(get_num!(v)))
+                |v| LVar::from($c(get_num!(v)))
             };
         }
         macro_rules! flbop {
@@ -196,13 +196,13 @@ impl MathOp1 {
         }
         match self {
             Self::Floor => num!(f64::floor),
-            Self::Not => match v {
+            Self::Not => |v| match v {
                 LVar::Num(n) => LVar::Num(flbop!(n, |n: u64| !n)),
                 _ => LVar::Null,
             },
             Self::Log => num!(f64::ln),
             Self::Abs => num!(f64::abs),
-            Self::Rand => LVar::Num(4.0),
+            Self::Rand => |_| LVar::Num(4.0),
             Self::Ceil => num!(f64::ceil),
             Self::Sqrt => num!(f64::sqrt),
             Self::Sin => num!(f64::sin),
@@ -218,13 +218,23 @@ impl MathOp1 {
 
 #[derive(Debug)]
 pub struct Op1<'v> {
-    pub(crate) op: MathOp1,
+    pub(crate) op: fn(LVar<'v>) -> LVar<'v>,
     pub(crate) x: LAddress<'v>,
     pub(crate) out: LAddress<'v>,
 }
+impl<'v> Op1<'v> {
+    pub(crate) const fn new(op: MathOp1, x: LAddress<'v>, out: LAddress<'v>) -> Self {
+        Self {
+            op: op.get_fn(),
+            x,
+            out,
+        }
+    }
+}
+
 impl<'s> LInstruction<'s> for Op1<'s> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
-        let x = self.op.run(exec.get(self.x));
+        let x = (self.op)(exec.get(self.x));
         if let Some(y) = exec.get_mut(self.out) {
             *y = x;
         }
@@ -262,16 +272,15 @@ op_enum! { pub(crate) enum MathOp2 {
 } }
 
 impl MathOp2 {
-    fn run<'v>(self, a: LVar<'v>, b: LVar<'v>) -> LVar<'v> {
+    const fn get_fn<'a>(self) -> fn(LVar<'a>, LVar<'a>) -> LVar<'a> {
         macro_rules! bop {
             ($op: tt) => {
-                LVar::from(((get_num!(a) as u64) $op (get_num!(b) as u64)) as f64)
+                |a, b| LVar::from(((get_num!(a) as u64) $op (get_num!(b) as u64)) as f64)
             };
         }
         macro_rules! num {
             ($fn:expr) => {{
-                let c: fn(f64, f64) -> _ = $fn;
-                LVar::from(c(get_num!(a), get_num!(b)))
+                |a, b| LVar::from($fn(get_num!(a), get_num!(b)))
             }};
         }
         macro_rules! op {
@@ -280,7 +289,7 @@ impl MathOp2 {
             }
         }
         match self {
-            Self::Angle => num!(|a, b| {
+            Self::Angle => num!(|a: f64, b: f64| {
                 let mut x = a.atan2(b) * (180.0 / PI);
                 if x < 0.0 {
                     x += 360.0;
@@ -295,8 +304,32 @@ impl MathOp2 {
             Self::Mod => op!(%),
             Self::Pow => num!(f64::powf),
             // we kind of interpret strings as numbers so yeah
-            Self::Equal | Self::StrictEqual => op!(==),
-            Self::NotEqual => op!(!=),
+            Self::Equal | Self::StrictEqual => |a, b| {
+                LVar::from(match a {
+                    LVar::Num(a) => match b {
+                        LVar::Num(b) => a == b,
+                        _ => false,
+                    },
+                    LVar::String(a) => match b {
+                        LVar::String(b) => a == b,
+                        _ => false,
+                    },
+                    LVar::Null => matches!(b, LVar::Null),
+                })
+            },
+            Self::NotEqual => |a, b| {
+                LVar::from(match a {
+                    LVar::Num(a) => match b {
+                        LVar::Num(b) => a != b,
+                        _ => true,
+                    },
+                    LVar::String(a) => match b {
+                        LVar::String(b) => a != b,
+                        _ => true,
+                    },
+                    LVar::Null => !matches!(b, LVar::Null),
+                })
+            },
             Self::And => num!(|a, b| a != 0.0 && b != 0.0),
             Self::LessThan => op!(<),
             Self::LessThanEq => op!(<=),
@@ -317,22 +350,38 @@ impl MathOp2 {
                     if (b - a) < 0.0 { b - a + 360.0 } else { b - a },
                 )
             }),
-            Self::Len => num!(|a, b| { (a * a + b * b).sqrt() }),
-            Self::Noise => LVar::Num(9.0),
+            Self::Len => num!(|a: f64, b: f64| { (a * a + b * b).sqrt() }),
+            Self::Noise => |_, _| LVar::Num(9.0),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Op2<'v> {
-    pub(crate) op: MathOp2,
+    pub(crate) op: fn(LVar<'v>, LVar<'v>) -> LVar<'v>,
     pub(crate) a: LAddress<'v>,
     pub(crate) b: LAddress<'v>,
     pub(crate) out: LAddress<'v>,
 }
+impl<'v> Op2<'v> {
+    pub(crate) const fn new(
+        op: MathOp2,
+        a: LAddress<'v>,
+        b: LAddress<'v>,
+        out: LAddress<'v>,
+    ) -> Self {
+        Self {
+            op: op.get_fn(),
+            a,
+            b,
+            out,
+        }
+    }
+}
+
 impl<'v> LInstruction<'v> for Op2<'v> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let x = self.op.run(exec.get(self.a), exec.get(self.b));
+        let x = (self.op)(exec.get(self.a), exec.get(self.b));
         if let Some(y) = exec.get_mut(self.out) {
             *y = x;
         }
@@ -552,28 +601,7 @@ impl LInstruction<'_> for Print<'_> {
     }
 }
 
-macro_rules! cond_enum {
-    ($($v:ident),+ $(,)?) => {
-        op_enum! { pub enum ConditionOp {
-            $($v,)+
-        } }
-
-        impl ConditionOp {
-            fn run<'v>(self, a: LVar<'v>, b: LVar<'v>) -> bool {
-                let var = match self {
-                    $(Self::$v => MathOp2::$v.run(a, b),)+
-                };
-                match var {
-                    LVar::Num(n) => n != 0.0,
-                    _ => false,
-                }
-            }
-        }
-
-    }
-}
-
-cond_enum! {
+op_enum! { pub enum ConditionOp {
     Equal,
     NotEqual,
     LessThan,
@@ -581,6 +609,50 @@ cond_enum! {
     GreaterThan,
     GreaterThanEq,
     StrictEqual,
+} }
+
+impl ConditionOp {
+    const fn get_fn<'v>(self) -> fn(LVar<'v>, LVar<'v>) -> bool {
+        macro_rules! op {
+            ($op:tt) => {
+                |a, b| match a {
+                    LVar::Num(a) => match b {
+                        LVar::Num(b) => a $op b,
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            };
+        }
+        match self {
+            Self::Equal | Self::StrictEqual => |a, b| match a {
+                LVar::Num(a) => match b {
+                    LVar::Num(b) => a == b,
+                    _ => false,
+                },
+                LVar::String(a) => match b {
+                    LVar::String(b) => a == b,
+                    _ => false,
+                },
+                LVar::Null => matches!(b, LVar::Null),
+            },
+            Self::NotEqual => |a, b| match a {
+                LVar::Num(a) => match b {
+                    LVar::Num(b) => a != b,
+                    _ => true,
+                },
+                LVar::String(a) => match b {
+                    LVar::String(b) => a != b,
+                    _ => true,
+                },
+                LVar::Null => !matches!(b, LVar::Null),
+            },
+            Self::LessThan => op!(<),
+            Self::LessThanEq => op!(<=),
+            Self::GreaterThan => op!(>),
+            Self::GreaterThanEq => op!(>=),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -596,15 +668,26 @@ impl LInstruction<'_> for AlwaysJump {
 
 #[derive(Debug)]
 pub struct Jump<'v> {
-    pub(crate) op: ConditionOp,
+    pub(crate) op: fn(LVar<'v>, LVar<'v>) -> bool,
     pub(crate) to: Instruction,
     pub(crate) a: LAddress<'v>,
     pub(crate) b: LAddress<'v>,
 }
+impl<'v> Jump<'v> {
+    pub fn new(op: ConditionOp, to: Instruction, a: LAddress<'v>, b: LAddress<'v>) -> Self {
+        Self {
+            op: op.get_fn(),
+            to,
+            a,
+            b,
+        }
+    }
+}
+
 impl<'v> LInstruction<'v> for Jump<'v> {
     #[allow(unused_variables)]
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if self.op.run(exec.get(self.a), exec.get(self.b)) {
+        if (self.op)(exec.get(self.a), exec.get(self.b)) {
             exec.jump(self.to);
             Flow::Stay
         } else {
