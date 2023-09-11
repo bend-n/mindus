@@ -10,17 +10,19 @@
 //! write
 //! print
 //!
-//! draw
-//! packcolor
+//! draw {color, col, flush, line, rect, lineRect, triangle, stroke, clear}
 //! ```
 use enum_dispatch::enum_dispatch;
+use fimg::Image;
 use std::f64::consts::PI;
 use std::io::Write as Wr;
 
+use crate::{executor::DisplayState, memory::LRegistry};
+
 use super::{
-    executor::{Display, ExecutorContext, Instruction, LAddress, Memory},
+    executor::{Display, ExecutorContext, Instruction, Memory},
     lexer::Token,
-    memory::LVar,
+    memory::{LAddress, LVar},
 };
 
 #[must_use = "to change control flow"]
@@ -30,9 +32,17 @@ pub enum Flow {
     Exit,
 }
 
+#[enum_dispatch]
+pub trait LInstruction<'v> {
+    #[allow(unused_variables)]
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        Flow::Continue
+    }
+}
+
 #[derive(Debug)]
 #[enum_dispatch(LInstruction)]
-pub(crate) enum Instr<'v> {
+pub enum Instr<'v> {
     Read(Read<'v>),
     Write(Write<'v>),
     Set(Set<'v>),
@@ -41,18 +51,34 @@ pub(crate) enum Instr<'v> {
     End(End),
     DrawFlush(DrawFlush),
     Print(Print<'v>),
-    PackColor(PackColor<'v>),
     Stop(Stop),
     Jump(Jump<'v>),
     AlwaysJump(AlwaysJump),
 }
 
 #[enum_dispatch]
-pub trait LInstruction<'v> {
+pub trait DrawInstruction<'v> {
     #[allow(unused_variables)]
-    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        Flow::Continue
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
     }
+}
+
+#[derive(Debug)]
+#[enum_dispatch(DrawInstruction)]
+pub enum DrawInstr<'v> {
+    DrawLine(DrawLine<'v>),
+    DrawRectBordered(DrawRectBordered<'v>),
+    DrawRectFilled(DrawRectFilled<'v>),
+    DrawTriangle(DrawTriangle<'v>),
+    Clear(Clear<'v>),
+    SetColorDyn(SetColorDyn<'v>),
+    SetColorConst(SetColorConst),
+    SetStroke(SetStroke<'v>),
 }
 
 #[derive(Debug)]
@@ -146,6 +172,12 @@ macro_rules! get_num {
         match $x {
             LVar::Num(x) => x,
             _ => return LVar::Null,
+        }
+    };
+    ($x:expr, or ret) => {
+        match $x {
+            LVar::Num(x) => x,
+            _ => return,
         }
     };
 }
@@ -313,16 +345,201 @@ pub struct End {}
 impl LInstruction<'_> for End {}
 
 #[derive(Debug)]
-pub struct Draw {
-    // todo
+pub struct Clear<'v> {
+    pub r: LAddress<'v>,
+    pub g: LAddress<'v>,
+    pub b: LAddress<'v>,
+    pub a: LAddress<'v>,
 }
-// impl LInstruction for Draw {}
+
+impl<'v> DrawInstruction<'v> for Clear<'v> {
+    fn draw(&self, mem: &mut LRegistry<'v>, image: &mut Image<&mut [u8], 4>, _: &mut DisplayState) {
+        macro_rules! u8 {
+            ($v:ident) => {
+                match mem.get(self.$v) {
+                    LVar::Num(n) => n.round() as u8,
+                    _ => return,
+                }
+            };
+        }
+        let (r, g, b, a) = (u8!(r), u8!(g), u8!(b), u8!(a));
+        for [r2, g2, b2, a2] in image.chunked_mut() {
+            (*r2, *b2, *g2, *a2) = (r, g, b, a);
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SetColorDyn<'v> {
+    pub r: LAddress<'v>,
+    pub g: LAddress<'v>,
+    pub b: LAddress<'v>,
+    pub a: LAddress<'v>,
+}
+impl<'v> DrawInstruction<'v> for SetColorDyn<'v> {
+    fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+        macro_rules! u8 {
+            ($v:ident) => {
+                match mem.get(self.$v) {
+                    LVar::Num(n) => n.round() as u8,
+                    _ => return,
+                }
+            };
+        }
+        state.color = (u8!(r), u8!(g), u8!(b), u8!(a));
+    }
+}
+
+#[derive(Debug)]
+pub struct SetColorConst {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+impl DrawInstruction<'_> for SetColorConst {
+    fn draw(&self, _: &mut LRegistry<'_>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+        state.color = (self.r, self.g, self.b, self.a);
+    }
+}
+
+#[derive(Debug)]
+pub struct SetStroke<'v> {
+    pub size: LAddress<'v>,
+}
+impl<'v> DrawInstruction<'v> for SetStroke<'v> {
+    fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+        if let LVar::Num(n) = mem.get(self.size) {
+            state.stroke = n;
+        }
+    }
+}
+
+pub type Point<'v> = (LAddress<'v>, LAddress<'v>);
+#[rustfmt::skip]
+macro_rules! point {
+    ($mem:ident@$point:expr) => {{
+        let LVar::Num(a) = $mem.get($point.0) else { return; };
+        let LVar::Num(b) = $mem.get($point.1) else { return; };
+        (a,b)
+    }}
+}
+
+macro_rules! map {
+    ($tup:expr, $fn:expr) => {{
+        let (a, b) = $tup;
+        ($fn(a), $fn(b))
+    }};
+}
+#[derive(Debug)]
+pub struct DrawLine<'v> {
+    pub point_a: Point<'v>,
+    pub point_b: Point<'v>,
+}
+impl<'v> DrawInstruction<'v> for DrawLine<'v> {
+    #[allow(unused_variables)]
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        // i will happily ignore that stroke specifys the stroke of lines
+        let a = map!(point!(mem@self.point_a), |n| n as i32);
+        let b = map!(point!(mem@self.point_b), |n| n as i32);
+        image.line(a, b, state.col());
+    }
+}
+
+macro_rules! unbounded {
+    ($img:ident @ $x:expr => $y:expr) => {
+        $img.width() < $x || $img.height() < $y
+    };
+}
+
+#[derive(Debug)]
+pub struct DrawRectFilled<'v> {
+    pub position: Point<'v>,
+    pub width: LAddress<'v>,
+    pub height: LAddress<'v>,
+}
+impl<'v> DrawInstruction<'v> for DrawRectFilled<'v> {
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        let pos = map!(point!(mem@self.position), |n| n as u32);
+        let width = get_num!(mem.get(self.width), or ret) as u32;
+        let height = get_num!(mem.get(self.height), or ret) as u32;
+        if unbounded!(image @ pos.0 + width => pos.1 + height) {
+            return;
+        }
+        // SAFETY: bounds checked above
+        unsafe { image.filled_box(pos, width, height, state.col()) };
+    }
+}
+
+#[derive(Debug)]
+pub struct DrawRectBordered<'v> {
+    pub position: Point<'v>,
+    pub width: LAddress<'v>,
+    pub height: LAddress<'v>,
+}
+
+impl<'v> DrawInstruction<'v> for DrawRectBordered<'v> {
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        // happily ignoring that state specifies box stroke width
+        let pos = map!(point!(mem@self.position), |n| n as u32);
+        let width = get_num!(mem.get(self.width), or ret) as u32;
+        let height = get_num!(mem.get(self.height), or ret) as u32;
+        if unbounded!(image @ pos.0 + width => pos.1 + height) {
+            return;
+        }
+        // SAFETY: bounds checked above
+        unsafe { image.r#box(pos, width, height, state.col()) };
+    }
+}
+
+#[derive(Debug)]
+pub struct DrawTriangle<'v> {
+    pub points: (Point<'v>, Point<'v>, Point<'v>),
+}
+impl<'v> DrawInstruction<'v> for DrawTriangle<'v> {
+    fn draw(&self, mem: &mut LRegistry<'v>, i: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+        let to32 = |n| n as f32;
+        let (a, b, c) = (
+            map!(point!(mem@self.points.0), to32),
+            map!(point!(mem@self.points.1), to32),
+            map!(point!(mem@self.points.2), to32),
+        );
+        if unbounded!(i @ a.0 as u32 => a.1 as u32)
+            || unbounded!(i @ b.0 as u32 => b.1 as u32)
+            || unbounded!(i @ c.0 as u32 => c.1 as u32)
+        {
+            return;
+        }
+        // SAFETY: bounds are checked
+        unsafe { i.tri(a, b, c, state.col()) };
+    }
+}
 
 #[derive(Debug)]
 pub struct DrawFlush {
     pub(crate) display: Display,
 }
-impl LInstruction<'_> for DrawFlush {}
+impl LInstruction<'_> for DrawFlush {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
+        exec.flush(self.display);
+        Flow::Continue
+    }
+}
 
 #[derive(Debug)]
 pub struct Print<'v> {
@@ -330,7 +547,7 @@ pub struct Print<'v> {
 }
 impl LInstruction<'_> for Print<'_> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
-        write!(exec.peripherals.output, "{}", exec.get(self.val)).unwrap();
+        write!(exec.output, "{}", exec.get(self.val)).unwrap();
         Flow::Continue
     }
 }
@@ -403,10 +620,3 @@ impl LInstruction<'_> for Stop {
         Flow::Exit
     }
 }
-
-#[derive(Debug)]
-pub struct PackColor<'v> {
-    color: (u8, u8, u8, u8),
-    output: LAddress<'v>,
-}
-impl LInstruction<'_> for PackColor<'_> {}

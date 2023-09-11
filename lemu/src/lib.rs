@@ -16,13 +16,10 @@ pub(crate) mod parser;
 
 use std::io::Write;
 
-pub use executor::{Limit, LogicExecutor};
+use executor::{ExecutorBuilder, Limit};
+pub use executor::{LogicExecutor, Output};
+use fimg::Image;
 pub use parser::ParserError;
-
-use self::{
-    executor::{ExecutorContext, Peripherals},
-    memory::LRegistry,
-};
 
 impl<W: Write + Default> LogicExecutor<'_, W> {
     pub fn build() -> ProcessorBuilder<W> {
@@ -32,10 +29,8 @@ impl<W: Write + Default> LogicExecutor<'_, W> {
 impl<W: Write> LogicExecutor<'_, W> {
     pub fn with_output(w: W) -> ProcessorBuilder<W> {
         ProcessorBuilder {
-            peripherals: Peripherals {
-                displays: Vec::new(),
-                output: w,
-            },
+            displays: Vec::new(),
+            output: w,
             instruction_limit: Limit::Unlimited,
             iteration_limit: Limit::limited(1),
         }
@@ -43,7 +38,8 @@ impl<W: Write> LogicExecutor<'_, W> {
 }
 
 pub struct ProcessorBuilder<W: Write> {
-    peripherals: Peripherals<W>,
+    output: W,
+    displays: Vec<Image<Vec<u8>, 4>>,
     instruction_limit: Limit,
     iteration_limit: Limit,
 }
@@ -51,7 +47,8 @@ pub struct ProcessorBuilder<W: Write> {
 impl<W: Write + Default> Default for ProcessorBuilder<W> {
     fn default() -> Self {
         Self {
-            peripherals: Peripherals::default(),
+            output: W::default(),
+            displays: Vec::new(),
             instruction_limit: Limit::Unlimited,
             iteration_limit: Limit::limited(1),
         }
@@ -87,37 +84,44 @@ impl<W: Write> ProcessorBuilder<W> {
         }
     }
 
+    pub fn display(self) -> Self {
+        let mut d = self.displays;
+        d.push(Image::alloc(80, 80));
+        Self {
+            displays: d,
+            ..self
+        }
+    }
+
+    pub fn large_display(self) -> Self {
+        let mut d = self.displays;
+        d.push(Image::alloc(176, 176));
+        Self {
+            displays: d,
+            ..self
+        }
+    }
+
     pub fn program(self, program: &str) -> Result<LogicExecutor<'_, W>, ParserError<'_>> {
         let Self {
-            peripherals,
+            output,
+            displays,
             instruction_limit,
             iteration_limit,
         } = self;
-        let mut executor = LogicExecutor {
-            instructions_ran: 0,
-            iterations: 0,
-            program: Vec::new(),
-            inner: ExecutorContext {
-                cells: Vec::new(),
-                banks: Vec::new(),
-                constants: Vec::new(),
-                memory: LRegistry::default(),
-                counter: 0,
-                peripherals,
-            },
-            instruction_limit,
-            iteration_limit,
-        };
-        #[cfg(debug_assertions)]
-        lexer::print_stream(lexer::lex(program));
+        let mut executor = ExecutorBuilder::new(output, displays);
+        executor
+            .inslimit(instruction_limit)
+            .itrlimit(iteration_limit);
+        // #[cfg(debug_assertions)]
+        // lexer::print_stream(lexer::lex(program));
         parser::parse(lexer::lex(program), &mut executor)?;
-        Ok(executor)
+        Ok(executor.finish())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::executor::Memory;
     use super::*;
 
     macro_rules! test {
@@ -133,8 +137,9 @@ mod test {
                     $(.limit_iterations($times))?
                     .program(include_str!(concat!(stringify!($fn), ".mlog")))?;
                 lex.run();
-                $(assert_eq!(lex.output(), $to_be);)?
-                $(assert_eq!(lex.inner.mem(Memory($cell_n))[$cell_index], $what);)?
+                let output = lex.output();
+                $(assert_eq!(output.output, $to_be);)?
+                $(assert_eq!(output.cells[$cell_n][$cell_index], $what);)?
                 Ok(())
             }
         };

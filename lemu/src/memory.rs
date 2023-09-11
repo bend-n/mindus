@@ -5,6 +5,12 @@ pub enum LVar<'string> {
     String(&'string str),
 }
 
+#[derive(Copy, Clone)]
+pub enum LAddress<'varname> {
+    Const(LVar<'varname>),
+    Name(&'varname str),
+}
+
 impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -55,7 +61,14 @@ impl<'s> LRegistry<'s> {
         self.0.clear();
     }
 
-    pub fn get(&self, adr: &'s str) -> LVar<'s> {
+    pub fn get(&self, a: LAddress<'s>) -> LVar<'s> {
+        match a {
+            LAddress::Name(n) => self.get_by_name(n),
+            LAddress::Const(n) => n,
+        }
+    }
+
+    pub fn get_by_name(&self, adr: &'s str) -> LVar<'s> {
         self.0
             .iter()
             .find(|v| v.name == adr)
@@ -64,7 +77,14 @@ impl<'s> LRegistry<'s> {
             .unwrap_or(LVar::Null)
     }
 
-    pub fn get_mut(&mut self, adr: &'s str) -> &mut LVar<'s> {
+    pub fn get_mut(&mut self, a: LAddress<'s>) -> Option<&mut LVar<'s>> {
+        match a {
+            LAddress::Const(_) => None,
+            LAddress::Name(n) => Some(self.get_mut_by_name(n)),
+        }
+    }
+
+    pub fn get_mut_by_name(&mut self, adr: &'s str) -> &mut LVar<'s> {
         // SAFETY: give new lifetime
         for x in unsafe { &mut *(&mut self.0 as *mut Vec<LVarWrap>) }.iter_mut() {
             if x.name == adr {

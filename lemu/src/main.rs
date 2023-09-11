@@ -1,6 +1,6 @@
 use std::io::{self, Stdout};
 
-use lemu::LogicExecutor;
+use lemu::{LogicExecutor, Output};
 
 fn main() {
     let mut args = std::env::args();
@@ -8,8 +8,13 @@ fn main() {
     for file in args {
         let f = std::fs::read_to_string(file).unwrap();
         let mut lex: LogicExecutor<Stdout> = LogicExecutor::with_output(io::stdout())
+            .display()
             .program(&f)
             .unwrap();
         lex.run();
+        let Output { displays, .. } = lex.output();
+        for (d, i) in displays.iter().zip(1..=displays.len()) {
+            d.save(format!("image{i}.png"));
+        }
     }
 }

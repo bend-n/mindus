@@ -12,11 +12,11 @@ keywords = ["mindustry", "logic", "emulator", "executor"]
 [dependencies]
 thiserror = "1.0"
 enum_dispatch = "0.3"
-fimg = { version = "0.3.4", default-features = false }
+fimg = { version = "0.4", default-features = false }
 logos = "0.13.0"
 
 [features]
-bin = []
+bin = ["fimg/save"]
 default = ["bin"]
 
 [[bin]]

@@ -1,27 +1,29 @@
 use std::io::Write as Wr;
 
 use super::{
-    executor::{Instruction, LAddress, LogicExecutor, ProgramInstruction},
+    executor::{ExecutorBuilder, Instruction, UPInstr},
     instructions::{
-        AlwaysJump, ConditionOp, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
-        Stop, Write,
+        AlwaysJump, Clear, ConditionOp, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled,
+        DrawTriangle, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
+        SetColorConst, SetColorDyn, SetStroke, Stop, Write,
     },
     lexer::Token,
+    memory::LAddress,
 };
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError<'s> {
     #[error("unexpected end of stream")]
     UnexpectedEof,
     #[error("expected variable, got {0:?}")]
-    ExpectedVariable(Token<'s>),
+    ExpectedVar(Token<'s>),
     #[error("expected identifier, got {0:?}")]
-    ExpectedIdentifier(Token<'s>),
+    ExpectedIdent(Token<'s>),
     #[error("expected jump target, got {0:?}")]
     ExpectedJump(Token<'s>),
     #[error("expected number, got {0:?}")]
     ExpectedNum(Token<'s>),
     #[error("expected operator, got {0:?}")]
-    ExpectedOperator(Token<'s>),
+    ExpectedOp(Token<'s>),
     #[error("expected integer, got {0:?}")]
     ExpectedInt(Token<'s>),
     #[error("unable to find lable {0:?}")]
@@ -33,11 +35,20 @@ pub enum ParserError<'s> {
     MemoryTooFar(usize),
     #[error("unknown memory type {0:?}, expected (cell)|(bank)")]
     InvalidMemoryType(&'s str),
+    #[error("unknown display type {0:?}, expected 'display'")]
+    InvalidDisplayType(&'s str),
+    #[error("unknown image operation {0:?}")]
+    UnsupportedImageOp(&'s str),
+    #[error("couldnt get display #{0:?}.")]
+    /// call `display` more to have more display options
+    NoDisplay(usize),
+    #[error("expected u8, found {0}")]
+    ExpectedU8(usize),
 }
 
-pub fn parse<'source, W: Wr>(
+pub(crate) fn parse<'source, W: Wr>(
     mut tokens: impl Iterator<Item = Token<'source>>,
-    executor: &mut LogicExecutor<'source, W>,
+    executor: &mut ExecutorBuilder<'source, W>,
 ) -> Result<(), ParserError<'source>> {
     // maps start to 0
     let mut labels = Vec::new();
@@ -53,7 +64,7 @@ pub fn parse<'source, W: Wr>(
     let mut unfinished_jumps = Vec::new();
     macro_rules! tok {
         () => {
-            dbg!(tokens.next()).ok_or(ParserError::UnexpectedEof)
+            tokens.next().ok_or(ParserError::UnexpectedEof)
         };
     }
     #[rustfmt::skip]
@@ -72,6 +83,7 @@ pub fn parse<'source, W: Wr>(
                 Token::Set => Some("set"),
                 Token::Op => Some("op"),
                 Token::End => Some("end"),
+                Token::Draw => Some("draw"),
                 Token::DrawFlush => Some("drawflush"),
                 Token::Print => Some("print"),
                 Token::PackColor => Some("packcolor"),
@@ -148,7 +160,7 @@ pub fn parse<'source, W: Wr>(
     macro_rules! take_ident {
         ($tok:expr) => {{
             let tok = $tok;
-            tokstr!(tok).ok_or(ParserError::ExpectedIdentifier(tok))
+            tokstr!(tok).ok_or(ParserError::ExpectedIdent(tok))
         }};
     }
     macro_rules! take_var {
@@ -160,7 +172,20 @@ pub fn parse<'source, W: Wr>(
                 match tok {
                     Token::Num(n) => Ok(executor.add_const(n)),
                     Token::String(s) => Ok(executor.add_const(s)),
-                    t => Err(ParserError::ExpectedVariable(t)),
+                    t => Err(ParserError::ExpectedVar(t)),
+                }
+            }
+        }};
+    }
+    macro_rules! take_numvar {
+        ($tok:expr) => {{
+            let tok = $tok;
+            if let Some(i) = tokstr!(tok) {
+                Ok(executor.addr(i))
+            } else {
+                match tok {
+                    Token::Num(n) => Ok(executor.add_const(n)),
+                    t => Err(ParserError::ExpectedNum(t)),
                 }
             }
         }};
@@ -197,15 +222,13 @@ pub fn parse<'source, W: Wr>(
                 if let Some(i) = tokstr!(tok) {
                     let op = tok!()?;
                     if op == Token::Always {
-                        executor.program.push(ProgramInstruction::UnfinishedJump);
+                        executor.jmp();
                         unfinished_jumps.push((UJump::Always, i, executor.last()));
                     } else {
-                        let op = op
-                            .try_into()
-                            .map_err(|_| ParserError::ExpectedOperator(op))?;
+                        let op = op.try_into().map_err(|_| ParserError::ExpectedOp(op))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
-                        executor.program.push(ProgramInstruction::UnfinishedJump);
+                        executor.jmp();
                         unfinished_jumps.push((UJump::Sometimes { a, b, op }, i, executor.last()));
                     }
                 } else if let Ok(n) = take_int!(tok) {
@@ -214,9 +237,7 @@ pub fn parse<'source, W: Wr>(
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
                     } else {
-                        let op = op
-                            .try_into()
-                            .map_err(|_| ParserError::ExpectedOperator(op))?;
+                        let op = op.try_into().map_err(|_| ParserError::ExpectedOp(op))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.add(Jump { op, a, b, to });
@@ -239,7 +260,7 @@ pub fn parse<'source, W: Wr>(
                     let b = take_var!(tok!()?)?;
                     executor.add(Op2 { a, b, op, out });
                 } else {
-                    return Err(ParserError::ExpectedOperator(op));
+                    return Err(ParserError::ExpectedOp(op));
                 }
             }
             // write 5.0 bank1 4 (aka bank1[4] = 5.0)
@@ -265,6 +286,79 @@ pub fn parse<'source, W: Wr>(
                     container,
                 });
             }
+            Token::Draw => {
+                let dty = tok!()?;
+                let Token::Ident(i) = dty else {
+                    return Err(ParserError::ExpectedIdent(dty));
+                };
+                #[rustfmt::skip]
+                macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
+                #[rustfmt::skip]
+                macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
+                match i {
+                    "clear" => {
+                        let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
+                        executor.draw(Clear { r, g, b, a });
+                    }
+                    "color" => {
+                        let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
+                        executor.draw(SetColorDyn { r, g, b, a });
+                    }
+                    "col" => {
+                        let col = take_int!(tok!()?)?;
+                        let r = (col & 0xff000000 >> 24) as u8;
+                        let g = (col & 0x00ff0000 >> 16) as u8;
+                        let b = (col & 0x0000ff00 >> 8) as u8;
+                        let a = (col & 0x000000ff) as u8;
+                        executor.draw(SetColorConst { r, g, b, a });
+                    }
+                    "stroke" => {
+                        let size = take_numvar!(tok!()?)?;
+                        executor.draw(SetStroke { size });
+                    }
+                    "line" => {
+                        let (x, y, x2, y2) = four! { take_numvar!(tok!()?)? };
+                        executor.draw(DrawLine {
+                            point_a: (x, y),
+                            point_b: (x2, y2),
+                        });
+                    }
+                    "rect" => {
+                        let (x, y, width, height) = four! { take_numvar!(tok!()?)? };
+                        executor.draw(DrawRectFilled {
+                            position: (x, y),
+                            width,
+                            height,
+                        })
+                    }
+                    "lineRect" => {
+                        let (x, y, width, height) = four! { take_numvar!(tok!()?)? };
+                        executor.draw(DrawRectBordered {
+                            position: (x, y),
+                            width,
+                            height,
+                        })
+                    }
+                    "triangle" => {
+                        let (x, y, x2, y2, x3, y3) = six! { take_numvar!(tok!()?)? };
+                        executor.draw(DrawTriangle {
+                            points: ((x, y), (x2, y2), (x3, y3)),
+                        });
+                    }
+                    // poly is TODO, image is WONTFIX
+                    i => return Err(ParserError::UnsupportedImageOp(i)),
+                }
+            }
+            Token::DrawFlush => {
+                let screen = take_ident!(tok!()?)?;
+                if screen != "display" {
+                    return Err(ParserError::InvalidDisplayType(screen));
+                }
+                let display = executor
+                    .display(take_int!(tok!()?)?)
+                    .map_err(ParserError::NoDisplay)?;
+                executor.add(DrawFlush { display });
+            }
             // end
             Token::End => {
                 executor.add(End {});
@@ -282,7 +376,7 @@ pub fn parse<'source, W: Wr>(
             .find(|(v, _)| v == &l)
             .ok_or(ParserError::LabelNotFound(l))?
             .1;
-        executor.program[i] = ProgramInstruction::Instr(match j {
+        executor.program[i] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
             UJump::Sometimes { a, b, op } => Instr::from(Jump { a, b, op, to }),
         });
@@ -290,9 +384,8 @@ pub fn parse<'source, W: Wr>(
 
     // check jump validity
     for i in &executor.program {
-        if let ProgramInstruction::Instr(
-            Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to }),
-        ) = i
+        if let UPInstr::Instr(Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to })) =
+            i
         {
             if !executor.valid(*to) {
                 return Err(ParserError::InvalidJump(*to));

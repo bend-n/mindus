@@ -17,6 +17,8 @@ pub enum Token<'strings> {
     End,
     #[token("drawflush")]
     DrawFlush,
+    #[token("draw")]
+    Draw,
     #[token("print")]
     Print,
     #[token("packcolor")]
@@ -130,6 +132,7 @@ pub fn lex(s: &str) -> impl Iterator<Item = Token> {
     Token::lexer(s).filter_map(Result::ok)
 }
 
+#[allow(dead_code)]
 pub fn print_stream<'s>(mut stream: impl Iterator<Item = Token<'s>>) {
     print!("[");
     let Some(tok) = stream.next() else {
