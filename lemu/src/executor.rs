@@ -302,21 +302,7 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
     }
 
     pub fn set(&mut self, a: LAddress<'s>, b: LAddress<'s>) -> bool {
-        match a {
-            LAddress::Const(_) => false,
-            LAddress::Address(v) => {
-                match b {
-                    LAddress::Const(n) => {
-                        *self.memory.get_mut_by_index(v) = n;
-                    }
-                    LAddress::Address(n) => {
-                        let b = self.memory.get_by_index(n);
-                        *self.memory.get_mut_by_index(v) = b;
-                    }
-                };
-                true
-            }
-        }
+        self.memory.set(a, b)
     }
 
     pub fn get_mut(&mut self, a: LAddress<'s>) -> Option<&mut LVar<'s>> {

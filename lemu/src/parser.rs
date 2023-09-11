@@ -167,10 +167,12 @@ pub(crate) fn parse<'source, W: Wr>(
                 .find(|(_, &v)| v == n)
                 .map(|(i, _)| i)
             {
-                Some(i) => LAddress::Address(i),
+                // SAFETY: we tell it the size is mem.len(); i comes from mem, this is fine
+                Some(i) => unsafe { LAddress::addr(i) },
                 None => {
                     mem.push(n);
-                    LAddress::Address(mem.len() - 1)
+                    // SAFETY: see above
+                    unsafe { LAddress::addr(mem.len() - 1) }
                 }
             }
         }};
