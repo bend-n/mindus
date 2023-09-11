@@ -66,15 +66,6 @@ impl Limit {
     }
 }
 
-impl std::fmt::Debug for LAddress<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Const(c) => write!(f, "LAddress {c}"),
-            Self::Name(n) => write!(f, "LAddress {n}"),
-        }
-    }
-}
-
 pub struct LogicExecutor<'varnames, W: Write> {
     /// if limited, will run n instructions before exiting.
     pub instruction_limit: Limit,
@@ -83,6 +74,7 @@ pub struct LogicExecutor<'varnames, W: Write> {
     /// a `Stop` instruction will break the loop.
     pub iteration_limit: Limit,
     pub(crate) inner: ExecutorContext<'varnames, W>,
+    /// gets pointed to by drawbuf
     pub(crate) program: Pin<Box<[PInstr<'varnames>]>>,
     pub instructions_ran: usize,
     pub iterations: usize,
@@ -105,6 +97,7 @@ pub(crate) struct ExecutorBuilder<'v, W: Write> {
     cells: Vec<f64>,
     iteration_limit: Limit,
     instruction_limit: Limit,
+    mem: usize,
 }
 
 impl<'s, W: Write> ExecutorBuilder<'s, W> {
@@ -117,6 +110,7 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
             cells: vec![],
             iteration_limit: Limit::limited(1),
             instruction_limit: Limit::Unlimited,
+            mem: 0,
         }
     }
 
@@ -158,12 +152,12 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
         Instruction(self.program.len() - 1)
     }
 
-    pub(crate) fn add_const(&mut self, var: impl Into<LVar<'s>>) -> LAddress<'s> {
-        LAddress::Const(var.into())
+    pub(crate) fn mem(&mut self, size: usize) {
+        self.mem = size;
     }
 
-    pub(crate) const fn addr(&self, var: &'s str) -> LAddress<'s> {
-        LAddress::Name(var)
+    pub(crate) fn add_const(&mut self, var: impl Into<LVar<'s>>) -> LAddress<'s> {
+        LAddress::Const(var.into())
     }
 
     pub(crate) fn add(&mut self, i: impl Into<Instr<'s>>) {
@@ -205,6 +199,7 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
             output,
             banks,
             cells,
+            mem,
         } = self;
         LogicExecutor {
             instruction_limit,
@@ -212,7 +207,7 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
             inner: ExecutorContext {
                 cells: cst::<CELL_SIZE>(cells),
                 banks: cst::<BANK_SIZE>(banks),
-                memory: LRegistry::default(),
+                memory: LRegistry::new(mem),
                 counter: 0,
                 display: Drawing {
                     displays: displays.into(),
@@ -243,6 +238,7 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
 
 pub struct Drawing<'v> {
     pub displays: Box<[fimg::Image<Vec<u8>, 4>]>,
+    /// points to `Executor.program`
     pub buffer: VecDeque<*const DrawInstr<'v>>,
 }
 
@@ -308,14 +304,14 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
     pub fn set(&mut self, a: LAddress<'s>, b: LAddress<'s>) -> bool {
         match a {
             LAddress::Const(_) => false,
-            LAddress::Name(v) => {
+            LAddress::Address(v) => {
                 match b {
                     LAddress::Const(n) => {
-                        *self.memory.get_mut_by_name(v) = n;
+                        *self.memory.get_mut_by_index(v) = n;
                     }
-                    LAddress::Name(n) => {
-                        let b = self.memory.get_by_name(n);
-                        *self.memory.get_mut_by_name(v) = b;
+                    LAddress::Address(n) => {
+                        let b = self.memory.get_by_index(n);
+                        *self.memory.get_mut_by_index(v) = b;
                     }
                 };
                 true

@@ -50,7 +50,8 @@ pub(crate) fn parse<'source, W: Wr>(
     mut tokens: impl Iterator<Item = Token<'source>>,
     executor: &mut ExecutorBuilder<'source, W>,
 ) -> Result<(), ParserError<'source>> {
-    // maps start to 0
+    let mut mem = Vec::new(); // maps &str to usize
+                              // maps "start" to 0
     let mut labels = Vec::new();
     #[derive(Debug)]
     enum UJump<'v> {
@@ -157,6 +158,23 @@ pub(crate) fn parse<'source, W: Wr>(
             }
         }};
     }
+    macro_rules! addr {
+        ($n:expr) => {{
+            let n = $n;
+            match mem
+                .iter()
+                .enumerate()
+                .find(|(_, &v)| v == n)
+                .map(|(i, _)| i)
+            {
+                Some(i) => LAddress::Address(i),
+                None => {
+                    mem.push(n);
+                    LAddress::Address(mem.len() - 1)
+                }
+            }
+        }};
+    }
     macro_rules! take_ident {
         ($tok:expr) => {{
             let tok = $tok;
@@ -167,7 +185,7 @@ pub(crate) fn parse<'source, W: Wr>(
         ($tok:expr) => {{
             let tok = $tok;
             if let Some(i) = tokstr!(tok) {
-                Ok(executor.addr(i))
+                Ok(addr!(i))
             } else {
                 match tok {
                     Token::Num(n) => Ok(executor.add_const(n)),
@@ -181,7 +199,7 @@ pub(crate) fn parse<'source, W: Wr>(
         ($tok:expr) => {{
             let tok = $tok;
             if let Some(i) = tokstr!(tok) {
-                Ok(executor.addr(i))
+                Ok(addr!(i))
             } else {
                 match tok {
                     Token::Num(n) => Ok(executor.add_const(n)),
@@ -207,7 +225,7 @@ pub(crate) fn parse<'source, W: Wr>(
             }
             // set x 4
             Token::Set => {
-                let from = executor.addr(take_ident!(tok!()?)?);
+                let from = addr!(take_ident!(tok!()?)?);
                 let to = take_var!(tok!()?)?;
                 executor.add(Set { from, to });
             }
@@ -392,5 +410,8 @@ pub(crate) fn parse<'source, W: Wr>(
             }
         }
     }
+
+    executor.mem(mem.len());
+
     Ok(())
 }

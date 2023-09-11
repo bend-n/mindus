@@ -6,9 +6,18 @@ pub enum LVar<'string> {
 }
 
 #[derive(Copy, Clone)]
-pub enum LAddress<'varname> {
-    Const(LVar<'varname>),
-    Name(&'varname str),
+pub enum LAddress<'str> {
+    Const(LVar<'str>),
+    Address(usize),
+}
+
+impl std::fmt::Debug for LAddress<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Const(c) => write!(f, "LAddress {c}"),
+            Self::Address(n) => write!(f, "LAddress {n:x}"),
+        }
+    }
 }
 
 impl std::fmt::Display for LVar<'_> {
@@ -39,63 +48,40 @@ impl<'s> From<&'s str> for LVar<'s> {
     }
 }
 
-struct LVarWrap<'varname> {
-    name: &'varname str,
-    inner: LVar<'varname>,
-}
-
 /// cleared every loop
-#[derive(Default)]
-pub struct LRegistry<'varnames>(Vec<LVarWrap<'varnames>>);
-
-impl std::fmt::Debug for LRegistry<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_map()
-            .entries(self.0.iter().map(|v| (v.name, v.inner)))
-            .finish()
-    }
-}
+#[derive(Default, Debug)]
+pub struct LRegistry<'str>(Box<[LVar<'str>]>);
 
 impl<'s> LRegistry<'s> {
+    pub fn new(size: usize) -> Self {
+        Self(vec![LVar::Null; size].into_boxed_slice())
+    }
+
     pub fn clear(&mut self) {
-        self.0.clear();
+        for var in self.0.iter_mut() {
+            *var = LVar::Null
+        }
     }
 
     pub fn get(&self, a: LAddress<'s>) -> LVar<'s> {
         match a {
-            LAddress::Name(n) => self.get_by_name(n),
+            LAddress::Address(n) => self.get_by_index(n),
             LAddress::Const(n) => n,
         }
     }
 
-    pub fn get_by_name(&self, adr: &'s str) -> LVar<'s> {
-        self.0
-            .iter()
-            .find(|v| v.name == adr)
-            .map(|v| &v.inner)
-            .copied()
-            .unwrap_or(LVar::Null)
+    pub fn get_by_index(&self, n: usize) -> LVar<'s> {
+        self.0[n]
     }
 
     pub fn get_mut(&mut self, a: LAddress<'s>) -> Option<&mut LVar<'s>> {
         match a {
             LAddress::Const(_) => None,
-            LAddress::Name(n) => Some(self.get_mut_by_name(n)),
+            LAddress::Address(n) => Some(self.get_mut_by_index(n)),
         }
     }
 
-    pub fn get_mut_by_name(&mut self, adr: &'s str) -> &mut LVar<'s> {
-        // SAFETY: give new lifetime
-        for x in unsafe { &mut *(&mut self.0 as *mut Vec<LVarWrap>) }.iter_mut() {
-            if x.name == adr {
-                return &mut x.inner;
-            }
-        }
-
-        self.0.push(LVarWrap {
-            name: adr,
-            inner: LVar::Null,
-        });
-        &mut self.0.last_mut().unwrap().inner
+    pub fn get_mut_by_index(&mut self, index: usize) -> &mut LVar<'s> {
+        &mut self.0[index]
     }
 }
