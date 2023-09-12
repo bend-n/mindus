@@ -171,7 +171,7 @@ macro_rules! get_num {
     ($x:expr) => {
         match $x {
             LVar::Num(x) => x,
-            _ => return LVar::Null,
+            _ => return LVar::null(),
         }
     };
     ($x:expr, or ret) => {
@@ -198,7 +198,7 @@ impl MathOp1 {
             Self::Floor => num!(f64::floor),
             Self::Not => |v| match v {
                 LVar::Num(n) => LVar::Num(flbop!(n, |n: u64| !n)),
-                _ => LVar::Null,
+                _ => LVar::null(),
             },
             Self::Log => num!(f64::ln),
             Self::Abs => num!(f64::abs),
