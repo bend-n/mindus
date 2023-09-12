@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::{Lexer as RealLexer, Logos, Span};
 use std::fmt::Write;
 macro_rules! instrs {
     ($($z:literal => $v:ident,)+) => {
@@ -93,8 +93,24 @@ instrs! {
     "atan" => ATan,
 }
 
-pub fn lex(s: &str) -> impl Iterator<Item = Token> {
-    Token::lexer(s).filter_map(Result::ok)
+pub fn lex(s: &str) -> Lexer {
+    Lexer {
+        inner: Token::lexer(s),
+    }
+}
+
+pub struct Lexer<'s> {
+    inner: RealLexer<'s, Token<'s>>,
+}
+
+impl<'s> Lexer<'s> {
+    pub fn next(&mut self) -> Option<Token<'s>> {
+        self.inner.find_map(Result::ok)
+    }
+
+    pub fn span(&self) -> Span {
+        self.inner.span()
+    }
 }
 
 #[allow(dead_code)]

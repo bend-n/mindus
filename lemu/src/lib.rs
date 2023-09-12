@@ -22,7 +22,7 @@ use std::io::Write;
 pub use executor::{Executor, Output};
 use executor::{ExecutorBuilderInternal, Limit};
 use fimg::Image;
-pub use parser::ParserError;
+pub use parser::Error;
 
 impl<W: Write + Default> Executor<'_, W> {
     /// Create a new [`ExecutorBuilder`]
@@ -125,7 +125,7 @@ impl<W: Write> ExecutorBuilder<W> {
     /// # Errors
     ///
     /// errors if the code is malformed.
-    pub fn program(self, program: &str) -> Result<Executor<'_, W>, ParserError<'_>> {
+    pub fn program(self, program: &str) -> Result<Executor<'_, W>, Error<'_>> {
         let Self {
             output,
             displays,
@@ -153,7 +153,7 @@ mod test {
         $(cell[$cell_n:literal][$cell_index:literal] = $what:literal $(;)?)?
         ) => {
             #[test]
-            fn $fn() -> Result<(), ParserError<'static>> {
+            fn $fn() -> Result<(), Error<'static>> {
                 let v = vec![];
                 let mut lex = Executor::with_output(v)
                     .unlimit_instructions()

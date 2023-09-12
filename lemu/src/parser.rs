@@ -1,5 +1,7 @@
 use std::io::Write as Wr;
 
+use logos::Span;
+
 use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
@@ -10,65 +12,65 @@ use super::{
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
-    lexer::Token,
+    lexer::{Lexer, Token},
     memory::LAddress,
 };
 
 /// Errors returned when parsing fails.
 #[derive(thiserror::Error, Debug)]
-pub enum ParserError<'s> {
+pub enum Error<'s> {
     /// Occurs from eg `set x`. (needs a value to set to)
     #[error("unexpected end of stream")]
     UnexpectedEof,
     /// Occurs from eg `op add\n...` (needs a variable)
     #[error("expected variable, got {0:?}")]
-    ExpectedVar(Token<'s>),
+    ExpectedVar(Token<'s>, Span),
     /// Occurs from eg `draw 4` (needs a ident of the type of drawing)
     #[error("expected identifier, got {0:?}")]
-    ExpectedIdent(Token<'s>),
+    ExpectedIdent(Token<'s>, Span),
     /// Occurs from eg `jump house` (assuming house isnt a label).
     #[error("expected jump target, got {0:?}")]
-    ExpectedJump(Token<'s>),
+    ExpectedJump(Token<'s>, Span),
     /// Occurs from eg `op add "three" "four"`
     #[error("expected number, got {0:?}")]
-    ExpectedNum(Token<'s>),
+    ExpectedNum(Token<'s>, Span),
     /// Occurs from eg `op 4` (4 is not add/mul/...)
     #[error("expected operator, got {0:?}")]
-    ExpectedOp(Token<'s>),
+    ExpectedOp(Token<'s>, Span),
     /// Occurs from eg `write cell1 5.5` (5.5 is not int)
     #[error("expected integer, got {0:?}")]
-    ExpectedInt(Token<'s>),
+    ExpectedInt(Token<'s>, Span),
     /// Occurs from eg `4.0 add 5.0`
     #[error("expected instruction, got {0:?}")]
-    ExpectedInstr(Token<'s>),
+    ExpectedInstr(Token<'s>, Span),
     /// Occurs from eg
-    /// ```
+    /// ```text
     /// lable:
     ///     jump label always
     /// ```
     /// (typo: lable not label)
     #[error("unable to find label {0:?}")]
-    LabelNotFound(&'s str),
+    LabelNotFound(&'s str, Span),
     /// Occurs from eg `jump 4910294029 always`
     #[error("unable to jump to instruction {0:?}")]
-    InvalidJump(Instruction),
+    InvalidJump(Instruction, Span),
     /// Occurs from eg `read bank9223372036854775807 5` (only `126` banks can exist)
     #[error("cannot get cell>{0:?}")]
-    MemoryTooFar(usize),
+    MemoryTooFar(usize, Span),
     /// Occurs from `read register1`
     #[error("unknown memory type {0:?}, expected (cell)|(bank)")]
-    InvalidMemoryType(&'s str),
+    InvalidMemoryType(&'s str, Span),
     /// Occurs from `drawflush bank1`
     #[error("unknown display type {0:?}, expected 'display'")]
-    InvalidDisplayType(&'s str),
+    InvalidDisplayType(&'s str, Span),
     /// Occurs from `draw house` (or `draw image`, a valid but unsupported instruction here)
     #[error("unknown image operation {0:?}")]
-    UnsupportedImageOp(&'s str),
+    UnsupportedImageOp(&'s str, Span),
     #[error("couldnt get display #{0:?}.")]
     /// Occurs from eg `display 50`.
     ///
     /// call `display` 50 more times to have more display options:
-    /// ```
+    /// ```rust,ignore
     /// executor
     ///     .display()
     ///     .display()
@@ -121,7 +123,7 @@ pub enum ParserError<'s> {
     ///     .display()
     ///     .display();
     /// ```
-    NoDisplay(usize),
+    NoDisplay(usize, Span),
 }
 
 #[derive(Debug)]
@@ -135,16 +137,26 @@ enum UJump<'v> {
 }
 
 pub fn parse<'source, W: Wr>(
-    mut tokens: impl Iterator<Item = Token<'source>>,
+    mut tokens: Lexer<'source>,
     executor: &mut ExecutorBuilderInternal<'source, W>,
-) -> Result<(), ParserError<'source>> {
+) -> Result<(), Error<'source>> {
     let mut mem = Vec::new(); // maps &str to usize
                               // maps "start" to 0
     let mut labels = Vec::new();
     let mut unfinished_jumps = Vec::new();
     macro_rules! tok {
         () => {
-            tokens.next().ok_or(ParserError::UnexpectedEof)
+            tokens.next().ok_or(Error::UnexpectedEof)
+        };
+    }
+    macro_rules! err {
+        ($e:ident($($stuff:expr)+)) => {
+            Error::$e($($stuff,)+ tokens.span())
+        }
+    }
+    macro_rules! yeet {
+        ($e:ident($($stuff:expr)+)) => {
+            return Err(Error::$e($($stuff,)+ tokens.span()))
         };
     }
     #[rustfmt::skip]
@@ -219,7 +231,7 @@ pub fn parse<'source, W: Wr>(
         ($tok:expr) => {
             match $tok {
                 Token::Num(n) if n.fract() == 0.0 && n >= 0.0 => Ok(n as usize),
-                t => Err(ParserError::ExpectedInt(t)),
+                t => Err(err!(ExpectedInt(t))),
             }
         };
     }
@@ -228,12 +240,12 @@ pub fn parse<'source, W: Wr>(
             let container = take_ident!(tok!()?)?;
             let cell_n = take_int!(tok!()?)?;
             if cell_n > 126 || cell_n == 0 {
-                return Err(ParserError::MemoryTooFar(cell_n));
+                yeet!(MemoryTooFar(cell_n));
             }
             match container {
                 "bank" => executor.bank(cell_n),
                 "cell" => executor.cell(cell_n),
-                _ => return Err(ParserError::InvalidMemoryType(container)),
+                _ => yeet!(InvalidMemoryType(container)),
             }
         }};
     }
@@ -259,7 +271,7 @@ pub fn parse<'source, W: Wr>(
     macro_rules! take_ident {
         ($tok:expr) => {{
             let tok = $tok;
-            tokstr!(tok).ok_or(ParserError::ExpectedIdent(tok))
+            tokstr!(tok).ok_or(err!(ExpectedIdent(tok)))
         }};
     }
     macro_rules! take_var {
@@ -271,7 +283,7 @@ pub fn parse<'source, W: Wr>(
                 match tok {
                     Token::Num(n) => Ok(LAddress::cnst(n)),
                     Token::String(s) => Ok(LAddress::cnst(s)),
-                    t => Err(ParserError::ExpectedVar(t)),
+                    t => Err(err!(ExpectedVar(t))),
                 }
             }
         }};
@@ -284,7 +296,7 @@ pub fn parse<'source, W: Wr>(
             } else {
                 match tok {
                     Token::Num(n) => Ok(LAddress::cnst(n)),
-                    t => Err(ParserError::ExpectedNum(t)),
+                    t => Err(err!(ExpectedNum(t))),
                 }
             }
         }};
@@ -330,7 +342,7 @@ pub fn parse<'source, W: Wr>(
                         executor.jmp();
                         unfinished_jumps.push((UJump::Always, i, executor.last()));
                     } else {
-                        let op = op.try_into().map_err(|()| ParserError::ExpectedOp(op))?;
+                        let op = op.try_into().map_err(|()| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.jmp();
@@ -342,13 +354,13 @@ pub fn parse<'source, W: Wr>(
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
                     } else {
-                        let op = op.try_into().map_err(|()| ParserError::ExpectedOp(op))?;
+                        let op = op.try_into().map_err(|()| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.add(Jump::new(op, to, a, b));
                     }
                 } else {
-                    return Err(ParserError::ExpectedJump(tok));
+                    yeet!(ExpectedJump(tok));
                 };
             }
             // op add c 1 2
@@ -365,7 +377,7 @@ pub fn parse<'source, W: Wr>(
                     let b = take_numvar!(tok!()?)?;
                     executor.add(Op2::new(op, a, b, out));
                 } else {
-                    return Err(ParserError::ExpectedOp(op));
+                    yeet!(ExpectedOp(op));
                 }
             }
             // write 5.0 bank1 4 (aka bank1[4] = 5.0)
@@ -394,7 +406,7 @@ pub fn parse<'source, W: Wr>(
             Token::Draw => {
                 let dty = tok!()?;
                 let Token::Ident(instr) = dty else {
-                    return Err(ParserError::ExpectedIdent(dty));
+                    yeet!(ExpectedIdent(dty));
                 };
                 #[rustfmt::skip]
                 macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
@@ -451,17 +463,17 @@ pub fn parse<'source, W: Wr>(
                         });
                     }
                     // poly is TODO, image is WONTFIX
-                    i => return Err(ParserError::UnsupportedImageOp(i)),
+                    i => yeet!(UnsupportedImageOp(i)),
                 }
             }
             Token::DrawFlush => {
                 let screen = take_ident!(tok!()?)?;
                 if screen != "display" {
-                    return Err(ParserError::InvalidDisplayType(screen));
+                    yeet!(InvalidDisplayType(screen));
                 }
                 let display = executor
                     .display(take_int!(tok!()?)?)
-                    .map_err(ParserError::NoDisplay)?;
+                    .map_err(|n| err!(NoDisplay(n)))?;
                 executor.add(DrawFlush { display });
             }
             // end
@@ -482,7 +494,7 @@ pub fn parse<'source, W: Wr>(
                 // we take the newline here
                 continue;
             }
-            t => return Err(ParserError::ExpectedInstr(t)),
+            t => yeet!(ExpectedInstr(t)),
         }
         nextline!();
     }
@@ -491,7 +503,7 @@ pub fn parse<'source, W: Wr>(
         let to = labels
             .iter()
             .find(|(v, _)| v == &l)
-            .ok_or(ParserError::LabelNotFound(l))?
+            .ok_or(err!(LabelNotFound(l)))?
             .1;
         executor.program[i] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
@@ -505,7 +517,7 @@ pub fn parse<'source, W: Wr>(
             i
         {
             if !executor.valid(*to) {
-                return Err(ParserError::InvalidJump(*to));
+                yeet!(InvalidJump(*to));
             }
         }
     }
