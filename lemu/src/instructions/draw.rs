@@ -6,6 +6,10 @@ use crate::{
 use enum_dispatch::enum_dispatch;
 use fimg::Image;
 
+pub const INSTRS: &[&str] = &[
+    "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle",
+];
+
 #[enum_dispatch]
 pub trait DrawInstruction<'v> {
     #[allow(unused_variables)]

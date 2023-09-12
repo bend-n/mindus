@@ -14,9 +14,12 @@ thiserror = "1.0"
 enum_dispatch = "0.3"
 fimg = { version = "0.4", default-features = false }
 logos = "0.13.0"
+yumy = { version = "0.2.1", optional = true }
+rust-fuzzy-search = { version = "0.1.1", optional = true }
 
 [features]
-bin = ["fimg/save"]
+bin = ["fimg/save", "diagnose"]
+diagnose = ["rust-fuzzy-search", "yumy"]
 default = ["bin"]
 
 [[bin]]

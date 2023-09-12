@@ -126,6 +126,192 @@ pub enum Error<'s> {
     NoDisplay(usize, Span),
 }
 
+macro_rules! tokstr {
+    ($tok:expr) => {
+        match $tok {
+            Token::Ident(i) => Some(i),
+            Token::GetLink => Some("getlink"),
+            Token::Read => Some("read"),
+            Token::Write => Some("write"),
+            Token::Set => Some("set"),
+            Token::Op => Some("op"),
+            Token::End => Some("end"),
+            Token::Draw => Some("draw"),
+            Token::DrawFlush => Some("drawflush"),
+            Token::Print => Some("print"),
+            Token::PackColor => Some("packcolor"),
+            Token::Jump => Some("jump"),
+            Token::Stop => Some("stop"),
+            Token::Counter => Some("@counter"),
+            Token::Equal => Some("equal"),
+            Token::NotEqual => Some("notEqual"),
+            Token::LessThan => Some("lessThan"),
+            Token::LessThanEq => Some("lessThanEq"),
+            Token::GreaterThan => Some("greaterThan"),
+            Token::GreaterThanEq => Some("greaterThanEq"),
+            Token::StrictEqual => Some("strictEqual"),
+            Token::Always => Some("always"),
+            Token::Add => Some("add"),
+            Token::Sub => Some("sub"),
+            Token::Mul => Some("mul"),
+            Token::Div => Some("div"),
+            Token::IDiv => Some("idiv"),
+            Token::Mod => Some("mod"),
+            Token::Pow => Some("pow"),
+            Token::And => Some("land"),
+            Token::Not => Some("not"),
+            Token::ShiftLeft => Some("shl"),
+            Token::ShiftRight => Some("shr"),
+            Token::BitOr => Some("or"),
+            Token::BitAnd => Some("and"),
+            Token::ExclusiveOr => Some("xor"),
+            Token::Max => Some("max"),
+            Token::Min => Some("min"),
+            Token::Angle => Some("angle"),
+            Token::AngleDiff => Some("angleDiff"),
+            Token::Len => Some("len"),
+            Token::Noise => Some("noise"),
+            Token::Abs => Some("abs"),
+            Token::Log => Some("log"),
+            Token::Log10 => Some("log10"),
+            Token::Floor => Some("floor"),
+            Token::Ceil => Some("ceil"),
+            Token::Sqrt => Some("sqrt"),
+            Token::Rand => Some("rand"),
+            Token::Sin => Some("sin"),
+            Token::Cos => Some("cos"),
+            Token::Tan => Some("tan"),
+            Token::ASin => Some("asin"),
+            Token::ACos => Some("acos"),
+            Token::ATan => Some("atan"),
+            _ => None,
+        }
+    };
+}
+
+impl Error<'_> {
+    /// Produces a [`Diagnostic`] from this error.
+    #[cfg(feature = "diagnose")]
+    pub fn diagnose<'s>(
+        &self,
+        source: &'s str,
+        fname: Option<&'s str>,
+    ) -> yumy::Diagnostic<yumy::Source<'s>> {
+        use yumy::{
+            owo_colors::{OwoColorize, Style},
+            Diagnostic, Label, Source, SourceSpan,
+        };
+
+        let error = "error".red();
+        let note = "note".yellow();
+        let help = "help".bright_green();
+        let e_sty = Style::new().bright_red();
+        macro_rules! err {
+            ($span:expr, $msg:literal $(, $args:expr)* $(,)?) => {
+                Label::styled(SourceSpan::new($span.start as u32, $span.end as u32), format!($msg $(, $args)*), e_sty)
+            };
+        }
+        macro_rules! dig {
+            ($ms:literal $(, $args:expr)* $(,)?) => {
+                Diagnostic::new(format!($ms $(, $args)*)).with_source(Source::new(source, fname))
+            };
+        }
+        let mut d;
+        match self {
+            Error::UnexpectedEof => {
+                d = dig!("{error}: wasnt able to finish read").with_label(err!(
+                    source.len() - 1..source.len() - 1,
+                    "there was supposed to be another token here"
+                ));
+            }
+            Error::ExpectedVar(_, s) => {
+                d = dig!("{error}: expected a variable")
+                    .with_label(err!(s, "this was supposed to be a variable"));
+            }
+            Error::ExpectedIdent(_, s) => {
+                d = dig!("{error}: expected a identifier")
+                    .with_label(err!(s, "this was supposed to be a identifier"));
+            }
+            Error::ExpectedJump(t, s) => {
+                d = dig!("{error}: expected jump target")
+                    .with_label(err!(s, "this was supposed to be a jump target"))
+                    .with_footnote(
+                        format!("{note}: a jump target is a label(ident), or a line number in integer form (not a float)"),
+                    );
+                if let Token::Num(n) = t {
+                    d.add_footnote(format!("{help}: remove the fractional part: {n:.0}"));
+                }
+            }
+            Error::ExpectedNum(_, s) => {
+                d = dig!("{error}: expected number")
+                    .with_label(err!(s, "this was supposed to be a number"))
+            }
+            Error::ExpectedOp(t, s) => {
+                d = dig!("{error}: expected operator")
+                    .with_label(err!(s, "this was supposed to be a operator"));
+                if let Some(i) = tokstr!(t.clone()) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).get(0) && *score > 0.5 {
+                    d.add_footnote(format!("{help}: maybe you meant {mat}"));
+                }
+            }
+            Error::ExpectedInt(t, s) => {
+                d = dig!("{error}: expected integer")
+                    .with_label(err!(s, "this was supposed to be a integer"));
+                if let Token::Num(n) = t {
+                    d.add_footnote(format!("{help}: remove the fractional part: {n:.0}"));
+                }
+            }
+            Error::ExpectedInstr(_, s) => {
+                d = dig!("{error}: expected instruction")
+                    .with_label(err!(s, "this was supposed to be a instruction"));
+                // it occurs to me that this wont ever be a string, as idents are turned into `Code`
+                // if let Some(i) = tokstr!(t.clone()) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::INSTRS, 1).get(0) && *score > 0.5 {
+                //     d.add_footnote(format!("{help}: maybe you meant {mat}"));
+                // }
+            }
+            Error::LabelNotFound(_, s) => {
+                d = dig!("{error}: label not found")
+                    .with_label(err!(s, "this was supposed to be a (existing) label"));
+            }
+            Error::InvalidJump(Instruction(target), s) => {
+                d = dig!("{error}: invalid jump")
+                    .with_label(err!(s, "line#{target} is not in the program"))
+                    .with_footnote(format!(
+                        "{help}: there are 0..{} available lines",
+                        source.lines().count()
+                    ));
+            }
+            Error::MemoryTooFar(b, s) => {
+                d = dig!("{error}: invalid memory cell/bank")
+                    .with_label(err!(s, "cant get cell/bank#{b}"))
+                    .with_footnote(format!("{note}: only 126 cells/banks are allowed"));
+            }
+            Error::InvalidMemoryType(t, s) => {
+                d = dig!("{error}: invalid memory type")
+                    .with_label(err!(s, "cant get {t}"))
+                    .with_footnote(format!("{note}: only banks/cells are allowed"));
+            }
+            Error::InvalidDisplayType(disp, s) => {
+                d = dig!("{error}: invalid display type")
+                    .with_label(err!(s, "cant get {disp}"))
+                    .with_footnote(format!("{help}: change this to 'display'"));
+            }
+            Error::UnsupportedImageOp(op, s) => {
+                d = dig!("{error}: invalid image op").with_label(err!(
+                    s,
+                    "must be one of {{clear, color, col, stroke, line, rect, lineRect, triangle}}"
+                ));
+                if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(op, crate::instructions::draw::INSTRS, 1).get(0) && *score > 0.5 {
+                    d.add_footnote(format!("{help}: you may have meant {mat}"));
+                }
+            }
+            Error::NoDisplay(disp, s) => {
+                d = dig!("{error}: no display allocated").with_label(err!(s, "display#{disp} has not been created")).with_footnote(format!("{note}: it is impossible for me to dynamically allocate displays, as 'display1' could be large or small"));
+            }
+        };
+        d
+    }
+}
+
 #[derive(Debug)]
 enum UJump<'v> {
     Sometimes {
@@ -163,68 +349,6 @@ pub fn parse<'source, W: Wr>(
     macro_rules! nextline {
         () => {
             while let Some(tok) = tokens.next() && tok != Token::Newline { }
-        };
-    }
-    macro_rules! tokstr {
-        ($tok:expr) => {
-            match $tok {
-                Token::Ident(i) => Some(i),
-                Token::GetLink => Some("getlink"),
-                Token::Read => Some("read"),
-                Token::Write => Some("write"),
-                Token::Set => Some("set"),
-                Token::Op => Some("op"),
-                Token::End => Some("end"),
-                Token::Draw => Some("draw"),
-                Token::DrawFlush => Some("drawflush"),
-                Token::Print => Some("print"),
-                Token::PackColor => Some("packcolor"),
-                Token::Jump => Some("jump"),
-                Token::Stop => Some("stop"),
-                Token::Counter => Some("@counter"),
-                Token::Equal => Some("equal"),
-                Token::NotEqual => Some("notEqual"),
-                Token::LessThan => Some("lessThan"),
-                Token::LessThanEq => Some("lessThanEq"),
-                Token::GreaterThan => Some("greaterThan"),
-                Token::GreaterThanEq => Some("greaterThanEq"),
-                Token::StrictEqual => Some("strictEqual"),
-                Token::Always => Some("always"),
-                Token::Add => Some("add"),
-                Token::Sub => Some("sub"),
-                Token::Mul => Some("mul"),
-                Token::Div => Some("div"),
-                Token::IDiv => Some("idiv"),
-                Token::Mod => Some("mod"),
-                Token::Pow => Some("pow"),
-                Token::And => Some("land"),
-                Token::Not => Some("not"),
-                Token::ShiftLeft => Some("shl"),
-                Token::ShiftRight => Some("shr"),
-                Token::BitOr => Some("or"),
-                Token::BitAnd => Some("and"),
-                Token::ExclusiveOr => Some("xor"),
-                Token::Max => Some("max"),
-                Token::Min => Some("min"),
-                Token::Angle => Some("angle"),
-                Token::AngleDiff => Some("angleDiff"),
-                Token::Len => Some("len"),
-                Token::Noise => Some("noise"),
-                Token::Abs => Some("abs"),
-                Token::Log => Some("log"),
-                Token::Log10 => Some("log10"),
-                Token::Floor => Some("floor"),
-                Token::Ceil => Some("ceil"),
-                Token::Sqrt => Some("sqrt"),
-                Token::Rand => Some("rand"),
-                Token::Sin => Some("sin"),
-                Token::Cos => Some("cos"),
-                Token::Tan => Some("tan"),
-                Token::ASin => Some("asin"),
-                Token::ACos => Some("acos"),
-                Token::ATan => Some("atan"),
-                _ => None,
-            }
         };
     }
     macro_rules! take_int {
@@ -487,8 +611,7 @@ pub fn parse<'source, W: Wr>(
                 let mut c = String::from(i);
                 while let Some(tok) = tokens.next() && tok != Token::Newline {
                     use std::fmt::Write;
-                    write!(c, " ").unwrap();
-                    tok.write(&mut c).expect("didnt know writing to a string could fail");
+                    write!(c, " {tok}").expect("didnt know writing to a string could fail");
                 }
                 executor.code(c);
                 // we take the newline here

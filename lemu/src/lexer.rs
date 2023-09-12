@@ -1,5 +1,4 @@
 use logos::{Lexer as RealLexer, Logos, Span};
-use std::fmt::Write;
 macro_rules! instrs {
     ($($z:literal => $v:ident,)+) => {
         #[derive(Logos, Debug, PartialEq, Copy, Clone)]
@@ -22,15 +21,14 @@ macro_rules! instrs {
             $(#[token($z)] $v,)+
         }
 
-        impl<'v> Token<'v> {
-            pub fn write(self, w: &mut impl Write) -> std::fmt::Result {
+        impl std::fmt::Display for Token<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
                 match self {
-                    $(Self::$v => write!(w, $z,),)+
-                    Self::String(s) | Self::Ident(s)| Self::Comment(s) => write!(w, "{s}"),
-                    Self::Num(n) => write!(w, "{n}"),
-                    Self::Newline => write!(w, "\n"),
-                }?;
-                Ok(())
+                    $(Self::$v => write!(f, $z,),)+
+                    Self::String(s) | Self::Ident(s)| Self::Comment(s) => write!(f, "{s}"),
+                    Self::Num(n) => write!(f, "{n}"),
+                    Self::Newline => write!(f, "\n"),
+                }
             }
         }
     }
