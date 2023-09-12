@@ -24,10 +24,10 @@ pub trait DrawInstruction<'v> {
 #[derive(Debug)]
 #[enum_dispatch(DrawInstruction)]
 pub enum DrawInstr<'v> {
-    DrawLine(DrawLine<'v>),
-    DrawRectBordered(DrawRectBordered<'v>),
-    DrawRectFilled(DrawRectFilled<'v>),
-    DrawTriangle(DrawTriangle<'v>),
+    DrawLine(Line<'v>),
+    DrawRectBordered(RectBordered<'v>),
+    DrawRectFilled(RectFilled<'v>),
+    DrawTriangle(Triangle<'v>),
     Clear(Clear<'v>),
     SetColorDyn(SetColorDyn<'v>),
     SetColorConst(SetColorConst),
@@ -122,11 +122,11 @@ macro_rules! map {
     }};
 }
 #[derive(Debug)]
-pub struct DrawLine<'v> {
+pub struct Line<'v> {
     pub point_a: Point<'v>,
     pub point_b: Point<'v>,
 }
-impl<'v> DrawInstruction<'v> for DrawLine<'v> {
+impl<'v> DrawInstruction<'v> for Line<'v> {
     #[allow(unused_variables)]
     fn draw(
         &self,
@@ -148,12 +148,12 @@ macro_rules! unbounded {
 }
 
 #[derive(Debug)]
-pub struct DrawRectFilled<'v> {
+pub struct RectFilled<'v> {
     pub position: Point<'v>,
     pub width: LAddress<'v>,
     pub height: LAddress<'v>,
 }
-impl<'v> DrawInstruction<'v> for DrawRectFilled<'v> {
+impl<'v> DrawInstruction<'v> for RectFilled<'v> {
     fn draw(
         &self,
         mem: &mut LRegistry<'v>,
@@ -172,13 +172,13 @@ impl<'v> DrawInstruction<'v> for DrawRectFilled<'v> {
 }
 
 #[derive(Debug)]
-pub struct DrawRectBordered<'v> {
+pub struct RectBordered<'v> {
     pub position: Point<'v>,
     pub width: LAddress<'v>,
     pub height: LAddress<'v>,
 }
 
-impl<'v> DrawInstruction<'v> for DrawRectBordered<'v> {
+impl<'v> DrawInstruction<'v> for RectBordered<'v> {
     fn draw(
         &self,
         mem: &mut LRegistry<'v>,
@@ -198,10 +198,10 @@ impl<'v> DrawInstruction<'v> for DrawRectBordered<'v> {
 }
 
 #[derive(Debug)]
-pub struct DrawTriangle<'v> {
+pub struct Triangle<'v> {
     pub points: (Point<'v>, Point<'v>, Point<'v>),
 }
-impl<'v> DrawInstruction<'v> for DrawTriangle<'v> {
+impl<'v> DrawInstruction<'v> for Triangle<'v> {
     fn draw(&self, mem: &mut LRegistry<'v>, i: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
         let to32 = |n| n as f32;
         let (a, b, c) = (
@@ -221,10 +221,10 @@ impl<'v> DrawInstruction<'v> for DrawTriangle<'v> {
 }
 
 #[derive(Debug)]
-pub struct DrawFlush {
+pub struct Flush {
     pub(crate) display: Display,
 }
-impl LInstruction<'_> for DrawFlush {
+impl LInstruction<'_> for Flush {
     fn run<W: std::io::Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         exec.flush(self.display);
         Flow::Continue

@@ -6,8 +6,8 @@ use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         draw::{
-            Clear, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled, DrawTriangle,
-            SetColorConst, SetColorDyn, SetStroke,
+            Clear, Flush, Line, RectBordered, RectFilled, SetColorConst, SetColorDyn, SetStroke,
+            Triangle,
         },
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
@@ -244,12 +244,12 @@ impl Error<'_> {
             }
             Error::ExpectedNum(_, s) => {
                 d = dig!("{error}: expected number")
-                    .with_label(err!(s, "this was supposed to be a number"))
+                    .with_label(err!(s, "this was supposed to be a number"));
             }
             Error::ExpectedOp(t, s) => {
                 d = dig!("{error}: expected operator")
                     .with_label(err!(s, "this was supposed to be a operator"));
-                if let Some(i) = tokstr!(t.clone()) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).get(0) && *score > 0.5 {
+                if let Some(i) = tokstr!(*t) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).first() && *score > 0.5 {
                     d.add_footnote(format!("{help}: maybe you meant {mat}"));
                 }
             }
@@ -300,7 +300,7 @@ impl Error<'_> {
                     s,
                     "must be one of {{clear, color, col, stroke, line, rect, lineRect, triangle}}"
                 ));
-                if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(op, crate::instructions::draw::INSTRS, 1).get(0) && *score > 0.5 {
+                if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(op, crate::instructions::draw::INSTRS, 1).first() && *score > 0.5 {
                     d.add_footnote(format!("{help}: you may have meant {mat}"));
                 }
             }
@@ -559,14 +559,14 @@ pub fn parse<'source, W: Wr>(
                     }
                     "line" => {
                         let (x, y, x2, y2) = four! { take_numvar!(tok!()?)? };
-                        executor.draw(DrawLine {
+                        executor.draw(Line {
                             point_a: (x, y),
                             point_b: (x2, y2),
                         });
                     }
                     "rect" => {
                         let (x, y, width, height) = four! { take_numvar!(tok!()?)? };
-                        executor.draw(DrawRectFilled {
+                        executor.draw(RectFilled {
                             position: (x, y),
                             width,
                             height,
@@ -574,7 +574,7 @@ pub fn parse<'source, W: Wr>(
                     }
                     "lineRect" => {
                         let (x, y, width, height) = four! { take_numvar!(tok!()?)? };
-                        executor.draw(DrawRectBordered {
+                        executor.draw(RectBordered {
                             position: (x, y),
                             width,
                             height,
@@ -582,7 +582,7 @@ pub fn parse<'source, W: Wr>(
                     }
                     "triangle" => {
                         let (x, y, x2, y2, x3, y3) = six! { take_numvar!(tok!()?)? };
-                        executor.draw(DrawTriangle {
+                        executor.draw(Triangle {
                             points: ((x, y), (x2, y2), (x3, y3)),
                         });
                     }
@@ -598,7 +598,7 @@ pub fn parse<'source, W: Wr>(
                 let display = executor
                     .display(take_int!(tok!()?)?)
                     .map_err(|n| err!(NoDisplay(n)))?;
-                executor.add(DrawFlush { display });
+                executor.add(Flush { display });
             }
             // end
             Token::End => {
@@ -626,7 +626,7 @@ pub fn parse<'source, W: Wr>(
         let to = labels
             .iter()
             .find(|(v, _)| v == &l)
-            .ok_or(err!(LabelNotFound(l)))?
+            .ok_or_else(|| err!(LabelNotFound(l)))?
             .1;
         executor.program[i] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),

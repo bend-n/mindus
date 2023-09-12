@@ -114,7 +114,7 @@ pub enum Instr<'v> {
     Op1(Op1<'v>),
     Read(io::Read<'v>),
     Write(io::Write<'v>),
-    DrawFlush(draw::DrawFlush),
+    DrawFlush(draw::Flush),
     DynJump(DynJump<'v>),
     Print(io::Print<'v>),
     Stop(Stop),

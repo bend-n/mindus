@@ -16,7 +16,7 @@ impl PartialEq for LVar<'_> {
 
 impl LVar<'_> {
     // get null
-    pub fn null() -> LVar<'static> {
+    pub const fn null() -> LVar<'static> {
         LVar::Num(0.0)
     }
 }
