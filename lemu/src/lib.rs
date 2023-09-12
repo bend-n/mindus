@@ -3,7 +3,9 @@
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
+    clippy::redundant_pub_crate,
     clippy::missing_safety_doc,
+    clippy::imprecise_flops,
     unsafe_op_in_unsafe_fn,
     clippy::dbg_macro,
     clippy::perf

@@ -35,7 +35,7 @@ impl std::fmt::Debug for Instruction {
 }
 
 #[derive(Debug)]
-pub(crate) enum PInstr<'s> {
+pub enum PInstr<'s> {
     Code(&'s str),
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
@@ -80,7 +80,7 @@ pub struct LogicExecutor<'varnames, W: Write> {
     pub iterations: usize,
 }
 
-pub(crate) enum UPInstr<'s> {
+pub enum UPInstr<'s> {
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
     UnfinishedJump,
@@ -89,7 +89,7 @@ pub(crate) enum UPInstr<'s> {
 }
 
 /// for use by [`parser`](crate::parser)
-pub(crate) struct ExecutorBuilder<'v, W: Write> {
+pub struct ExecutorBuilder<'v, W: Write> {
     displays: Vec<Image<Vec<u8>, 4>>,
     pub(crate) program: Vec<UPInstr<'v>>,
     output: W,
@@ -156,10 +156,6 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
         self.mem = size;
     }
 
-    pub(crate) fn add_const(&mut self, var: impl Into<LVar<'s>>) -> LAddress<'s> {
-        LAddress::Const(var.into())
-    }
-
     pub(crate) fn add(&mut self, i: impl Into<Instr<'s>>) {
         self.program.push(UPInstr::Instr(i.into()));
     }
@@ -188,7 +184,7 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
             let len = a.len();
             let ptr: *mut [f64] = Box::into_raw(a.into());
             let ptr: *mut [[f64; N]] =
-                core::ptr::slice_from_raw_parts_mut(ptr as *mut [f64; N], len / N);
+                core::ptr::slice_from_raw_parts_mut(ptr.cast::<[f64; N]>(), len / N);
             unsafe { Box::from_raw(ptr) }
         }
         let Self {
@@ -287,7 +283,7 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
                 &mut self.memory,
                 &mut self.display.displays[to.0].as_mut(),
                 &mut state,
-            )
+            );
         }
     }
 
@@ -328,7 +324,7 @@ pub struct Output<W: Write> {
 
 impl<'s, W: Write> LogicExecutor<'s, W> {
     pub fn output(mut self) -> Output<W> {
-        for display in self.inner.display.displays.iter_mut() {
+        for display in &mut *self.inner.display.displays {
             // TODO make the instructions draw flipped-ly
             display.flip_v();
         }

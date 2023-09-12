@@ -1,8 +1,18 @@
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug)]
 pub enum LVar<'string> {
     Null,
     Num(f64),
     String(&'string str),
+}
+
+impl PartialEq for LVar<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Num(a), Self::Num(b)) => (a - b).abs() < 0.000_001,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -11,12 +21,16 @@ pub enum LAddress<'str> {
     Address(usize, Priv),
 }
 
-impl LAddress<'_> {
+impl<'v> LAddress<'v> {
     /// # Safety
     ///
     /// you must make sure that addr is in bounds of the memory.
     pub(crate) const unsafe fn addr(addr: usize) -> Self {
         LAddress::Address(addr, Priv { _priv: () })
+    }
+
+    pub(crate) fn cnst(c: impl Into<LVar<'v>>) -> Self {
+        Self::Const(c.into())
     }
 }
 
@@ -72,8 +86,8 @@ impl<'s> LRegistry<'s> {
     }
 
     pub fn clear(&mut self) {
-        for var in self.0.iter_mut() {
-            *var = LVar::Null
+        for var in &mut *self.0 {
+            *var = LVar::Null;
         }
     }
 

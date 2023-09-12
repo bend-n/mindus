@@ -46,22 +46,23 @@ pub enum ParserError<'s> {
     ExpectedU8(usize),
 }
 
-pub(crate) fn parse<'source, W: Wr>(
+#[derive(Debug)]
+enum UJump<'v> {
+    Sometimes {
+        a: LAddress<'v>,
+        b: LAddress<'v>,
+        op: ConditionOp,
+    },
+    Always,
+}
+
+pub fn parse<'source, W: Wr>(
     mut tokens: impl Iterator<Item = Token<'source>>,
     executor: &mut ExecutorBuilder<'source, W>,
 ) -> Result<(), ParserError<'source>> {
     let mut mem = Vec::new(); // maps &str to usize
                               // maps "start" to 0
     let mut labels = Vec::new();
-    #[derive(Debug)]
-    enum UJump<'v> {
-        Sometimes {
-            a: LAddress<'v>,
-            b: LAddress<'v>,
-            op: ConditionOp,
-        },
-        Always,
-    }
     let mut unfinished_jumps = Vec::new();
     macro_rules! tok {
         () => {
@@ -190,8 +191,8 @@ pub(crate) fn parse<'source, W: Wr>(
                 Ok(addr!(i))
             } else {
                 match tok {
-                    Token::Num(n) => Ok(executor.add_const(n)),
-                    Token::String(s) => Ok(executor.add_const(s)),
+                    Token::Num(n) => Ok(LAddress::cnst(n)),
+                    Token::String(s) => Ok(LAddress::cnst(s)),
                     t => Err(ParserError::ExpectedVar(t)),
                 }
             }
@@ -204,7 +205,7 @@ pub(crate) fn parse<'source, W: Wr>(
                 Ok(addr!(i))
             } else {
                 match tok {
-                    Token::Num(n) => Ok(executor.add_const(n)),
+                    Token::Num(n) => Ok(LAddress::cnst(n)),
                     t => Err(ParserError::ExpectedNum(t)),
                 }
             }
@@ -257,7 +258,7 @@ pub(crate) fn parse<'source, W: Wr>(
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
                     } else {
-                        let op = op.try_into().map_err(|_| ParserError::ExpectedOp(op))?;
+                        let op = op.try_into().map_err(|()| ParserError::ExpectedOp(op))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.add(Jump::new(op, to, a, b));
@@ -308,14 +309,14 @@ pub(crate) fn parse<'source, W: Wr>(
             }
             Token::Draw => {
                 let dty = tok!()?;
-                let Token::Ident(i) = dty else {
+                let Token::Ident(instr) = dty else {
                     return Err(ParserError::ExpectedIdent(dty));
                 };
                 #[rustfmt::skip]
                 macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
                 #[rustfmt::skip]
                 macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
-                match i {
+                match instr {
                     "clear" => {
                         let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
                         executor.draw(Clear { r, g, b, a });
@@ -326,10 +327,10 @@ pub(crate) fn parse<'source, W: Wr>(
                     }
                     "col" => {
                         let col = take_int!(tok!()?)?;
-                        let r = (col & 0xff000000 >> 24) as u8;
-                        let g = (col & 0x00ff0000 >> 16) as u8;
-                        let b = (col & 0x0000ff00 >> 8) as u8;
-                        let a = (col & 0x000000ff) as u8;
+                        let r = (col & 0xff00_0000 >> 24) as u8;
+                        let g = (col & 0x00ff_0000 >> 16) as u8;
+                        let b = (col & 0x0000_ff00 >> 8) as u8;
+                        let a = (col & 0x0000_00ff) as u8;
                         executor.draw(SetColorConst { r, g, b, a });
                     }
                     "stroke" => {
@@ -349,7 +350,7 @@ pub(crate) fn parse<'source, W: Wr>(
                             position: (x, y),
                             width,
                             height,
-                        })
+                        });
                     }
                     "lineRect" => {
                         let (x, y, width, height) = four! { take_numvar!(tok!()?)? };
@@ -357,7 +358,7 @@ pub(crate) fn parse<'source, W: Wr>(
                             position: (x, y),
                             width,
                             height,
-                        })
+                        });
                     }
                     "triangle" => {
                         let (x, y, x2, y2, x3, y3) = six! { take_numvar!(tok!()?)? };

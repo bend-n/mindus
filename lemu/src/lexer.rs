@@ -139,7 +139,7 @@ pub fn print_stream<'s>(mut stream: impl Iterator<Item = Token<'s>>) {
         println!("]");
         return;
     };
-    print!("{:?}", tok);
+    print!("{tok:?}");
     for token in stream {
         print!(", {token:?}");
     }

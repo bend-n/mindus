@@ -150,7 +150,7 @@ macro_rules! op_enum {
     }
 }
 
-op_enum! { pub(crate) enum MathOp1 {
+op_enum! { pub enum MathOp1 {
     Floor,
     Not,
     Log,
@@ -242,7 +242,7 @@ impl<'s> LInstruction<'s> for Op1<'s> {
     }
 }
 
-op_enum! { pub(crate) enum MathOp2 {
+op_enum! { pub enum MathOp2 {
     Angle,
     Add,
     Sub,
@@ -304,32 +304,8 @@ impl MathOp2 {
             Self::Mod => op!(%),
             Self::Pow => num!(f64::powf),
             // we kind of interpret strings as numbers so yeah
-            Self::Equal | Self::StrictEqual => |a, b| {
-                LVar::from(match a {
-                    LVar::Num(a) => match b {
-                        LVar::Num(b) => a == b,
-                        _ => false,
-                    },
-                    LVar::String(a) => match b {
-                        LVar::String(b) => a == b,
-                        _ => false,
-                    },
-                    LVar::Null => matches!(b, LVar::Null),
-                })
-            },
-            Self::NotEqual => |a, b| {
-                LVar::from(match a {
-                    LVar::Num(a) => match b {
-                        LVar::Num(b) => a != b,
-                        _ => true,
-                    },
-                    LVar::String(a) => match b {
-                        LVar::String(b) => a != b,
-                        _ => true,
-                    },
-                    LVar::Null => !matches!(b, LVar::Null),
-                })
-            },
+            Self::Equal | Self::StrictEqual => |a, b| LVar::from(a == b),
+            Self::NotEqual => |a, b| (a != b).into(),
             Self::And => num!(|a, b| a != 0.0 && b != 0.0),
             Self::LessThan => op!(<),
             Self::LessThanEq => op!(<=),
@@ -350,7 +326,7 @@ impl MathOp2 {
                     if (b - a) < 0.0 { b - a + 360.0 } else { b - a },
                 )
             }),
-            Self::Len => num!(|a: f64, b: f64| { (a * a + b * b).sqrt() }),
+            Self::Len => num!(f64::hypot),
             Self::Noise => |_, _| LVar::Num(9.0),
         }
     }
@@ -619,28 +595,8 @@ impl ConditionOp {
             };
         }
         match self {
-            Self::Equal | Self::StrictEqual => |a, b| match a {
-                LVar::Num(a) => match b {
-                    LVar::Num(b) => a == b,
-                    _ => false,
-                },
-                LVar::String(a) => match b {
-                    LVar::String(b) => a == b,
-                    _ => false,
-                },
-                LVar::Null => matches!(b, LVar::Null),
-            },
-            Self::NotEqual => |a, b| match a {
-                LVar::Num(a) => match b {
-                    LVar::Num(b) => a != b,
-                    _ => true,
-                },
-                LVar::String(a) => match b {
-                    LVar::String(b) => a != b,
-                    _ => true,
-                },
-                LVar::Null => !matches!(b, LVar::Null),
-            },
+            Self::Equal | Self::StrictEqual => |a, b| a == b,
+            Self::NotEqual => |a, b| a != b,
             Self::LessThan => op!(<),
             Self::LessThanEq => op!(<=),
             Self::GreaterThan => op!(>),
