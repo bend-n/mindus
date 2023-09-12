@@ -38,6 +38,9 @@ pub enum ParserError<'s> {
     /// Occurs from eg `write cell1 5.5` (5.5 is not int)
     #[error("expected integer, got {0:?}")]
     ExpectedInt(Token<'s>),
+    /// Occurs from eg `4.0 add 5.0`
+    #[error("expected instruction, got {0:?}")]
+    ExpectedInstr(Token<'s>),
     /// Occurs from eg
     /// ```
     /// lable:
@@ -479,7 +482,7 @@ pub fn parse<'source, W: Wr>(
                 // we take the newline here
                 continue;
             }
-            _ => todo!(),
+            t => return Err(ParserError::ExpectedInstr(t)),
         }
         nextline!();
     }
