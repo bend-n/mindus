@@ -615,13 +615,7 @@ impl ConditionOp {
     const fn get_fn<'v>(self) -> fn(LVar<'v>, LVar<'v>) -> bool {
         macro_rules! op {
             ($op:tt) => {
-                |a, b| match a {
-                    LVar::Num(a) => match b {
-                        LVar::Num(b) => a $op b,
-                        _ => false,
-                    },
-                    _ => false,
-                }
+                |a, b| if let LVar::Num(a) = a && let LVar::Num(b) = b { a $op b } else { false }
             };
         }
         match self {
