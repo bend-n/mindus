@@ -289,28 +289,21 @@ impl MathOp2 {
             }
         }
         match self {
-            Self::Angle => num!(|a: f64, b: f64| {
-                let mut x = a.atan2(b) * (180.0 / PI);
-                if x < 0.0 {
-                    x += 360.0;
-                }
-                x
-            }),
-            Self::Add => op!(+),
-            Self::Sub => op!(-),
-            Self::Mul => op!(*),
-            Self::Div => op!(/),
-            Self::IDiv => bop!(/),
-            Self::Mod => op!(%),
-            Self::Pow => num!(f64::powf),
             // we kind of interpret strings as numbers so yeah
             Self::Equal | Self::StrictEqual => |a, b| LVar::from(a == b),
             Self::NotEqual => |a, b| (a != b).into(),
             Self::And => num!(|a, b| a != 0.0 && b != 0.0),
+            Self::Add => op!(+),
+            Self::Sub => op!(-),
+            Self::Mul => op!(*),
+            Self::IDiv => bop!(/),
             Self::LessThan => op!(<),
             Self::LessThanEq => op!(<=),
             Self::GreaterThan => op!(>),
             Self::GreaterThanEq => op!(>=),
+            Self::Div => op!(/),
+            Self::Mod => op!(%),
+            Self::Pow => num!(f64::powf),
             Self::ShiftLeft => bop!(<<),
             Self::ShiftRight => bop!(>>),
             Self::BitOr => bop!(|),
@@ -328,6 +321,13 @@ impl MathOp2 {
             }),
             Self::Len => num!(f64::hypot),
             Self::Noise => |_, _| LVar::Num(9.0),
+            Self::Angle => num!(|a: f64, b: f64| {
+                let mut x = a.atan2(b) * (180.0 / PI);
+                if x < 0.0 {
+                    x += 360.0;
+                }
+                x
+            }),
         }
     }
 }
@@ -598,8 +598,8 @@ impl ConditionOp {
             Self::Equal | Self::StrictEqual => |a, b| a == b,
             Self::NotEqual => |a, b| a != b,
             Self::LessThan => op!(<),
-            Self::LessThanEq => op!(<=),
             Self::GreaterThan => op!(>),
+            Self::LessThanEq => op!(<=),
             Self::GreaterThanEq => op!(>=),
         }
     }
