@@ -200,8 +200,12 @@ impl<'s, W: Write> Executor<'s, W> {
         }
     }
 
-    fn run_current(&mut self) -> Flow {
-        match &self.program[self.inner.counter] {
+    /// # Safety
+    ///
+    /// `counter` *must* be in bounds.
+    unsafe fn run_current(&mut self) -> Flow {
+        // SAFETY: yee
+        match unsafe { self.program.get_unchecked(self.inner.counter) } {
             PInstr::Instr(i) => {
                 // println!("run {i:?} ({:?})", self.inner.memory);
                 i.run(&mut self.inner)
@@ -219,7 +223,8 @@ impl<'s, W: Write> Executor<'s, W> {
         while !self.instruction_limit.reached(self.instructions_ran)
             && !self.iteration_limit.reached(self.iterations)
         {
-            match self.run_current() {
+            // SAFETY: we have a check
+            match unsafe { self.run_current() } {
                 Flow::Continue => {}
                 Flow::Exit => break,
                 Flow::Stay => {
