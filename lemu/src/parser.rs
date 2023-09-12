@@ -10,6 +10,7 @@ use super::{
     lexer::Token,
     memory::LAddress,
 };
+
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError<'s> {
     #[error("unexpected end of stream")]

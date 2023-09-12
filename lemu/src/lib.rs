@@ -11,10 +11,10 @@
     clippy::perf
 )]
 mod executor;
-pub(crate) mod instructions;
-pub(crate) mod lexer;
-pub(crate) mod memory;
-pub(crate) mod parser;
+mod instructions;
+mod lexer;
+mod memory;
+mod parser;
 
 use std::io::Write;
 
@@ -32,7 +32,7 @@ impl<W: Write> LogicExecutor<'_, W> {
     pub fn with_output(w: W) -> ProcessorBuilder<W> {
         ProcessorBuilder {
             displays: Vec::new(),
-            output: w,
+            output: Some(w),
             instruction_limit: Limit::Unlimited,
             iteration_limit: Limit::limited(1),
         }
@@ -40,16 +40,16 @@ impl<W: Write> LogicExecutor<'_, W> {
 }
 
 pub struct ProcessorBuilder<W: Write> {
-    output: W,
+    output: Option<W>,
     displays: Vec<Image<Vec<u8>, 4>>,
     instruction_limit: Limit,
     iteration_limit: Limit,
 }
 
-impl<W: Write + Default> Default for ProcessorBuilder<W> {
+impl<W: Write> Default for ProcessorBuilder<W> {
     fn default() -> Self {
         Self {
-            output: W::default(),
+            output: None,
             displays: Vec::new(),
             instruction_limit: Limit::Unlimited,
             iteration_limit: Limit::limited(1),
@@ -140,7 +140,7 @@ mod test {
                     .program(include_str!(concat!(stringify!($fn), ".mlog")))?;
                 lex.run();
                 let output = lex.output();
-                $(assert_eq!(output.output, $to_be);)?
+                $(assert_eq!(output.output.unwrap(), $to_be);)?
                 $(assert_eq!(output.cells[$cell_n][$cell_index], $what);)?
                 Ok(())
             }

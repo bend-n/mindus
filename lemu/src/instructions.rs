@@ -572,7 +572,10 @@ pub struct Print<'v> {
 }
 impl LInstruction<'_> for Print<'_> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
-        write!(exec.output, "{}", exec.get(self.val)).unwrap();
+        let v = exec.get(self.val);
+        if let Some(o) = &mut exec.output {
+            write!(o, "{}", v).unwrap();
+        }
         Flow::Continue
     }
 }
