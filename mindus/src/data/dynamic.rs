@@ -4,7 +4,6 @@ use thiserror::Error;
 use crate::content;
 use crate::data::command::{self, UnitCommand};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializable};
-use crate::logic::LogicField;
 use crate::team::Team;
 
 macro_rules! datamaker {
@@ -30,6 +29,31 @@ macro_rules! datamaker {
                 }
             }
         )+
+
+
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+        pub enum DynType {
+            Content,
+            Point2,
+            Vec2,
+            TechNode,
+            Empty,
+            $($k,)+
+        }
+
+        impl DynData {
+            #[must_use]
+            pub const fn get_type(&self) -> DynType {
+                match self {
+                    Self::Empty => DynType::Empty,
+                    Self::Point2(..) => DynType::Point2,
+                    Self::Vec2(..) => DynType::Vec2,
+                    Self::TechNode(..) => DynType::TechNode,
+                    Self::Content(..) => DynType::Content,
+                    $(Self::$k(..) => DynType::$k,)+
+                }
+            }
+        }
     } }
 }
 
@@ -43,67 +67,12 @@ datamaker! {
     Boolean(bool),
     Double(f64),
     Building(GridPos),
-    LogicField(LogicField),
     ByteArray(Vec<u8>),
     UnitCommand(UnitCommand),
     BoolArray(Vec<bool>),
     Unit(u32),
     Vec2Array(Vec<(f32, f32)>),
     Team(Team),
-}
-
-impl DynData {
-    #[must_use]
-    pub const fn get_type(&self) -> DynType {
-        match self {
-            Self::Empty => DynType::Empty,
-            Self::Int(..) => DynType::Int,
-            Self::Long(..) => DynType::Long,
-            Self::Float(..) => DynType::Float,
-            Self::String(..) => DynType::String,
-            Self::Content(..) => DynType::Content,
-            Self::IntArray(..) => DynType::IntArray,
-            Self::Point2(..) => DynType::Point2,
-            Self::Point2Array(..) => DynType::Point2Array,
-            Self::TechNode(..) => DynType::TechNode,
-            Self::Boolean(..) => DynType::Boolean,
-            Self::Double(..) => DynType::Double,
-            Self::Building(..) => DynType::Building,
-            Self::LogicField(..) => DynType::LogicField,
-            Self::ByteArray(..) => DynType::ByteArray,
-            Self::UnitCommand(..) => DynType::UnitCommand,
-            Self::BoolArray(..) => DynType::BoolArray,
-            Self::Unit(..) => DynType::Unit,
-            Self::Vec2Array(..) => DynType::Vec2Array,
-            Self::Vec2(..) => DynType::Vec2,
-            Self::Team(..) => DynType::Team,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DynType {
-    Empty,
-    Int,
-    Long,
-    Float,
-    String,
-    Content,
-    IntArray,
-    Point2,
-    Point2Array,
-    TechNode,
-    Boolean,
-    Double,
-    Building,
-    LogicField,
-    ByteArray,
-    UnitCommand,
-    BoolArray,
-    Unit,
-    Vec2Array,
-    Vec2,
-    Team,
 }
 
 impl Serializable for DynData {
@@ -158,7 +127,6 @@ impl Serializable for DynData {
             10 => Ok(DynData::from(buff.read_bool()?)),
             11 => Ok(DynData::from(buff.read_f64()?)),
             12 => Ok(DynData::from(GridPos::from(buff.read_u32()?))),
-            13 => Ok(DynData::from(LogicField::try_from(buff.read_u8()?)?)),
             14 => {
                 let len = buff.read_i32()?;
                 let Ok(len) = usize::try_from(len) else {
@@ -288,11 +256,6 @@ impl Serializable for DynData {
                 buff.write_u32(u32::from(*pos))?;
                 Ok(())
             }
-            DynData::LogicField(fld) => {
-                buff.write_u8(13)?;
-                buff.write_u8(u8::from(*fld))?;
-                Ok(())
-            }
             DynData::ByteArray(arr) => {
                 if arr.len() > i32::MAX as usize {
                     return Err(WriteError::ByteArrayLen(arr.len()));
@@ -362,8 +325,6 @@ pub enum ReadError {
     IntArrayLen(i16),
     #[error("point2 array too long ({0})")]
     Point2ArrayLen(i8),
-    #[error("invalid logic field ({0})")]
-    LogicField(#[from] crate::logic::TryFromU8Error),
     #[error("byte array too long ({0})")]
     ByteArrayLen(i32),
     #[error("unit command not found")]
@@ -501,12 +462,6 @@ mod test {
         reparse_building,
         DynData::Building(GridPos(10, 0)),
         DynData::Building(GridPos(4444, 0xFE98))
-    );
-    make_dyn_test!(
-        reparse_logic,
-        DynData::LogicField(LogicField::Enabled),
-        DynData::LogicField(LogicField::Shoot),
-        DynData::LogicField(LogicField::Color)
     );
     make_dyn_test!(
         reparse_byte_array,

@@ -1,0 +1,29 @@
+[package]
+name = "lemu"
+version = "0.1.0"
+edition = "2021"
+description = "M-LOG runner"
+authors = ["bend-n <bend.n@outlook.com>"]
+repository = "https://github.com/bend-n/mindus.git"
+license = "MIT"
+readme = "README.md"
+keywords = ["mindustry", "logic", "emulator", "executor"]
+
+[dependencies]
+thiserror = "1.0"
+enum_dispatch = "0.3"
+fimg = { version = "0.4", default-features = false }
+logos = "0.13.0"
+yumy = { version = "0.2.1", optional = true }
+rust-fuzzy-search = { version = "0.1.1", optional = true }
+
+[features]
+bin = ["fimg/save", "diagnose"]
+diagnose = ["rust-fuzzy-search", "yumy"]
+default = ["bin"]
+
+[[bin]]
+name = "lemu"
+doc = false
+required-features = ["bin"]
+path = "src/main.rs"

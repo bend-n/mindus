@@ -267,7 +267,7 @@ fn all_blocks() {
         {
             continue;
         }
-        let name = dbg!(t.get_name());
+        let name = t.get_name();
         let t = crate::block::BLOCK_REGISTRY.get(name).unwrap();
         let _ = t.image(
             None,

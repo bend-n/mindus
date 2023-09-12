@@ -1,0 +1,3 @@
+read result cell1 0
+op add result result 1
+write result cell1 0

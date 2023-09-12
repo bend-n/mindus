@@ -1,0 +1,15 @@
+    set n 50
+    set previous 0
+    set fib 1
+    op add end n 1
+    set i 2
+loop:
+    jump ret greaterThanEq i end
+    op add tmp previous fib
+    set previous fib
+    set fib tmp
+    op add i i 1
+    jump loop always
+ret:
+    print fib
+    stop

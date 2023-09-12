@@ -1,0 +1,46 @@
+[package]
+name = "mindus"
+version = "4.0.17"
+edition = "2021"
+description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
+authors = [
+  "KosmosPrime <5663514+KosmosPrime@users.noreply.github.com>",
+  "bend-n <bend.n@outlook.com>",
+]
+repository = "https://github.com/bend-n/mindus.git"
+license = "GPL-3.0"
+exclude = [".github/", "items.py"]
+readme = "README.md"
+keywords = ["mindustry", "format", "drawing"]
+
+[dependencies]
+flate2 = { version = "1.0", features = ["zlib-ng"], default-features = false }
+base64 = "0.21"
+paste = "1.0"
+strconv = "0.1"
+amap = "0.1"
+color-hex = "0.2"
+thiserror = "1.0"
+bobbin-bits = "0.1"
+blurslice = { version = "0.1" }
+enum_dispatch = "0.3"
+fast_image_resize = "2.7"
+phf = { version = "0.11", features = ["macros"] }
+fimg = { version = "0.3.4", default-features = false }
+
+[features]
+bin = ["fimg/save"]
+default = ["bin"]
+
+[build-dependencies]
+image = { version = "0.24", features = ["png"], default-features = false }
+walkdir = "2"
+
+[[bin]]
+name = "mindus"
+doc = false
+required-features = ["bin"]
+path = "src/exe/mod.rs"
+
+[dev-dependencies]
+diff = "0.1"

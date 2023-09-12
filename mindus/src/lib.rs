@@ -1,5 +1,6 @@
 //! crate for dealing with mindustry
-#![feature(const_trait_impl, let_chains, effects)]
+#![feature(const_trait_impl, let_chains, effects, try_blocks, const_option)]
+#![allow(clippy::redundant_closure_call)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
@@ -13,7 +14,6 @@ mod content;
 pub mod data;
 pub mod fluid;
 pub mod item;
-mod logic;
 pub mod modifier;
 mod team;
 pub mod unit;
