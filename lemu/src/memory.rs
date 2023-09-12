@@ -57,7 +57,6 @@ impl std::fmt::Debug for LAddress<'_> {
 impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Num(n) if *n == 0.0 => write!(f, "null"),
             Self::Num(n) => write!(f, "{n}"),
             Self::String(s) => write!(f, r#""{s}""#),
         }

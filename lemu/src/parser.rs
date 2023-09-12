@@ -4,7 +4,7 @@ use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         AlwaysJump, Clear, ConditionOp, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled,
-        DrawTriangle, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
+        DrawTriangle, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
         SetColorConst, SetColorDyn, SetStroke, Stop, Write,
     },
     lexer::Token,
@@ -300,9 +300,15 @@ pub fn parse<'source, W: Wr>(
             }
             // set x 4
             Token::Set => {
-                let from = addr!(take_ident!(tok!()?)?);
-                let to = take_var!(tok!()?)?;
-                executor.add(Set { from, to });
+                let from = tok!()?;
+                if from == Token::Counter {
+                    let to = take_numvar!(tok!()?)?;
+                    executor.add(DynJump { to, proglen: 0 });
+                } else {
+                    let from = addr!(take_ident!(from)?);
+                    let to = take_var!(tok!()?)?;
+                    executor.add(Set { from, to });
+                }
             }
             // stop
             Token::Stop => {
@@ -495,6 +501,14 @@ pub fn parse<'source, W: Wr>(
             if !executor.valid(*to) {
                 return Err(ParserError::InvalidJump(*to));
             }
+        }
+    }
+
+    // set dynjumps
+    let len = executor.program.len();
+    for i in &mut executor.program {
+        if let UPInstr::Instr(Instr::DynJump(DynJump { proglen, .. })) = i {
+            *proglen = len;
         }
     }
 

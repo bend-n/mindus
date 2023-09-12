@@ -43,17 +43,18 @@ pub trait LInstruction<'v> {
 #[derive(Debug)]
 #[enum_dispatch(LInstruction)]
 pub enum Instr<'v> {
-    Read(Read<'v>),
-    Write(Write<'v>),
-    Set(Set<'v>),
-    Op1(Op1<'v>),
     Op2(Op2<'v>),
-    End(End),
-    DrawFlush(DrawFlush),
-    Print(Print<'v>),
-    Stop(Stop),
     Jump(Jump<'v>),
     AlwaysJump(AlwaysJump),
+    Set(Set<'v>),
+    Op1(Op1<'v>),
+    Read(Read<'v>),
+    Write(Write<'v>),
+    DrawFlush(DrawFlush),
+    DynJump(DynJump<'v>),
+    Print(Print<'v>),
+    Stop(Stop),
+    End(End),
 }
 
 #[enum_dispatch]
@@ -634,6 +635,25 @@ impl<'v> Jump<'v> {
             a,
             b,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct DynJump<'v> {
+    pub to: LAddress<'v>,
+    pub proglen: usize,
+}
+
+impl<'v> LInstruction<'v> for DynJump<'v> {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        if let LVar::Num(n) = exec.get(self.to) {
+            let i = n.round() as usize;
+            if i < self.proglen {
+                exec.jump(Instruction(i));
+                return Flow::Stay;
+            }
+        }
+        Flow::Continue
     }
 }
 
