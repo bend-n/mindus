@@ -3,9 +3,12 @@ use std::io::Write as Wr;
 use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
-        AlwaysJump, Clear, ConditionOp, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled,
-        DrawTriangle, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
-        SetColorConst, SetColorDyn, SetStroke, Stop, Write,
+        draw::{
+            Clear, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled, DrawTriangle,
+            SetColorConst, SetColorDyn, SetStroke,
+        },
+        io::{Print, Read, Write},
+        AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
     lexer::Token,
     memory::LAddress,
