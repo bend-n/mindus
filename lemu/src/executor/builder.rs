@@ -2,7 +2,7 @@ use fimg::Image;
 use std::{collections::VecDeque, io::Write as Wr, pin::Pin};
 
 use super::{
-    Display, Drawing, ExecutorContext, Instruction, Limit, LogicExecutor, Memory, PInstr, UPInstr,
+    Display, Drawing, Executor, ExecutorContext, Instruction, Limit, Memory, PInstr, UPInstr,
     BANK_SIZE, CELL_SIZE,
 };
 use crate::{
@@ -10,7 +10,8 @@ use crate::{
     memory::LRegistry,
 };
 
-pub struct ExecutorBuilder<'v, W: Wr> {
+/// for internal use by [parser](crate::parser) only
+pub struct ExecutorBuilderInternal<'v, W: Wr> {
     displays: Vec<Image<Vec<u8>, 4>>,
     pub(crate) program: Vec<UPInstr<'v>>,
     output: Option<W>,
@@ -21,7 +22,7 @@ pub struct ExecutorBuilder<'v, W: Wr> {
     mem: usize,
 }
 
-impl<'s, W: Wr> ExecutorBuilder<'s, W> {
+impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
     pub(crate) fn new(w: Option<W>, d: Vec<Image<Vec<u8>, 4>>) -> Self {
         Self {
             output: w,
@@ -104,7 +105,7 @@ impl<'s, W: Wr> ExecutorBuilder<'s, W> {
             .ok_or(n)
     }
 
-    pub(crate) fn finish(self) -> LogicExecutor<'s, W> {
+    pub(crate) fn finish(self) -> Executor<'s, W> {
         fn cst<const N: usize>(a: Vec<f64>) -> Box<[[f64; N]]> {
             let len = a.len();
             let ptr: *mut [f64] = Box::into_raw(a.into());
@@ -122,7 +123,7 @@ impl<'s, W: Wr> ExecutorBuilder<'s, W> {
             cells,
             mem,
         } = self;
-        LogicExecutor {
+        Executor {
             instruction_limit,
             iteration_limit,
             inner: ExecutorContext {

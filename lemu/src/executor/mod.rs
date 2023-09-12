@@ -3,7 +3,7 @@ use super::{
     instructions::{DrawInstr, DrawInstruction, Flow, Instr, LInstruction},
     memory::{LAddress, LRegistry, LVar},
 };
-pub use builder::ExecutorBuilder;
+pub use builder::ExecutorBuilderInternal;
 use fimg::Image;
 use std::{collections::VecDeque, io::Write, num::NonZeroUsize, pin::Pin};
 
@@ -65,7 +65,8 @@ impl Limit {
     }
 }
 
-pub struct LogicExecutor<'varnames, W: Write> {
+/// One time use logic executor.
+pub struct Executor<'varnames, W: Write> {
     /// if limited, will run n instructions before exiting.
     pub instruction_limit: Limit,
     /// if limtited, will loop(go from a end to the start) n times before exiting
@@ -75,7 +76,9 @@ pub struct LogicExecutor<'varnames, W: Write> {
     pub(crate) inner: ExecutorContext<'varnames, W>,
     /// gets pointed to by drawbuf
     pub(crate) program: Pin<Box<[PInstr<'varnames>]>>,
+    /// Counter for the number of instructions we have run so far.
     pub instructions_ran: usize,
+    /// Counter for the number of iterations we have run so far.
     pub iterations: usize,
 }
 
@@ -170,14 +173,20 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
     }
 }
 
+/// Returned by the [`output`](Executor::output).function.
 pub struct Output<W: Write> {
+    /// Everything created by a `print` instruction.
     pub output: Option<W>,
+    /// Logic displays that were drawn with `draw` instructions.
     pub displays: Box<[Image<Vec<u8>, 4>]>,
+    /// Memory banks, written to with the `write`/`read` instructions
     pub cells: Box<[[f64; CELL_SIZE]]>,
+    /// Memory cells, written to with the `write`/`read` instructions
     pub banks: Box<[[f64; BANK_SIZE]]>,
 }
 
-impl<'s, W: Write> LogicExecutor<'s, W> {
+impl<'s, W: Write> Executor<'s, W> {
+    /// Consume this executor, returning all output.
     pub fn output(mut self) -> Output<W> {
         for display in &mut *self.inner.display.displays {
             // TODO make the instructions draw flipped-ly
@@ -205,6 +214,7 @@ impl<'s, W: Write> LogicExecutor<'s, W> {
         }
     }
 
+    /// Begin code execution.
     pub fn run(&mut self) {
         while !self.instruction_limit.reached(self.instructions_ran)
             && !self.iteration_limit.reached(self.iterations)

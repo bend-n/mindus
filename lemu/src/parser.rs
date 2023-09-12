@@ -1,7 +1,7 @@
 use std::io::Write as Wr;
 
 use super::{
-    executor::{ExecutorBuilder, Instruction, UPInstr},
+    executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         AlwaysJump, Clear, ConditionOp, DrawFlush, DrawLine, DrawRectBordered, DrawRectFilled,
         DrawTriangle, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Print, Read, Set,
@@ -11,40 +11,111 @@ use super::{
     memory::LAddress,
 };
 
+/// Errors returned when parsing fails.
 #[derive(thiserror::Error, Debug)]
 pub enum ParserError<'s> {
+    /// Occurs from eg `set x`. (needs a value to set to)
     #[error("unexpected end of stream")]
     UnexpectedEof,
+    /// Occurs from eg `op add\n...` (needs a variable)
     #[error("expected variable, got {0:?}")]
     ExpectedVar(Token<'s>),
+    /// Occurs from eg `draw 4` (needs a ident of the type of drawing)
     #[error("expected identifier, got {0:?}")]
     ExpectedIdent(Token<'s>),
+    /// Occurs from eg `jump house` (assuming house isnt a label).
     #[error("expected jump target, got {0:?}")]
     ExpectedJump(Token<'s>),
+    /// Occurs from eg `op add "three" "four"`
     #[error("expected number, got {0:?}")]
     ExpectedNum(Token<'s>),
+    /// Occurs from eg `op 4` (4 is not add/mul/...)
     #[error("expected operator, got {0:?}")]
     ExpectedOp(Token<'s>),
+    /// Occurs from eg `write cell1 5.5` (5.5 is not int)
     #[error("expected integer, got {0:?}")]
     ExpectedInt(Token<'s>),
-    #[error("unable to find lable {0:?}")]
+    /// Occurs from eg
+    /// ```
+    /// lable:
+    ///     jump label always
+    /// ```
+    /// (typo: lable not label)
+    #[error("unable to find label {0:?}")]
     LabelNotFound(&'s str),
+    /// Occurs from eg `jump 4910294029 always`
     #[error("unable to jump to instruction {0:?}")]
     InvalidJump(Instruction),
-    // no, you cannot have bank9223372036854775807
+    /// Occurs from eg `read bank9223372036854775807 5` (only `126` banks can exist)
     #[error("cannot get cell>{0:?}")]
     MemoryTooFar(usize),
+    /// Occurs from `read register1`
     #[error("unknown memory type {0:?}, expected (cell)|(bank)")]
     InvalidMemoryType(&'s str),
+    /// Occurs from `drawflush bank1`
     #[error("unknown display type {0:?}, expected 'display'")]
     InvalidDisplayType(&'s str),
+    /// Occurs from `draw house` (or `draw image`, a valid but unsupported instruction here)
     #[error("unknown image operation {0:?}")]
     UnsupportedImageOp(&'s str),
     #[error("couldnt get display #{0:?}.")]
-    /// call `display` more to have more display options
+    /// Occurs from eg `display 50`.
+    ///
+    /// call `display` 50 more times to have more display options:
+    /// ```
+    /// executor
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display()
+    ///     .display();
+    /// ```
     NoDisplay(usize),
-    #[error("expected u8, found {0}")]
-    ExpectedU8(usize),
 }
 
 #[derive(Debug)]
@@ -59,7 +130,7 @@ enum UJump<'v> {
 
 pub fn parse<'source, W: Wr>(
     mut tokens: impl Iterator<Item = Token<'source>>,
-    executor: &mut ExecutorBuilder<'source, W>,
+    executor: &mut ExecutorBuilderInternal<'source, W>,
 ) -> Result<(), ParserError<'source>> {
     let mut mem = Vec::new(); // maps &str to usize
                               // maps "start" to 0
@@ -273,13 +344,13 @@ pub fn parse<'source, W: Wr>(
                 let op = tok!()?;
                 if let Ok(op) = MathOp1::try_from(op) {
                     // assigning to a var is useless but legal
-                    let out = take_var!(tok!()?)?;
-                    let x = take_var!(tok!()?)?;
+                    let out = take_numvar!(tok!()?)?;
+                    let x = take_numvar!(tok!()?)?;
                     executor.add(Op1::new(op, x, out));
                 } else if let Ok(op) = MathOp2::try_from(op) {
-                    let out = take_var!(tok!()?)?;
-                    let a = take_var!(tok!()?)?;
-                    let b = take_var!(tok!()?)?;
+                    let out = take_numvar!(tok!()?)?;
+                    let a = take_numvar!(tok!()?)?;
+                    let b = take_numvar!(tok!()?)?;
                     executor.add(Op2::new(op, a, b, out));
                 } else {
                     return Err(ParserError::ExpectedOp(op));
@@ -287,7 +358,7 @@ pub fn parse<'source, W: Wr>(
             }
             // write 5.0 bank1 4 (aka bank1[4] = 5.0)
             Token::Write => {
-                let set = take_var!(tok!()?)?;
+                let set = take_numvar!(tok!()?)?;
                 let container = take_memory!();
                 let index = container.limit(take_int!(tok!()?)?);
 

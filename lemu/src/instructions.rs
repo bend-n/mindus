@@ -574,7 +574,7 @@ impl LInstruction<'_> for Print<'_> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let v = exec.get(self.val);
         if let Some(o) = &mut exec.output {
-            write!(o, "{}", v).unwrap();
+            write!(o, "{v}").unwrap();
         }
         Flow::Continue
     }
