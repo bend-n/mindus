@@ -36,9 +36,9 @@ impl std::fmt::Debug for Instruction {
 
 #[derive(Debug)]
 pub enum PInstr<'s> {
-    Code(&'s str),
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
+    Code(String),
     NoOp,
 }
 
@@ -84,7 +84,7 @@ pub enum UPInstr<'s> {
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
     UnfinishedJump,
-    Code(&'s str),
+    Code(String),
     NoOp,
 }
 
@@ -126,6 +126,10 @@ impl<'s, W: Write> ExecutorBuilder<'s, W> {
 
     pub(crate) fn jmp(&mut self) {
         self.program.push(UPInstr::UnfinishedJump);
+    }
+
+    pub(crate) fn code(&mut self, s: String) {
+        self.program.push(UPInstr::Code(s));
     }
 
     pub(crate) fn bank(&mut self, n: usize) -> Memory {

@@ -1,131 +1,96 @@
 use logos::Logos;
-#[derive(Logos, Debug, PartialEq, Copy, Clone)]
-#[logos(skip r"[ \t]+")]
-pub enum Token<'strings> {
-    // instructions
-    #[token("getlink")]
-    GetLink,
-    #[token("read")]
-    Read,
-    #[token("write")]
-    Write,
-    #[token("set")]
-    Set,
-    #[token("op")]
-    Op,
-    #[token("end")]
-    End,
-    #[token("drawflush")]
-    DrawFlush,
-    #[token("draw")]
-    Draw,
-    #[token("print")]
-    Print,
-    #[token("packcolor")]
-    PackColor,
-    #[token("jump")]
-    Jump,
-    #[token("stop")]
-    Stop,
-    #[token("@counter")]
-    Counter,
-    #[token("equal")]
-    Equal,
-    #[token("notEqual")]
-    NotEqual,
-    #[token("lessThan")]
-    LessThan,
-    #[token("lessThanEq")]
-    LessThanEq,
-    #[token("greaterThan")]
-    GreaterThan,
-    #[token("greaterThanEq")]
-    GreaterThanEq,
-    #[token("strictEqual")]
-    StrictEqual,
-    #[token("always")]
-    Always,
-    #[token("add")]
-    Add,
-    #[token("sub")]
-    Sub,
-    #[token("mul")]
-    Mul,
-    #[token("div")]
-    Div,
-    #[token("idiv")]
-    IDiv,
-    #[token("mod")]
-    Mod,
-    #[token("pow")]
-    Pow,
-    #[token("land")]
-    And,
-    #[token("not")]
-    Not,
-    #[token("shl")]
-    ShiftLeft,
-    #[token("shr")]
-    ShiftRight,
-    #[token("or")]
-    BitOr,
-    #[token("and")]
-    BitAnd,
-    #[token("xor")]
-    ExclusiveOr,
-    #[token("max")]
-    Max,
-    #[token("min")]
-    Min,
-    #[token("angle")]
-    Angle,
-    #[token("angleDiff")]
-    AngleDiff,
-    #[token("len")]
-    Len,
-    #[token("noise")]
-    Noise,
-    #[token("abs")]
-    Abs,
-    #[token("log")]
-    Log,
-    #[token("log10")]
-    Log10,
-    #[token("floor")]
-    Floor,
-    #[token("ceil")]
-    Ceil,
-    #[token("sqrt")]
-    Sqrt,
-    #[token("rand")]
-    Rand,
-    #[token("sin")]
-    Sin,
-    #[token("cos")]
-    Cos,
-    #[token("tan")]
-    Tan,
-    #[token("asin")]
-    ASin,
-    #[token("acos")]
-    ACos,
-    #[token("atan")]
-    ATan,
+use std::fmt::Write;
+macro_rules! instrs {
+    ($($z:literal => $v:ident,)+) => {
+        #[derive(Logos, Debug, PartialEq, Copy, Clone)]
+        #[logos(skip r"[ \t]+")]
+        pub enum Token<'strings> {
+            #[token("\n")]
+            Newline,
+            #[regex("#[^\n]+")]
+            Comment(&'strings str),
+            #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
+            #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from))]
+            #[regex(r#""[0-9]+(\.[0-9]+)?""#, |lex| lex.slice()[1..lex.slice().len()-1].parse().ok())]
+            Num(f64),
+            #[regex(r#""[^"]*""#, |lex| &lex.slice()[1..lex.slice().len()-1])]
+            #[regex(r#"@[^ "\n]*"#, |lex| &lex.slice()[1..])]
+            String(&'strings str),
+            #[regex("[^0-9 \t\n]+")]
+            Ident(&'strings str),
 
-    // tokens
-    #[token("\n")]
-    Newline,
-    #[regex("#[^\n]+")]
-    Comment(&'strings str),
-    #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
-    #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from))]
-    #[regex(r#""[0-9]+(\.[0-9]+)?""#, |lex| lex.slice()[1..lex.slice().len()-1].parse().ok())]
-    Num(f64),
-    #[regex(r#""[^"]*""#, |lex| &lex.slice()[1..lex.slice().len()-1])]
-    #[regex(r#"@.+"#, |lex| &lex.slice()[1..])]
-    String(&'strings str),
-    #[regex("[^0-9 \t\n]+")]
-    Ident(&'strings str),
+            $(#[token($z)] $v,)+
+        }
+
+        impl<'v> Token<'v> {
+            pub fn write(self, w: &mut impl Write) -> std::fmt::Result {
+                match self {
+                    $(Self::$v => write!(w, $z,),)+
+                    Self::String(s) | Self::Ident(s)| Self::Comment(s) => write!(w, "{s}"),
+                    Self::Num(n) => write!(w, "{n}"),
+                    Self::Newline => write!(w, "\n"),
+                }?;
+                Ok(())
+            }
+        }
+    }
+}
+
+instrs! {
+    "getlink" => GetLink,
+    "read" => Read,
+    "write" => Write,
+    "set" => Set,
+    "op" => Op,
+    "end" => End,
+    "drawflush" => DrawFlush,
+    "draw" => Draw,
+    "print" => Print,
+    "packcolor" => PackColor,
+    "jump" => Jump,
+    "stop" => Stop,
+    "@counter" => Counter,
+    "equal" => Equal,
+    "notEqual" => NotEqual,
+    "lessThan" => LessThan,
+    "lessThanEq" => LessThanEq,
+    "greaterThan" => GreaterThan,
+    "greaterThanEq" => GreaterThanEq,
+    "strictEqual" => StrictEqual,
+    "always" => Always,
+    "add" => Add,
+    "sub" => Sub,
+    "mul" => Mul,
+    "div" => Div,
+    "idiv" => IDiv,
+    "mod" => Mod,
+    "pow" => Pow,
+    "land" => And,
+    "not" => Not,
+    "shl" => ShiftLeft,
+    "shr" => ShiftRight,
+    "or" => BitOr,
+    "and" => BitAnd,
+    "xor" => ExclusiveOr,
+    "max" => Max,
+    "min" => Min,
+    "angle" => Angle,
+    "angleDiff" => AngleDiff,
+    "len" => Len,
+    "noise" => Noise,
+    "abs" => Abs,
+    "log" => Log,
+    "log10" => Log10,
+    "floor" => Floor,
+    "ceil" => Ceil,
+    "sqrt" => Sqrt,
+    "rand" => Rand,
+    "sin" => Sin,
+    "cos" => Cos,
+    "tan" => Tan,
+    "asin" => ASin,
+    "acos" => ACos,
+    "atan" => ATan,
 }
 
 pub fn lex(s: &str) -> impl Iterator<Item = Token> {

@@ -246,7 +246,7 @@ pub fn parse<'source, W: Wr>(
                         executor.jmp();
                         unfinished_jumps.push((UJump::Always, i, executor.last()));
                     } else {
-                        let op = op.try_into().map_err(|_| ParserError::ExpectedOp(op))?;
+                        let op = op.try_into().map_err(|()| ParserError::ExpectedOp(op))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.jmp();
@@ -386,7 +386,19 @@ pub fn parse<'source, W: Wr>(
             }
             // starting newline, simply skip. continue, so as not to to trigger the nextline!()
             Token::Newline => continue,
-            t => todo!("{t:?}"),
+            // unknown instruction
+            Token::Ident(i) => {
+                let mut c = String::from(i);
+                while let Some(tok) = tokens.next() && tok != Token::Newline {
+                    use std::fmt::Write;
+                    write!(c, " ").unwrap();
+                    tok.write(&mut c).expect("didnt know writing to a string could fail");
+                }
+                executor.code(c);
+                // we take the newline here
+                continue;
+            }
+            _ => todo!(),
         }
         nextline!();
     }
