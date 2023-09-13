@@ -1,0 +1,2 @@
+print "yes\n"
+jump 0 always
