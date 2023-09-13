@@ -203,9 +203,9 @@ impl Error<'_> {
         };
 
         let error = "error".red();
-        let note = "note".yellow();
-        let help = "help".bright_green();
-        let e_sty = Style::new().bright_red();
+        let note = "note".blue();
+        let help = "help".green();
+        let e_sty = Style::new().red();
         macro_rules! err {
             ($span:expr, $msg:literal $(, $args:expr)* $(,)?) => {
                 Label::styled(SourceSpan::new($span.start as u32, $span.end as u32), format!($msg $(, $args)*), e_sty)
