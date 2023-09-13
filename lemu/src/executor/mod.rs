@@ -96,6 +96,10 @@ pub struct Drawing<'v> {
     pub buffer: VecDeque<*const DrawInstr<'v>>,
 }
 
+// SAFETY: false
+#[cfg(feature = "__send__")]
+unsafe impl Send for Drawing<'_> {}
+
 impl<'v> Drawing<'v> {
     fn buffer(&mut self, i: &DrawInstr<'v>) {
         self.buffer.push_back(i);
