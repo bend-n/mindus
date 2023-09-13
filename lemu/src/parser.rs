@@ -466,19 +466,19 @@ pub fn parse<'source, W: Wr>(
                         executor.jmp();
                         unfinished_jumps.push((UJump::Always, i, executor.last()));
                     } else {
-                        let op = op.try_into().map_err(|()| err!(ExpectedOp(op)))?;
+                        let op = op.try_into().map_err(|op| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.jmp();
                         unfinished_jumps.push((UJump::Sometimes { a, b, op }, i, executor.last()));
                     }
-                } else if let Ok(n) = take_int!(tok) {
+                } else if let Ok(n) = take_int!(tok.clone()) {
                     let to = Instruction(n);
                     let op = tok!()?;
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
                     } else {
-                        let op = op.try_into().map_err(|()| err!(ExpectedOp(op)))?;
+                        let op = op.try_into().map_err(|op| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.add(Jump::new(op, to, a, b));
@@ -490,12 +490,12 @@ pub fn parse<'source, W: Wr>(
             // op add c 1 2
             Token::Op => {
                 let op = tok!()?;
-                if let Ok(op) = MathOp1::try_from(op) {
+                if let Ok(op) = MathOp1::try_from(op.clone()) {
                     // assigning to a var is useless but legal
                     let out = take_numvar!(tok!()?)?;
                     let x = take_numvar!(tok!()?)?;
                     executor.add(Op1::new(op, x, out));
-                } else if let Ok(op) = MathOp2::try_from(op) {
+                } else if let Ok(op) = MathOp2::try_from(op.clone()) {
                     let out = take_numvar!(tok!()?)?;
                     let a = take_numvar!(tok!()?)?;
                     let b = take_numvar!(tok!()?)?;

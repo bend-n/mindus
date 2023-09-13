@@ -1,7 +1,8 @@
-#[derive(Copy, Clone, Debug)]
+use beef::lean::Cow;
+#[derive(Clone, Debug)]
 pub enum LVar<'string> {
     Num(f64),
-    String(&'string str),
+    String(Cow<'string, str>),
 }
 
 impl PartialEq for LVar<'_> {
@@ -21,7 +22,7 @@ impl LVar<'_> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum LAddress<'str> {
     Const(LVar<'str>),
     Address(usize, Priv),
@@ -58,7 +59,7 @@ impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Num(n) => write!(f, "{n}"),
-            Self::String(s) => write!(f, r#"{}"#, s.replace(r"\n", "\n")),
+            Self::String(s) => write!(f, r#"{s}"#),
         }
     }
 }
@@ -77,6 +78,12 @@ impl From<bool> for LVar<'_> {
 
 impl<'s> From<&'s str> for LVar<'s> {
     fn from(value: &'s str) -> Self {
+        Self::String(value.into())
+    }
+}
+
+impl<'s> From<Cow<'s, str>> for LVar<'s> {
+    fn from(value: Cow<'s, str>) -> Self {
         Self::String(value)
     }
 }
@@ -96,28 +103,28 @@ impl<'s> LRegistry<'s> {
         }
     }
 
-    pub fn get(&self, a: LAddress<'s>) -> LVar<'s> {
+    pub fn get<'a>(&'a self, a: &'a LAddress<'s>) -> &LVar<'s> {
         match a {
             // SAFETY: addr constructor requires bounds
-            LAddress::Address(n, ..) => unsafe { *self.0.get_unchecked(n) },
+            LAddress::Address(n, ..) => unsafe { self.0.get_unchecked(*n) },
             LAddress::Const(n) => n,
         }
     }
 
-    pub fn set(&mut self, a: LAddress<'s>, b: LAddress<'s>) -> bool {
+    pub fn set(&mut self, a: &LAddress<'s>, b: LAddress<'s>) -> bool {
         match a {
             LAddress::Const(_) => false,
             LAddress::Address(v, ..) => {
                 match b {
                     LAddress::Const(n) => {
                         // SAFETY: v comes from Address, therefore safe
-                        *unsafe { self.0.get_unchecked_mut(v) } = n;
+                        *unsafe { self.0.get_unchecked_mut(*v) } = n;
                     }
                     LAddress::Address(n, ..) => {
                         // SAFETY: n comes from Address, therefore safe
-                        let b = *unsafe { self.0.get_unchecked(n) };
+                        let b = unsafe { self.0.get_unchecked(n).clone() };
                         // SAFETY: v comes from Addr, therefore safe
-                        *unsafe { self.0.get_unchecked_mut(v) } = b;
+                        *unsafe { self.0.get_unchecked_mut(*v) } = b;
                     }
                 };
                 true
@@ -125,11 +132,11 @@ impl<'s> LRegistry<'s> {
         }
     }
 
-    pub fn get_mut(&mut self, a: LAddress<'s>) -> Option<&mut LVar<'s>> {
+    pub fn get_mut(&mut self, a: &LAddress<'s>) -> Option<&mut LVar<'s>> {
         match a {
             LAddress::Const(_) => None,
             // SAFETY: addr constructor requires bounds
-            LAddress::Address(n, ..) => Some(unsafe { self.0.get_unchecked_mut(n) }),
+            LAddress::Address(n, ..) => Some(unsafe { self.0.get_unchecked_mut(*n) }),
         }
     }
 }

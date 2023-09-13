@@ -46,7 +46,7 @@ impl<'v> DrawInstruction<'v> for Clear<'v> {
     fn draw(&self, mem: &mut LRegistry<'v>, image: &mut Image<&mut [u8], 4>, _: &mut DisplayState) {
         macro_rules! u8 {
             ($v:ident) => {
-                match mem.get(self.$v) {
+                match mem.get(&self.$v) {
                     LVar::Num(n) => n.round() as u8,
                     _ => return,
                 }
@@ -70,7 +70,7 @@ impl<'v> DrawInstruction<'v> for SetColorDyn<'v> {
     fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
         macro_rules! u8 {
             ($v:ident) => {
-                match mem.get(self.$v) {
+                match mem.get(&self.$v) {
                     LVar::Num(n) => n.round() as u8,
                     _ => return,
                 }
@@ -99,7 +99,7 @@ pub struct SetStroke<'v> {
 }
 impl<'v> DrawInstruction<'v> for SetStroke<'v> {
     fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
-        if let LVar::Num(n) = mem.get(self.size) {
+        if let &LVar::Num(n) = mem.get(&self.size) {
             state.stroke = n;
         }
     }
@@ -109,8 +109,8 @@ pub type Point<'v> = (LAddress<'v>, LAddress<'v>);
 #[rustfmt::skip]
 macro_rules! point {
     ($mem:ident@$point:expr) => {{
-        let LVar::Num(a) = $mem.get($point.0) else { return; };
-        let LVar::Num(b) = $mem.get($point.1) else { return; };
+        let &LVar::Num(a) = $mem.get(&$point.0) else { return; };
+        let &LVar::Num(b) = $mem.get(&$point.1) else { return; };
         (a,b)
     }}
 }
@@ -161,8 +161,8 @@ impl<'v> DrawInstruction<'v> for RectFilled<'v> {
         state: &mut DisplayState,
     ) {
         let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(self.width), or ret) as u32;
-        let height = get_num!(mem.get(self.height), or ret) as u32;
+        let width = get_num!(mem.get(&self.width)) as u32;
+        let height = get_num!(mem.get(&self.height)) as u32;
         if unbounded!(image @ pos.0 + width => pos.1 + height) {
             return;
         }
@@ -187,8 +187,8 @@ impl<'v> DrawInstruction<'v> for RectBordered<'v> {
     ) {
         // happily ignoring that state specifies box stroke width
         let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(self.width), or ret) as u32;
-        let height = get_num!(mem.get(self.height), or ret) as u32;
+        let width = get_num!(mem.get(&self.width)) as u32;
+        let height = get_num!(mem.get(&self.height)) as u32;
         if unbounded!(image @ pos.0 + width => pos.1 + height) {
             return;
         }

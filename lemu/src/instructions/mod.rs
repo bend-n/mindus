@@ -128,7 +128,7 @@ pub struct Set<'v> {
 }
 impl<'v> LInstruction<'v> for Set<'v> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        exec.set(self.from, self.to);
+        exec.set(&self.from, self.to.clone());
         Flow::Continue
     }
 }
@@ -142,12 +142,12 @@ macro_rules! op_enum {
             $($variant),+
         }
 
-        impl TryFrom<Token<'_>> for $name {
-            type Error = ();
-            fn try_from(value: Token<'_>) -> Result<Self, Self::Error> {
+        impl<'a> TryFrom<Token<'a>> for $name {
+            type Error = Token<'a>;
+            fn try_from(value: Token<'a>) -> Result<Self, Self::Error> {
                 match value {
                     $(Token::$variant => Ok(Self::$variant),)+
-                    _ => Err(())
+                    v => Err(v)
                 }
             }
         }
@@ -158,14 +158,8 @@ use op_enum;
 macro_rules! get_num {
     ($x:expr) => {
         match $x {
-            LVar::Num(x) => x,
-            _ => return LVar::null(),
-        }
-    };
-    ($x:expr, or ret) => {
-        match $x {
-            LVar::Num(x) => x,
-            _ => return,
+            LVar::Num(x) => *x,
+            _ => return Default::default(),
         }
     };
 }
@@ -173,7 +167,7 @@ use get_num;
 
 #[derive(Debug)]
 pub struct Op1<'v> {
-    pub(crate) op: fn(LVar<'v>) -> LVar<'v>,
+    pub(crate) op: fn(&LVar<'v>) -> f64,
     pub(crate) x: LAddress<'v>,
     pub(crate) out: LAddress<'v>,
 }
@@ -189,9 +183,9 @@ impl<'v> Op1<'v> {
 
 impl<'s> LInstruction<'s> for Op1<'s> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
-        let x = (self.op)(exec.get(self.x));
-        if let Some(y) = exec.get_mut(self.out) {
-            *y = x;
+        let x = (self.op)(exec.get(&self.x));
+        if let Some(y) = exec.get_mut(&self.out) {
+            *y = LVar::Num(x);
         }
         Flow::Continue
     }
@@ -199,7 +193,7 @@ impl<'s> LInstruction<'s> for Op1<'s> {
 
 #[derive(Debug)]
 pub struct Op2<'v> {
-    pub(crate) op: fn(LVar<'v>, LVar<'v>) -> LVar<'v>,
+    pub(crate) op: fn(&LVar<'v>, &LVar<'v>) -> f64,
     pub(crate) a: LAddress<'v>,
     pub(crate) b: LAddress<'v>,
     pub(crate) out: LAddress<'v>,
@@ -222,9 +216,9 @@ impl<'v> Op2<'v> {
 
 impl<'v> LInstruction<'v> for Op2<'v> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let x = (self.op)(exec.get(self.a), exec.get(self.b));
-        if let Some(y) = exec.get_mut(self.out) {
-            *y = x;
+        let x = (self.op)(exec.get(&self.a), exec.get(&self.b));
+        if let Some(y) = exec.get_mut(&self.out) {
+            *y = LVar::from(x);
         }
         Flow::Continue
     }
@@ -247,7 +241,7 @@ impl LInstruction<'_> for AlwaysJump {
 
 #[derive(Debug)]
 pub struct Jump<'v> {
-    pub(crate) op: fn(LVar<'v>, LVar<'v>) -> bool,
+    pub(crate) op: fn(&LVar<'v>, &LVar<'v>) -> bool,
     pub(crate) to: Instruction,
     pub(crate) a: LAddress<'v>,
     pub(crate) b: LAddress<'v>,
@@ -271,7 +265,7 @@ pub struct DynJump<'v> {
 
 impl<'v> LInstruction<'v> for DynJump<'v> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if let LVar::Num(n) = exec.get(self.to) {
+        if let &LVar::Num(n) = exec.get(&self.to) {
             let i = n.round() as usize;
             if i < self.proglen {
                 exec.jump(Instruction(i));
@@ -285,7 +279,7 @@ impl<'v> LInstruction<'v> for DynJump<'v> {
 impl<'v> LInstruction<'v> for Jump<'v> {
     #[allow(unused_variables)]
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if (self.op)(exec.get(self.a), exec.get(self.b)) {
+        if (self.op)(exec.get(&self.a), exec.get(&self.b)) {
             exec.jump(self.to);
             Flow::Stay
         } else {

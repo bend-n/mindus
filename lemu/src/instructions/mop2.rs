@@ -33,29 +33,29 @@ super::op_enum! { pub enum MathOp2 {
 
 macro_rules! num {
     ($fn:ident $closure:expr) => {
-        fn $fn<'v>(a: LVar<'v>, b: LVar<'v>) -> LVar<'v> {
-            LVar::from($closure(get_num!(a), get_num!(b)))
+        fn $fn<'v>(a: &LVar<'v>, b: &LVar<'v>) -> f64 {
+            f64::from($closure(get_num!(a), get_num!(b)))
         }
     };
 }
 macro_rules! op {
     ($fn:ident $op:tt) => {
-        fn $fn<'v>(a: LVar<'v>, b: LVar<'v>) -> LVar<'v> {
-            LVar::from(get_num!(a) $op get_num!(b))
+        fn $fn<'v>(a: &LVar<'v>, b: &LVar<'v>) -> f64 {
+            f64::from(get_num!(a) $op get_num!(b))
         }
     }
 }
 macro_rules! bop {
     ($fn: ident $op: tt) => {
-        fn $fn<'v>(a: LVar<'v>, b: LVar<'v>) -> LVar<'v> {
-            LVar::from(((get_num!(a) as u64) $op (get_num!(b) as u64)) as f64)
+        fn $fn<'v>(a: &LVar<'v>, b:& LVar<'v>) -> f64 {
+            f64::from(((get_num!(a) as u64) $op (get_num!(b) as u64)) as f64)
         }
     };
 }
 macro_rules! nofun {
     ($fn:ident $closure:expr) => {
-        fn $fn<'v>(a: LVar<'v>, b: LVar<'v>) -> LVar<'v> {
-            LVar::from($closure(a, b))
+        fn $fn<'v>(a: &LVar<'v>, b: &LVar<'v>) -> f64 {
+            f64::from($closure(a, b))
         }
     };
 }
@@ -100,7 +100,7 @@ num!(angle |a: f64, b: f64| {
 });
 
 impl MathOp2 {
-    pub const fn get_fn(self) -> for<'f> fn(LVar<'f>, LVar<'f>) -> LVar<'f> {
+    pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>, &LVar<'f>) -> f64 {
         match self {
             // we kind of interpret strings as numbers so yeah
             Self::Equal | Self::StrictEqual => eq,

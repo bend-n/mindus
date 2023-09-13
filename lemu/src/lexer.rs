@@ -1,7 +1,8 @@
+use beef::lean::Cow;
 use logos::{Lexer as RealLexer, Logos, Span};
 macro_rules! instrs {
     ($($z:literal => $v:ident,)+) => {
-        #[derive(Logos, Debug, PartialEq, Copy, Clone)]
+        #[derive(Logos, Debug, PartialEq, Clone)]
         #[logos(skip r"[ \t]+")]
         pub enum Token<'strings> {
             #[token("\n")]
@@ -10,11 +11,12 @@ macro_rules! instrs {
             Comment(&'strings str),
             #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
             #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from))]
-            #[regex(r#""[0-9]+(\.[0-9]+)?""#, |lex| lex.slice()[1..lex.slice().len()-1].parse().ok())]
+            #[regex(r#""[0-9]+(\.[0-9]+)?""#, callback = |lex| lex.slice()[1..lex.slice().len()-1].parse().ok(), priority = 6)]
             Num(f64),
-            #[regex(r#""[^"]*""#, |lex| &lex.slice()[1..lex.slice().len()-1])]
-            #[regex(r#"@[^ "\n]*"#, |lex| &lex.slice()[1..])]
-            String(&'strings str),
+            #[regex(r#""([^\\"\n])*""#, callback = |lex| Cow::from(&lex.slice()[1..lex.slice().len()-1]), priority = 5)]
+            #[regex(r#"@[^ "\n]*"#, |lex| Cow::from(&lex.slice()[1..]))]
+            #[regex(r#""[^"]*""#, |lex| Cow::from(lex.slice()[1..lex.slice().len()-1].replace(r"\n", "\n")))]
+            String(Cow<'strings, str>),
             #[regex("[^0-9 \t\n]+")]
             Ident(&'strings str),
 
@@ -25,7 +27,8 @@ macro_rules! instrs {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
                 match self {
                     $(Self::$v => write!(f, $z,),)+
-                    Self::String(s) | Self::Ident(s)| Self::Comment(s) => write!(f, "{s}"),
+                    Self::Ident(s)| Self::Comment(s) => write!(f, "{s}"),
+                    Self::String(s) => write!(f, "{s}"),
                     Self::Num(n) => write!(f, "{n}"),
                     Self::Newline => write!(f, "\n"),
                 }
@@ -134,7 +137,7 @@ fn lexer() {
         set x "4""#);
     macro_rules! test {
         ($($tok:ident$(($var:literal))?),+ $(,)?) => {{
-            $(assert_eq!(lex.next(), Some(Token::$tok$(($var))?));)+
+            $(assert_eq!(lex.next(), Some(Token::$tok$(($var.into()))?));)+
             assert_eq!(lex.next(), None);
         }}
     }
@@ -151,6 +154,6 @@ fn lexer() {
         Newline,
         Set,
         Ident("x"),
-        Num(4.0),
+        Num(4),
     ];
 }

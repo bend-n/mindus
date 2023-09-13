@@ -20,8 +20,8 @@ super::op_enum! { pub enum MathOp1 {
 
 macro_rules! num {
     ($fn: ident $c:expr) => {
-        fn $fn(x: LVar<'_>) -> LVar<'_> {
-            LVar::from($c(get_num!(x)))
+        fn $fn(x: &LVar<'_>) -> f64 {
+            f64::from($c(get_num!(x)))
         }
     };
 }
@@ -33,16 +33,13 @@ macro_rules! flbop {
 }
 
 num!(floor f64::floor);
-fn not(x: LVar<'_>) -> LVar<'_> {
-    match x {
-        LVar::Num(n) => LVar::Num(flbop!(n, |n: u64| !n)),
-        LVar::String(_) => LVar::null(),
-    }
+fn not(x: &LVar<'_>) -> f64 {
+    flbop!(get_num!(x), |n: u64| !n)
 }
 num!(log f64::ln);
 num!(abs f64::abs);
-const fn rand(_: LVar<'_>) -> LVar<'_> {
-    LVar::Num(4.0)
+const fn rand(_: &LVar<'_>) -> f64 {
+    4.0
 }
 num!(ceil f64::ceil);
 num!(sqrt f64::sqrt);
@@ -55,7 +52,7 @@ num!(atan f64::atan);
 num!(log10 f64::log10);
 
 impl MathOp1 {
-    pub const fn get_fn(self) -> for<'f> fn(LVar<'f>) -> LVar<'f> {
+    pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>) -> f64 {
         match self {
             Self::Floor => floor,
             Self::Not => not,

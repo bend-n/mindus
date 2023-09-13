@@ -159,11 +159,11 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         }
     }
 
-    pub fn set(&mut self, a: LAddress<'s>, b: LAddress<'s>) -> bool {
+    pub fn set(&mut self, a: &LAddress<'s>, b: LAddress<'s>) -> bool {
         self.memory.set(a, b)
     }
 
-    pub fn get_mut(&mut self, a: LAddress<'s>) -> Option<&mut LVar<'s>> {
+    pub fn get_mut(&mut self, a: &LAddress<'s>) -> Option<&mut LVar<'s>> {
         self.memory.get_mut(a)
     }
 
@@ -172,7 +172,7 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         self.counter = n;
     }
 
-    pub fn get(&self, a: LAddress<'s>) -> LVar<'s> {
+    pub fn get<'a>(&'a self, a: &'a LAddress<'s>) -> &LVar<'s> {
         self.memory.get(a)
     }
 }
