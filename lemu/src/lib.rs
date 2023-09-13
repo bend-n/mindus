@@ -46,6 +46,11 @@ impl<W: Write> Executor<'_, W> {
 }
 
 /// Builder for a [`Executor`].
+/// ```
+/// # use lemu::Executor;
+/// let mut lex = Executor::with_output(std::io::stdout()).program(r#"print "hello world""#).expect("program ok");
+/// lex.run();
+/// ```
 pub struct ExecutorBuilder<W: Write> {
     output: Option<W>,
     displays: Vec<Image<Vec<u8>, 4>>,
