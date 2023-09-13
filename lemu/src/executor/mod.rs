@@ -7,13 +7,8 @@ pub use builder::ExecutorBuilderInternal;
 use fimg::Image;
 use std::{collections::VecDeque, io::Write, num::NonZeroUsize, pin::Pin};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Display(pub usize);
-impl Default for Display {
-    fn default() -> Self {
-        Self(1)
-    }
-}
 #[derive(Debug, Copy, Clone)]
 // negative means bank, positive means cell
 pub struct Memory(pub(crate) i8);

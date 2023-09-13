@@ -583,7 +583,7 @@ pub fn parse<'source, W: Wr>(
             }
             Token::DrawFlush => {
                 let t = tok!();
-                if let Ok(t) = t {
+                if let Ok(t) = t && t != Token::Newline {
                     let screen = take_ident!(t)?;
                     if screen != "display" {
                         yeet!(InvalidDisplayType(screen));
