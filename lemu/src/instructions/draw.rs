@@ -220,7 +220,7 @@ impl<'v> DrawInstruction<'v> for Triangle<'v> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Flush {
     pub(crate) display: Display,
 }

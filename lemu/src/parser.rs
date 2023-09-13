@@ -190,125 +190,116 @@ macro_rules! tokstr {
 }
 
 impl Error<'_> {
-    /// Produces a [`Diagnostic`] from this error.
+    /// Produces a [`Error`](lerr::Error) from this error.
     #[cfg(feature = "diagnose")]
-    pub fn diagnose<'s>(
-        &self,
-        source: &'s str,
-        fname: Option<&'s str>,
-    ) -> yumy::Diagnostic<yumy::Source<'s>> {
-        use yumy::{
-            owo_colors::{OwoColorize, Style},
-            Diagnostic, Label, Source, SourceSpan,
-        };
+    pub fn diagnose<'s>(&self, source: &'s str) -> lerr::Error<'s> {
+        use lerr::Error;
 
-        let error = "error".red();
-        let note = "note".blue();
-        let help = "help".green();
-        let e_sty = Style::new().red();
+        let error = "[1;34;31merror[0m";
+        let note = "[1;34;34mnote[0m";
+        let help = "[1;34;32mhelp[0m";
         macro_rules! err {
             ($span:expr, $msg:literal $(, $args:expr)* $(,)?) => {
-                Label::styled(SourceSpan::new($span.start as u32, $span.end as u32), format!($msg $(, $args)*), e_sty)
+                (($span.clone(), format!($msg $(, $args)*)))
             };
         }
-        macro_rules! dig {
+        let mut e = Error::new(source);
+        macro_rules! msg {
             ($ms:literal $(, $args:expr)* $(,)?) => {
-                Diagnostic::new(format!($ms $(, $args)*)).with_source(Source::new(source, fname))
+                e.message(format!($ms $(, $args)*))
             };
         }
-        let mut d;
         match self {
-            Error::UnexpectedEof => {
-                d = dig!("{error}: wasnt able to finish read").with_label(err!(
-                    source.len() - 1..source.len() - 1,
+            Self::UnexpectedEof => {
+                msg!("{error}: wasnt able to finish read").label(err!(
+                    source.len()..source.len(),
                     "there was supposed to be another token here"
                 ));
             }
-            Error::ExpectedVar(_, s) => {
-                d = dig!("{error}: expected a variable")
-                    .with_label(err!(s, "this was supposed to be a variable"));
+            Self::ExpectedVar(_, s) => {
+                msg!("{error}: expected a variable")
+                    .label(err!(s, "this was supposed to be a variable"));
             }
-            Error::ExpectedIdent(_, s) => {
-                d = dig!("{error}: expected a identifier")
-                    .with_label(err!(s, "this was supposed to be a identifier"));
+            Self::ExpectedIdent(_, s) => {
+                msg!("{error}: expected a identifier")
+                    .label(err!(s, "this was supposed to be a identifier"));
             }
-            Error::ExpectedJump(t, s) => {
-                d = dig!("{error}: expected jump target")
-                    .with_label(err!(s, "this was supposed to be a jump target"))
-                    .with_footnote(
+            Self::ExpectedJump(t, s) => {
+                msg!("{error}: expected jump target")
+                    .label(err!(s, "this was supposed to be a jump target"))
+                    .note(
                         format!("{note}: a jump target is a label(ident), or a line number in integer form (not a float)"),
                     );
                 if let Token::Num(n) = t {
-                    d.add_footnote(format!("{help}: remove the fractional part: {n:.0}"));
+                    e.note(format!("{help}: remove the fractional part: {n:.0}"));
                 }
             }
-            Error::ExpectedNum(_, s) => {
-                d = dig!("{error}: expected number")
-                    .with_label(err!(s, "this was supposed to be a number"));
+            Self::ExpectedNum(_, s) => {
+                msg!("{error}: expected number").label(err!(s, "this was supposed to be a number"));
             }
-            Error::ExpectedOp(t, s) => {
-                d = dig!("{error}: expected operator")
-                    .with_label(err!(s, "this was supposed to be a operator"));
+            Self::ExpectedOp(t, s) => {
+                msg!("{error}: expected operator")
+                    .label(err!(s, "this was supposed to be a operator"));
                 if let Some(i) = tokstr!(*t) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).first() && *score > 0.5 {
-                    d.add_footnote(format!("{help}: maybe you meant {mat}"));
+                    e.note(format!("{help}: maybe you meant {mat}"));
                 }
             }
-            Error::ExpectedInt(t, s) => {
-                d = dig!("{error}: expected integer")
-                    .with_label(err!(s, "this was supposed to be a integer"));
+            Self::ExpectedInt(t, s) => {
+                msg!("{error}: expected integer")
+                    .label(err!(s, "this was supposed to be a integer"));
                 if let Token::Num(n) = t {
-                    d.add_footnote(format!("{help}: remove the fractional part: {n:.0}"));
+                    e.note(format!("{help}: remove the fractional part: {n:.0}"));
                 }
             }
-            Error::ExpectedInstr(_, s) => {
-                d = dig!("{error}: expected instruction")
-                    .with_label(err!(s, "this was supposed to be a instruction"));
+            Self::ExpectedInstr(_, s) => {
+                msg!("{error}: expected instruction")
+                    .label(err!(s, "this was supposed to be a instruction"));
                 // it occurs to me that this wont ever be a string, as idents are turned into `Code`
                 // if let Some(i) = tokstr!(t.clone()) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::INSTRS, 1).get(0) && *score > 0.5 {
-                //     d.add_footnote(format!("{help}: maybe you meant {mat}"));
+                //     e.note(format!("{help}: maybe you meant {mat}"));
                 // }
             }
-            Error::LabelNotFound(_, s) => {
-                d = dig!("{error}: label not found")
-                    .with_label(err!(s, "this was supposed to be a (existing) label"));
+            Self::LabelNotFound(_, s) => {
+                msg!("{error}: label not found")
+                    .label(err!(s, "this was supposed to be a (existing) label"));
             }
-            Error::InvalidJump(Instruction(target), s) => {
-                d = dig!("{error}: invalid jump")
-                    .with_label(err!(s, "line#{target} is not in the program"))
-                    .with_footnote(format!(
+            Self::InvalidJump(Instruction(target), s) => {
+                msg!("{error}: invalid jump")
+                    .label(err!(s, "line#{target} is not in the program"))
+                    .note(format!(
                         "{help}: there are 0..{} available lines",
                         source.lines().count()
                     ));
             }
-            Error::MemoryTooFar(b, s) => {
-                d = dig!("{error}: invalid memory cell/bank")
-                    .with_label(err!(s, "cant get cell/bank#{b}"))
-                    .with_footnote(format!("{note}: only 126 cells/banks are allowed"));
+            Self::MemoryTooFar(b, s) => {
+                msg!("{error}: invalid memory cell/bank")
+                    .label(err!(s, "cant get cell/bank#{b}"))
+                    .note(format!("{note}: only 126 cells/banks are allowed"));
             }
-            Error::InvalidMemoryType(t, s) => {
-                d = dig!("{error}: invalid memory type")
-                    .with_label(err!(s, "cant get {t}"))
-                    .with_footnote(format!("{note}: only banks/cells are allowed"));
+            Self::InvalidMemoryType(t, s) => {
+                msg!("{error}: invalid memory type")
+                    .label(err!(s, "cant get {t}"))
+                    .note(format!("{note}: only banks/cells are allowed"));
             }
-            Error::InvalidDisplayType(disp, s) => {
-                d = dig!("{error}: invalid display type")
-                    .with_label(err!(s, "cant get {disp}"))
-                    .with_footnote(format!("{help}: change this to 'display'"));
+            Self::InvalidDisplayType(disp, s) => {
+                msg!("{error}: invalid display type")
+                    .label(err!(s, "cant get {disp}"))
+                    .note(format!("{help}: change this to 'display'"));
             }
-            Error::UnsupportedImageOp(op, s) => {
-                d = dig!("{error}: invalid image op").with_label(err!(
+            Self::UnsupportedImageOp(op, s) => {
+                msg!("{error}: invalid image op").label(err!(
                     s,
                     "must be one of {{clear, color, col, stroke, line, rect, lineRect, triangle}}"
                 ));
                 if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(op, crate::instructions::draw::INSTRS, 1).first() && *score > 0.5 {
-                    d.add_footnote(format!("{help}: you may have meant {mat}"));
+                    e.note(format!("{help}: you may have meant {mat}"));
                 }
             }
-            Error::NoDisplay(disp, s) => {
-                d = dig!("{error}: no display allocated").with_label(err!(s, "display#{disp} has not been created")).with_footnote(format!("{note}: it is impossible for me to dynamically allocate displays, as 'display1' could be large or small"));
+            Self::NoDisplay(disp, s) => {
+                msg!("{error}: no display allocated").label(err!(s, "display#{disp} has not been created")).note(format!("{note}: it is impossible for me to dynamically allocate displays, as 'display1' could be large or small"));
             }
         };
-        d
+        e
     }
 }
 
@@ -591,14 +582,19 @@ pub fn parse<'source, W: Wr>(
                 }
             }
             Token::DrawFlush => {
-                let screen = take_ident!(tok!()?)?;
-                if screen != "display" {
-                    yeet!(InvalidDisplayType(screen));
+                let t = tok!();
+                if let Ok(t) = t {
+                    let screen = take_ident!(t)?;
+                    if screen != "display" {
+                        yeet!(InvalidDisplayType(screen));
+                    }
+                    let display = executor
+                        .display(take_int!(tok!()?)?)
+                        .map_err(|n| err!(NoDisplay(n)))?;
+                    executor.add(Flush { display });
+                } else {
+                    executor.add(Flush::default())
                 }
-                let display = executor
-                    .display(take_int!(tok!()?)?)
-                    .map_err(|n| err!(NoDisplay(n)))?;
-                executor.add(Flush { display });
             }
             // end
             Token::End => {

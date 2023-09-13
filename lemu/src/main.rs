@@ -4,7 +4,6 @@ use std::{
 };
 
 use lemu::{Executor, Output};
-use yumy::Config;
 
 fn main() -> ExitCode {
     let mut args = std::env::args();
@@ -15,9 +14,7 @@ fn main() -> ExitCode {
             match Executor::with_output(io::stdout()).display().program(&f) {
                 Ok(x) => x,
                 Err(e) => {
-                    e.diagnose(&f, Some(&file))
-                        .eprint(&Config::default())
-                        .unwrap();
+                    eprint!("{}", e.diagnose(&f));
                     return ExitCode::FAILURE;
                 }
             };
