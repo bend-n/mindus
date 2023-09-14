@@ -27,7 +27,7 @@ make_simple!(
         unsafe { base.overlay(&ozone) };
         base
     },
-    |b: &mut Build<'_>, buff: &mut DataRead| {
+    |b: &mut Build, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`

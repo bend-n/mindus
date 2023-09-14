@@ -84,7 +84,7 @@ pub trait Renderable {
     fn render(&self) -> Image<Vec<u8>, 3>;
 }
 
-impl Renderable for Schematic<'_> {
+impl Renderable for Schematic {
     /// creates a picture of a schematic. Bridges and node connections are not drawn.
     /// ```
     /// # use mindus::*;
@@ -151,7 +151,7 @@ impl Renderable for Schematic<'_> {
     }
 }
 
-impl Renderable for Map<'_> {
+impl Renderable for Map {
     /// Draws a map
     fn render(&self) -> Image<Vec<u8>, 3> {
         let scale = if self.width + self.height < 2000 {

@@ -46,11 +46,11 @@ pub(crate) use define;
 #[cfg(test)]
 pub(crate) use dir;
 
-pub type Cross<'l> = [Option<(&'l Block, Rotation)>; 4];
+pub type Cross = [Option<(&'static Block, Rotation)>; 4];
 /// holds the 4 bordering blocks
 #[derive(Copy, Clone)]
-pub struct RenderingContext<'l> {
-    pub cross: Cross<'l>,
+pub struct RenderingContext {
+    pub cross: Cross,
     pub position: PositionContext,
 }
 
@@ -73,7 +73,7 @@ impl std::fmt::Debug for PositionContext {
 }
 
 #[cfg(test)]
-fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
+fn print_crosses(v: Vec<Cross>, height: usize) -> String {
     let mut s = String::new();
     for c in v.chunks(height) {
         for c in c {
@@ -89,7 +89,7 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     s
 }
 
-pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> ImageHolder<4> {
+pub fn tile(ctx: &RenderingContext, name: &str, rot: Rotation, s: Scale) -> ImageHolder<4> {
     mask2tile(mask(ctx, rot, name), rot, name, s)
 }
 
@@ -224,8 +224,8 @@ pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {
 pub trait RotationState {
     fn get_rotation(&self) -> Option<Rotation>;
 }
-pub trait BlockState<'l> {
-    fn get_block(&'l self) -> Option<&'l Block>;
+pub trait BlockState {
+    fn get_block(&self) -> Option<&'static Block>;
 }
 pub trait Crossable {
     fn cross(&self, j: usize, c: &PositionContext) -> Cross;

@@ -90,10 +90,10 @@ use crate::content::Content;
 
 /// a tile in a map
 #[derive(Clone)]
-pub struct Tile<'l> {
+pub struct Tile {
     pub floor: BlockEnum,
     pub ore: BlockEnum,
-    build: Option<Build<'l>>,
+    build: Option<Build>,
 }
 
 macro_rules! lo {
@@ -105,7 +105,7 @@ macro_rules! lo {
 	} };
 }
 
-impl<'l> Tile<'l> {
+impl Tile {
     #[must_use]
     pub const fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
         Self {
@@ -115,7 +115,7 @@ impl<'l> Tile<'l> {
         }
     }
 
-    fn set_block(&mut self, block: &'l Block) {
+    fn set_block(&mut self, block: &'static Block) {
         self.build = Some(Build {
             block,
             state: None,
@@ -128,7 +128,7 @@ impl<'l> Tile<'l> {
     }
 
     #[must_use]
-    pub const fn build(&self) -> Option<&Build<'l>> {
+    pub const fn build(&self) -> Option<&Build> {
         self.build.as_ref()
     }
 
@@ -217,7 +217,7 @@ impl<'l> Tile<'l> {
     }
 }
 
-impl std::fmt::Debug for Tile<'_> {
+impl std::fmt::Debug for Tile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -237,34 +237,34 @@ impl std::fmt::Debug for Tile<'_> {
     }
 }
 
-impl<'l> BlockState<'l> for Tile<'l> {
-    fn get_block(&self) -> Option<&'l Block> {
+impl BlockState for Tile {
+    fn get_block(&self) -> Option<&'static Block> {
         Some(self.build()?.block)
     }
 }
 
-impl RotationState for Tile<'_> {
+impl RotationState for Tile {
     fn get_rotation(&self) -> Option<Rotation> {
         Some(self.build()?.rotation)
     }
 }
 
-impl RotationState for Option<Tile<'_>> {
+impl RotationState for Option<Tile> {
     fn get_rotation(&self) -> Option<Rotation> {
         self.as_ref().unwrap().get_rotation()
     }
 }
 
-impl<'l> BlockState<'l> for Option<Tile<'_>> {
-    fn get_block(&'l self) -> Option<&'l Block> {
+impl BlockState for Option<Tile> {
+    fn get_block(&self) -> Option<&'static Block> {
         self.as_ref().unwrap().get_block()
     }
 }
 
 /// a build on a tile in a map
 #[derive(Clone)]
-pub struct Build<'l> {
-    pub block: &'l Block,
+pub struct Build {
+    pub block: &'static Block,
     pub items: Storage<Item>,
     pub liquids: Storage<Fluid>,
     pub state: Option<State>,
@@ -274,15 +274,15 @@ pub struct Build<'l> {
     pub data: i8,
 }
 
-impl std::fmt::Debug for Build<'_> {
+impl std::fmt::Debug for Build {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Build<{block}>", block = self.block.name(),)
     }
 }
 
-impl<'l> Build<'l> {
+impl Build {
     #[must_use]
-    pub fn new(block: &'l Block) -> Build<'l> {
+    pub fn new(block: &'static Block) -> Build {
         Self {
             block,
             items: Storage::default(),
@@ -420,7 +420,7 @@ fn test_read_liquids() {
 /// a map.
 /// ## Does not support serialization yet!
 #[derive(Debug)]
-pub struct Map<'l> {
+pub struct Map {
     pub width: usize,
     pub height: usize,
     pub tags: HashMap<String, String>,
@@ -431,7 +431,7 @@ pub struct Map<'l> {
     /// (0, 1), (1, 1), (2, 1)
     /// (0, 2), (1, 2), (2, 2)
     /// ```
-    pub tiles: Vec<Tile<'l>>,
+    pub tiles: Vec<Tile>,
 }
 
 macro_rules! cond {
@@ -444,7 +444,7 @@ macro_rules! cond {
     };
 }
 
-impl<'l> Crossable for Map<'l> {
+impl Crossable for Map {
     fn cross(&self, j: usize, c: &PositionContext) -> Cross {
         let get = |i| {
             let b = &self[i];
@@ -462,7 +462,7 @@ impl<'l> Crossable for Map<'l> {
     }
 }
 
-impl<'l> Map<'l> {
+impl Map {
     #[must_use]
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
@@ -474,19 +474,19 @@ impl<'l> Map<'l> {
         }
     }
 
-    fn push(&mut self, t: Tile<'l>) {
+    fn push(&mut self, t: Tile) {
         self.tiles.push(t);
     }
 }
 
-impl<'l> Index<usize> for Map<'l> {
-    type Output = Tile<'l>;
+impl Index<usize> for Map {
+    type Output = Tile;
     fn index(&self, index: usize) -> &Self::Output {
         &self.tiles[index]
     }
 }
 
-impl<'l> IndexMut<usize> for Map<'l> {
+impl IndexMut<usize> for Map {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.tiles[index]
     }
@@ -512,7 +512,7 @@ pub enum ReadError {
 }
 
 /// serde map
-impl<'l> Serializable for Map<'l> {
+impl Serializable for Map {
     type ReadError = ReadError;
     type WriteError = ();
     /// deserialize a map
@@ -520,7 +520,7 @@ impl<'l> Serializable for Map<'l> {
     /// notes:
     /// - does not deserialize data
     /// - does not deserialize entities
-    fn deserialize(buff: &mut DataRead<'_>) -> Result<Map<'l>, Self::ReadError> {
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<Map, Self::ReadError> {
         let buff = buff.deflate()?;
         let mut buff = DataRead::new(&buff);
         {

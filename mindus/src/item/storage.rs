@@ -330,24 +330,26 @@ where
         (subbed, self.total, other.total)
     }
 
-    #[must_use]
-    pub fn iter(&self) -> Iter<'_> {
+    pub fn clear(&mut self) {
+        self.base.clear();
+    }
+}
+
+impl<T: TryFrom<u16>> Storage<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             base: self.base.iter().enumerate(),
             all: true,
+            _t: PhantomData,
         }
     }
 
-    #[must_use]
-    pub fn iter_nonzero(&self) -> Iter<'_> {
+    pub fn iter_nonzero(&self) -> Iter<'_, T> {
         Iter {
             base: self.base.iter().enumerate(),
             all: false,
+            _t: PhantomData,
         }
-    }
-
-    pub fn clear(&mut self) {
-        self.base.clear();
     }
 }
 
@@ -369,10 +371,7 @@ impl<T> PartialEq for Storage<T> {
     }
 }
 
-impl<T> fmt::Display for Storage<T>
-where
-    u16: From<T>,
-{
+impl<T: TryFrom<u16> + fmt::Display> fmt::Display for Storage<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut iter = self.iter_nonzero();
         if let Some((ty, cnt)) = iter.next() {
@@ -401,19 +400,31 @@ pub struct TrySubError {
     pub min: u32,
 }
 
-#[derive(Clone, Debug)]
-pub struct Iter<'l> {
-    base: Enumerate<slice::Iter<'l, u32>>,
-    all: bool,
+impl<'l, T: TryFrom<u16>> IntoIterator for &'l Storage<T> {
+    type Item = (T, u32);
+
+    type IntoIter = Iter<'l, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
-impl<'l> Iterator for Iter<'l> {
-    type Item = (item::Type, u32);
+#[derive(Clone, Debug)]
+#[must_use = "iterator is lazy"]
+pub struct Iter<'l, T: TryFrom<u16>> {
+    base: Enumerate<slice::Iter<'l, u32>>,
+    all: bool,
+    _t: PhantomData<T>,
+}
+
+impl<'l, T: TryFrom<u16>> Iterator for Iter<'l, T> {
+    type Item = (T, u32);
 
     fn next(&mut self) -> Option<Self::Item> {
         for (idx, cnt) in self.base.by_ref() {
             if *cnt > 0 || self.all {
-                if let Ok(ty) = item::Type::try_from(idx as u16) {
+                if let Ok(ty) = T::try_from(idx as u16) {
                     return Some((ty, *cnt));
                 }
             }
@@ -426,4 +437,7 @@ impl<'l> Iterator for Iter<'l> {
     }
 }
 
-impl<'l> FusedIterator for Iter<'l> where Enumerate<slice::Iter<'l, u32>>: FusedIterator {}
+impl<'l, T: TryFrom<u16>> FusedIterator for Iter<'l, T> where
+    Enumerate<slice::Iter<'l, u32>>: FusedIterator
+{
+}

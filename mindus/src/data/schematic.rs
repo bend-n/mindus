@@ -19,28 +19,28 @@ pub const MAX_BLOCKS: u32 = 256 * 256;
 
 /// a placement in a schematic
 #[derive(Clone)]
-pub struct Placement<'l> {
-    pub block: &'l Block,
+pub struct Placement {
+    pub block: &'static Block,
     pub rot: Rotation,
     state: Option<State>,
 }
 
-impl PartialEq for Placement<'_> {
-    fn eq(&self, rhs: &Placement<'_>) -> bool {
+impl PartialEq for Placement {
+    fn eq(&self, rhs: &Placement) -> bool {
         self.block == rhs.block && self.rot == rhs.rot
     }
 }
 
-impl fmt::Debug for Placement<'_> {
+impl fmt::Debug for Placement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "P<{}[*{}]>", self.block.name(), self.rot.ch())
     }
 }
 
-impl<'l> Placement<'l> {
+impl Placement {
     /// make a placement from a block
     #[must_use]
-    pub const fn new(block: &'l Block) -> Self {
+    pub const fn new(block: &'static Block) -> Self {
         Self {
             block,
             rot: Rotation::Up,
@@ -82,20 +82,20 @@ impl<'l> Placement<'l> {
     }
 }
 
-impl<'l> BlockState<'l> for Placement<'l> {
-    fn get_block(&self) -> Option<&'l Block> {
+impl BlockState for Placement {
+    fn get_block(&self) -> Option<&'static Block> {
         Some(self.block)
     }
 }
 
-impl RotationState for Placement<'_> {
+impl RotationState for Placement {
     fn get_rotation(&self) -> Option<Rotation> {
         Some(self.rot)
     }
 }
 
-impl<'l> BlockState<'l> for Option<Placement<'l>> {
-    fn get_block(&self) -> Option<&'l Block> {
+impl BlockState for Option<Placement> {
+    fn get_block(&self) -> Option<&'static Block> {
         let Some(p) = self else {
             return None;
         };
@@ -103,7 +103,7 @@ impl<'l> BlockState<'l> for Option<Placement<'l>> {
     }
 }
 
-impl RotationState for Option<Placement<'_>> {
+impl RotationState for Option<Placement> {
     fn get_rotation(&self) -> Option<Rotation> {
         let Some(p) = self else {
             return None;
@@ -114,16 +114,16 @@ impl RotationState for Option<Placement<'_>> {
 
 #[derive(Clone, Debug)]
 /// a schematic.
-pub struct Schematic<'l> {
+pub struct Schematic {
     pub width: usize,
     pub height: usize,
     pub tags: HashMap<String, String>,
     /// schems can have holes, so [Option] is used.
-    pub blocks: Array2D<Option<Placement<'l>>>,
+    pub blocks: Array2D<Option<Placement>>,
 }
 
-impl<'l> PartialEq for Schematic<'l> {
-    fn eq(&self, rhs: &Schematic<'l>) -> bool {
+impl PartialEq for Schematic {
+    fn eq(&self, rhs: &Schematic) -> bool {
         self.width == rhs.width
             && self.height == rhs.height
             && self.blocks == rhs.blocks
@@ -131,7 +131,7 @@ impl<'l> PartialEq for Schematic<'l> {
     }
 }
 
-impl<'l> Schematic<'l> {
+impl Schematic {
     #[must_use]
     /// create a new schematic, panicking if too big
     /// ```
@@ -238,7 +238,7 @@ impl<'l> Schematic<'l> {
     /// s.put(0, 0, &DUO);
     /// assert!(s.get(0, 0).unwrap().is_some());
     /// ```
-    pub fn get(&self, x: usize, y: usize) -> Result<Option<&Placement<'l>>, PosError> {
+    pub fn get(&self, x: usize, y: usize) -> Result<Option<&Placement>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
                 x,
@@ -251,7 +251,7 @@ impl<'l> Schematic<'l> {
     }
 
     /// gets a block, mutably
-    pub fn get_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Placement<'l>>, PosError> {
+    pub fn get_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Placement>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
                 x,
@@ -272,7 +272,7 @@ impl<'l> Schematic<'l> {
     /// s.put(0, 0, &ROUTER);
     /// assert!(s.get(0, 0).unwrap().is_some() == true);
     /// ```
-    pub fn put(&mut self, x: usize, y: usize, block: &'l Block) -> &mut Self {
+    pub fn put(&mut self, x: usize, y: usize, block: &'static Block) -> &mut Self {
         self.set(x, y, block, DynData::Empty, Rotation::Up).unwrap();
         self
     }
@@ -292,7 +292,7 @@ impl<'l> Schematic<'l> {
         &mut self,
         x: usize,
         y: usize,
-        block: &'l Block,
+        block: &'static Block,
         data: DynData,
         rot: Rotation,
     ) -> Result<(), PlaceError> {
@@ -334,7 +334,7 @@ impl<'l> Schematic<'l> {
     /// assert!(s.take(0, 0).unwrap().is_some() == true);
     /// assert!(s.get(0, 0).unwrap().is_none() == true);
     /// ```
-    pub fn take(&mut self, x: usize, y: usize) -> Result<Option<Placement<'l>>, PosError> {
+    pub fn take(&mut self, x: usize, y: usize) -> Result<Option<Placement>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
                 x,
@@ -348,7 +348,7 @@ impl<'l> Schematic<'l> {
     }
 
     /// iterate over all the blocks
-    pub fn block_iter(&self) -> impl Iterator<Item = (GridPos, &Placement<'_>)> {
+    pub fn block_iter(&self) -> impl Iterator<Item = (GridPos, &Placement)> {
         self.blocks.iter().enumerate().filter_map(|(i, p)| {
             let Some(p) = p else {
                 return None;
@@ -471,10 +471,10 @@ impl fmt::Display for TruncatedError {
 const SCHEMATIC_HEADER: u32 =
     ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
 
-impl<'l> Serializable for Schematic<'l> {
+impl Serializable for Schematic {
     type ReadError = ReadError;
     type WriteError = WriteError;
-    fn deserialize(buff: &mut DataRead<'_>) -> Result<Schematic<'l>, Self::ReadError> {
+    fn deserialize(buff: &mut DataRead<'_>) -> Result<Schematic, Self::ReadError> {
         let hdr = buff.read_u32()?;
         if hdr != SCHEMATIC_HEADER {
             return Err(ReadError::Header(hdr));
@@ -624,7 +624,7 @@ pub enum WriteError {
     Compress(#[from] super::CompressError),
 }
 
-impl<'l> Schematic<'l> {
+impl Schematic {
     /// deserializes a schematic from base64
     /// ```
     /// # use mindus::*;
@@ -632,7 +632,7 @@ impl<'l> Schematic<'l> {
     /// let s = Schematic::deserialize_base64(string).unwrap();
     /// assert!(s.get(1, 1).unwrap().unwrap().block.name() == "payload-router");
     /// ```
-    pub fn deserialize_base64(data: &str) -> Result<Schematic<'l>, R64Error> {
+    pub fn deserialize_base64(data: &str) -> Result<Schematic, R64Error> {
         let mut buff = vec![0; data.len() / 4 * 3 + 1];
         let n_out = base64::decode(data.as_bytes(), buff.as_mut())?;
         Ok(Self::deserialize(&mut DataRead::new(&buff[..n_out]))?)
