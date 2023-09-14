@@ -1,0 +1,4 @@
+print 0b1100
+print 0xc
+print 12
+stop

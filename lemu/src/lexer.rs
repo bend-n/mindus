@@ -1,5 +1,6 @@
 use beef::lean::Cow;
 use logos::{Lexer as RealLexer, Logos, Span};
+
 macro_rules! instrs {
     ($($z:literal => $v:ident,)+) => {
         #[derive(Logos, Debug, PartialEq, Clone)]
@@ -11,6 +12,8 @@ macro_rules! instrs {
             Comment(&'strings str),
             #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
             #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from))]
+            #[regex(r#"0[xX][0-9a-fA-F]+"#, |lex| u64::from_str_radix(&lex.slice()[2..], 16).map(|v| v as f64).ok())]
+            #[regex(r#"0[bB][01]+"#, |lex| u64::from_str_radix(&lex.slice()[2..], 2).map(|v| v as f64).ok())]
             #[regex(r#""[0-9]+(\.[0-9]+)?""#, callback = |lex| lex.slice()[1..lex.slice().len()-1].parse().ok(), priority = 6)]
             Num(f64),
             #[regex(r#""([^\\"\n])*""#, callback = |lex| Cow::from(&lex.slice()[1..lex.slice().len()-1]), priority = 5)]
