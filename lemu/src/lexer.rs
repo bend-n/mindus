@@ -20,7 +20,7 @@ macro_rules! instrs {
             #[regex(r#"@[^ "\n]*"#, |lex| Cow::from(&lex.slice()[1..]))]
             #[regex(r#""[^"]*""#, |lex| Cow::from(lex.slice()[1..lex.slice().len()-1].replace(r"\n", "\n")))]
             String(Cow<'strings, str>),
-            #[regex("[^0-9 \t\n]+")]
+            #[regex("[^0-9 \t\n]+", priority = 9)]
             Ident(&'strings str),
 
             $(#[token($z)] $v,)+
@@ -118,15 +118,15 @@ impl<'s> Lexer<'s> {
 }
 
 #[allow(dead_code)]
-pub fn print_stream<'s>(mut stream: impl Iterator<Item = Token<'s>>) {
+pub fn print_stream<'s>(mut stream: Lexer) {
     print!("[");
     let Some(tok) = stream.next() else {
         println!("]");
         return;
     };
     print!("{tok:?}");
-    for token in stream {
-        print!(", {token:?}");
+    while let Some(tok) = stream.next() {
+        print!(", {tok:?}");
     }
     println!("]");
 }

@@ -1,6 +1,7 @@
 # rustc/cargo outputs
 Cargo.lock
 target
+rustc-ice-*.txt
 
 # Visual Studio Code
 /.vscode
