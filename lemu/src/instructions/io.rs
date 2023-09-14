@@ -1,4 +1,4 @@
-use super::{Flow, LInstruction};
+use super::{get_num, Flow, LInstruction};
 use crate::{
     executor::{ExecutorContext, Memory},
     memory::{LAddress, LVar},
@@ -7,37 +7,38 @@ use std::io::Write as Wr;
 
 #[derive(Debug)]
 pub struct Read<'v> {
-    // index guranteed to never be out of bounds
-    pub(crate) index: usize,
+    pub(crate) index: LAddress<'v>,
     pub(crate) output: LAddress<'v>,
     pub(crate) container: Memory,
 }
 
 impl<'v> LInstruction<'v> for Read<'v> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let to = exec.mem(self.container)[self.index];
-        let Some(out) = exec.get_mut(&self.output) else {
-            return Flow::Continue;
+        let i = get_num!(exec.get(&self.index)).round() as usize;
+        if let Some(&n) = exec.mem(self.container).get(i) {
+            if let Some(out) = exec.get_mut(&self.output) {
+                *out = LVar::from(n);
+            }
         };
-        *out = LVar::from(to);
         Flow::Continue
     }
 }
 
 #[derive(Debug)]
 pub struct Write<'v> {
-    // index guranteed to never be out of bounds
-    pub(crate) index: usize,
+    pub(crate) index: LAddress<'v>,
     pub(crate) set: LAddress<'v>,
     pub(crate) container: Memory,
 }
 
 impl<'v> LInstruction<'v> for Write<'v> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let &LVar::Num(n) = exec.get(&self.set) else {
-            return Flow::Continue;
-        };
-        exec.mem(self.container)[self.index] = n;
+        let i = get_num!(exec.get(&self.index)).round() as usize;
+        if let &LVar::Num(b) = exec.get(&self.set) {
+            if let Some(a) = exec.mem(self.container).get_mut(i) {
+                *a = b;
+            }
+        }
         Flow::Continue
     }
 }

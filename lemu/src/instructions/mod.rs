@@ -90,7 +90,9 @@ pub const OPS: &[&str] = &[
 ];
 
 #[must_use = "to change control flow"]
+#[derive(Default)]
 pub enum Flow {
+    #[default]
     Continue,
     Stay,
     Exit,

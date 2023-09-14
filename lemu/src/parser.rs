@@ -13,7 +13,7 @@ use super::{
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
     lexer::{Lexer, Token},
-    memory::LAddress,
+    memory::{LAddress, LVar},
 };
 
 /// Errors returned when parsing fails.
@@ -49,14 +49,17 @@ pub enum Error<'s> {
     ///     jump label always
     /// ```
     /// (typo: lable not label)
-    #[error("unable to find label {0:?}")]
+    #[error("unable to find label {0}")]
     LabelNotFound(&'s str, Span),
     /// Occurs from eg `jump 4910294029 always`
     #[error("unable to jump to instruction {0:?}")]
     InvalidJump(Instruction, Span),
     /// Occurs from eg `read bank9223372036854775807 5` (only `126` banks can exist)
-    #[error("cannot get cell>{0:?}")]
+    #[error("cannot get cell>{0}")]
     MemoryTooFar(usize, Span),
+    /// Occurs from eg `read bank1 512`
+    #[error("index {0} out of bounds ({1} max)")]
+    IndexOutOfBounds(usize, usize, Span),
     /// Occurs from `read register1`
     #[error("unknown memory type {0:?}, expected (cell)|(bank)")]
     InvalidMemoryType(&'s str, Span),
@@ -217,11 +220,11 @@ impl Error<'_> {
                 ));
             }
             Self::ExpectedVar(_, s) => {
-                msg!("{error}: expected a variable")
+                msg!("{error}: expected variable")
                     .label(err!(s, "this was supposed to be a variable"));
             }
             Self::ExpectedIdent(_, s) => {
-                msg!("{error}: expected a identifier")
+                msg!("{error}: expected identifier")
                     .label(err!(s, "this was supposed to be a identifier"));
             }
             Self::ExpectedJump(t, s) => {
@@ -298,6 +301,10 @@ impl Error<'_> {
             Self::NoDisplay(disp, s) => {
                 msg!("{error}: no display allocated").label(err!(s, "display#{disp} has not been created")).note(format!("{note}: it is impossible for me to dynamically allocate displays, as 'display1' could be large or small"));
             }
+            Self::IndexOutOfBounds(index, size, s) => {
+                msg!("{error}: index {index} out of bounds")
+                    .label(err!(s, "memory has only {size} elements"));
+            }
         };
         e
     }
@@ -327,12 +334,12 @@ pub fn parse<'source, W: Wr>(
         };
     }
     macro_rules! err {
-        ($e:ident($($stuff:expr)+)) => {
+        ($e:ident($($stuff:expr),+)) => {
             Error::$e($($stuff,)+ tokens.span())
         }
     }
     macro_rules! yeet {
-        ($e:ident($($stuff:expr)+)) => {
+        ($e:ident($($stuff:expr),+)) => {
             return Err(Error::$e($($stuff,)+ tokens.span()))
         };
     }
@@ -499,7 +506,15 @@ pub fn parse<'source, W: Wr>(
             Token::Write => {
                 let set = take_numvar!(tok!()?)?;
                 let container = take_memory!();
-                let index = container.limit(take_int!(tok!()?)?);
+                let index = take_numvar!(tok!()?)?;
+                match index {
+                    LAddress::Const(LVar::Num(v)) => {
+                        if !container.fits(v.round() as usize) {
+                            yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
+                        }
+                    }
+                    _ => {}
+                }
 
                 executor.add(Write {
                     index,
@@ -511,7 +526,15 @@ pub fn parse<'source, W: Wr>(
             Token::Read => {
                 let output = take_var!(tok!()?)?;
                 let container = take_memory!();
-                let index = container.limit(take_int!(tok!()?)?);
+                let index = take_numvar!(tok!()?)?;
+                match index {
+                    LAddress::Const(LVar::Num(v)) => {
+                        if !container.fits(v.round() as usize) {
+                            yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
+                        }
+                    }
+                    _ => {}
+                }
                 executor.add(Read {
                     index,
                     output,

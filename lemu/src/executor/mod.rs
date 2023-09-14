@@ -13,11 +13,19 @@ pub struct Display(pub usize);
 // negative means bank, positive means cell
 pub struct Memory(pub(crate) i8);
 impl Memory {
-    pub(crate) fn limit(self, i: usize) -> usize {
+    pub(crate) fn fits(self, i: usize) -> bool {
         if self.0 < 0 {
-            i.min(BANK_SIZE)
+            i < BANK_SIZE
         } else {
-            i.min(CELL_SIZE)
+            i < CELL_SIZE
+        }
+    }
+
+    pub(crate) fn size(self) -> usize {
+        if self.0 < 0 {
+            BANK_SIZE
+        } else {
+            CELL_SIZE
         }
     }
 }
