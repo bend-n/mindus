@@ -11,19 +11,19 @@ macro_rules! instrs {
             #[regex("#[^\n]+")]
             Comment(&'strings str),
             #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
-            #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from))]
+            #[regex(r"(true)|(false)", |lex| lex.slice().parse::<bool>().ok().map(f64::from), priority = 10)]
             #[regex(r#"0[xX][0-9a-fA-F]+"#, |lex| u64::from_str_radix(&lex.slice()[2..], 16).map(|v| v as f64).ok())]
             #[regex(r#"0[bB][01]+"#, |lex| u64::from_str_radix(&lex.slice()[2..], 2).map(|v| v as f64).ok())]
-            #[regex(r#""[0-9]+(\.[0-9]+)?""#, callback = |lex| lex.slice()[1..lex.slice().len()-1].parse().ok(), priority = 6)]
+            #[regex(r#""[0-9]+(\.[0-9]+)?""#, callback = |lex| lex.slice()[1..lex.slice().len()-1].parse().ok(), priority = 13)]
             Num(f64),
-            #[regex(r#""([^\\"\n])*""#, callback = |lex| Cow::from(&lex.slice()[1..lex.slice().len()-1]), priority = 5)]
+            #[regex(r#""([^\\"\n])*""#, callback = |lex| Cow::from(&lex.slice()[1..lex.slice().len()-1]), priority = 12)]
             #[regex(r#"@[^ "\n]*"#, |lex| Cow::from(&lex.slice()[1..]))]
-            #[regex(r#""[^"]*""#, |lex| Cow::from(lex.slice()[1..lex.slice().len()-1].replace(r"\n", "\n")))]
+            #[regex(r#""[^"]*""#, callback = |lex| Cow::from(lex.slice()[1..lex.slice().len()-1].replace(r"\n", "\n")), priority = 8)]
             String(Cow<'strings, str>),
-            #[regex("[^0-9 \t\n]+", priority = 9)]
+            #[regex("[^0-9 \t\n]+", priority = 7)]
             Ident(&'strings str),
 
-            $(#[token($z)] $v,)+
+            $(#[token($z, priority = 8)] $v,)+
         }
 
         impl std::fmt::Display for Token<'_> {

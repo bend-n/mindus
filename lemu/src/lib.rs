@@ -176,4 +176,5 @@ mod test {
     test!(run fib.mlog; output = b"12586269025");
     test!(run numbers.mlog; output = b"121212");
     test!(run celliterate.mlog 500 times; cell[0][0] = 500.0);
+    test!(run hello.mlog; output = b"hello world");
 }
