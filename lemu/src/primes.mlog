@@ -1,0 +1,21 @@
+set truth 0
+set:
+    op add truth truth 1
+    write true bank1 truth
+    jump set lessThanEq truth 512
+set prime 1
+loop:
+    op add prime prime 1
+    jump end greaterThanEq prime 512
+    read primality bank1 prime
+    jump loop notEqual primality true
+    print prime
+    print " | "
+    op mul multiple prime prime
+    inner:
+        write false bank1 multiple
+        op add multiple multiple prime
+        jump inner lessThanEq multiple 512
+    jump loop always
+end:
+    stop

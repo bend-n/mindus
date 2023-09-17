@@ -49,8 +49,8 @@ pub struct Priv {
 impl std::fmt::Debug for LAddress<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Const(c) => write!(f, "LAddress {c}"),
-            Self::Address(n, ..) => write!(f, "LAddress {n:x}"),
+            Self::Const(c) => write!(f, "{c}"),
+            Self::Address(n, ..) => write!(f, "0x{n:x}"),
         }
     }
 }
