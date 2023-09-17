@@ -269,7 +269,7 @@ impl Error<'_> {
                 msg!("{error}: label not found").label((
                     s,
                     cmt!("this was supposed to be a (existing) {bold_blue}label{reset}"),
-                )).note(cmt!("{note}: define a label with {yellow}`label_name:`{reset}, then you can {yellow}`jump label_name`{reset}."));
+                )).note(cmt!("{help}: define a label with {yellow}`label_name:`{reset}, then you can {yellow}`jump label_name`{reset}."));
             }
             Self::InvalidJump(target, s) => {
                 msg!("{error}: invalid jump")
@@ -474,16 +474,21 @@ pub fn parse<'source, W: Wr>(
                 let tok = tok!()?;
                 // label jump
                 if let Some(i) = tokstr!(tok) {
+                    let span = tokens.span();
                     let op = tok!()?;
                     if op == Token::Always {
                         executor.jmp();
-                        unfinished_jumps.push((UJump::Always, i, executor.last()));
+                        unfinished_jumps.push((UJump::Always, (i, span), executor.last()));
                     } else {
                         let op = op.try_into().map_err(|op| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
                         executor.jmp();
-                        unfinished_jumps.push((UJump::Sometimes { a, b, op }, i, executor.last()));
+                        unfinished_jumps.push((
+                            UJump::Sometimes { a, b, op },
+                            (i, span),
+                            executor.last(),
+                        ));
                     }
                 } else if let Ok(n) = take_int!(tok.clone()) {
                     // SAFETY: we check at the end of the block that it is valid
@@ -657,11 +662,11 @@ pub fn parse<'source, W: Wr>(
         nextline!();
     }
 
-    for (j, l, i) in unfinished_jumps {
+    for (j, (l, s), i) in unfinished_jumps {
         let to = labels
             .iter()
             .find(|(v, _)| v == &l)
-            .ok_or_else(|| err!(LabelNotFound(l)))?
+            .ok_or_else(|| Error::LabelNotFound(l, s))?
             .1;
         executor.program[i.get()] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
