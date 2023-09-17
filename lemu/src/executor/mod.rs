@@ -33,7 +33,19 @@ pub const BANK_SIZE: usize = 512;
 pub const CELL_SIZE: usize = 64;
 
 #[derive(Copy, Clone)]
-pub struct Instruction(pub usize);
+pub struct Instruction(usize);
+
+impl Instruction {
+    /// # Safety
+    /// verify n is valid.
+    pub unsafe fn new(n: usize) -> Self {
+        Self(n)
+    }
+
+    pub fn get(self) -> usize {
+        self.0
+    }
+}
 
 impl std::fmt::Debug for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -86,8 +98,6 @@ pub struct Executor<'varnames, W: Write> {
     pub(crate) program: Pin<Box<[PInstr<'varnames>]>>,
     /// Counter for the number of instructions we have run so far.
     pub instructions_ran: usize,
-    /// Counter for the number of iterations we have run so far.
-    pub iterations: usize,
 }
 
 pub enum UPInstr<'s> {
@@ -118,6 +128,8 @@ pub struct ExecutorContext<'varnames, W: Write> {
     pub counter: usize,
     pub display: Drawing<'varnames>,
     pub output: Option<W>,
+    /// Counter for the number of iterations we have run so far.
+    pub iterations: usize,
 }
 
 pub struct DisplayState {
@@ -171,7 +183,6 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         self.memory.get_mut(a)
     }
 
-    // please verify n is valid
     pub fn jump(&mut self, Instruction(n): Instruction) {
         self.counter = n;
     }
@@ -229,7 +240,7 @@ impl<'s, W: Write> Executor<'s, W> {
     /// Begin code execution.
     pub fn run(&mut self) {
         while !self.instruction_limit.reached(self.instructions_ran)
-            && !self.iteration_limit.reached(self.iterations)
+            && !self.iteration_limit.reached(self.inner.iterations)
         {
             // SAFETY: we have a check
             match unsafe { self.run_current() } {
@@ -244,7 +255,7 @@ impl<'s, W: Write> Executor<'s, W> {
             self.inner.counter += 1;
             if self.inner.counter >= self.program.len() {
                 self.inner.counter = 0;
-                self.iterations += 1;
+                self.inner.iterations += 1;
                 self.inner.memory.clear();
             }
         }

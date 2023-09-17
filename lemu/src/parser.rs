@@ -266,9 +266,9 @@ impl Error<'_> {
                 msg!("{error}: label not found")
                     .label(err!(s, "this was supposed to be a (existing) label"));
             }
-            Self::InvalidJump(Instruction(target), s) => {
+            Self::InvalidJump(target, s) => {
                 msg!("{error}: invalid jump")
-                    .label(err!(s, "line#{target} is not in the program"))
+                    .label(err!(s, "line#{} is not in the program", target.get()))
                     .note(format!(
                         "{help}: there are 0..{} available lines",
                         source.lines().count()
@@ -471,7 +471,8 @@ pub fn parse<'source, W: Wr>(
                         unfinished_jumps.push((UJump::Sometimes { a, b, op }, i, executor.last()));
                     }
                 } else if let Ok(n) = take_int!(tok.clone()) {
-                    let to = Instruction(n);
+                    // SAFETY: we check at the end of the block that it is valid
+                    let to = unsafe { Instruction::new(n) };
                     let op = tok!()?;
                     if op == Token::Always {
                         executor.add(AlwaysJump { to });
@@ -641,13 +642,13 @@ pub fn parse<'source, W: Wr>(
         nextline!();
     }
 
-    for (j, l, Instruction(i)) in unfinished_jumps {
+    for (j, l, i) in unfinished_jumps {
         let to = labels
             .iter()
             .find(|(v, _)| v == &l)
             .ok_or_else(|| err!(LabelNotFound(l)))?
             .1;
-        executor.program[i] = UPInstr::Instr(match j {
+        executor.program[i.get()] = UPInstr::Instr(match j {
             UJump::Always => Instr::from(AlwaysJump { to }),
             UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b)),
         });

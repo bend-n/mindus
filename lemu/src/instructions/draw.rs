@@ -12,7 +12,6 @@ pub const INSTRS: &[&str] = &[
 
 #[enum_dispatch]
 pub trait DrawInstruction<'v> {
-    #[allow(unused_variables)]
     fn draw(
         &self,
         mem: &mut LRegistry<'v>,

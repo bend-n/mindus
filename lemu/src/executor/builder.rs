@@ -131,6 +131,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 banks: cst::<BANK_SIZE>(banks),
                 memory: LRegistry::new(mem),
                 counter: 0,
+                iterations: 0,
                 display: Drawing {
                     displays: displays.into(),
                     buffer: VecDeque::new(),
@@ -153,7 +154,6 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                     .collect::<Box<[PInstr]>>(),
             ),
             instructions_ran: 0,
-            iterations: 0,
         }
     }
 }

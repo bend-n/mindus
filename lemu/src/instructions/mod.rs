@@ -100,10 +100,7 @@ pub enum Flow {
 
 #[enum_dispatch]
 pub trait LInstruction<'v> {
-    #[allow(unused_variables)]
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        Flow::Continue
-    }
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow;
 }
 
 #[derive(Debug)]
@@ -228,7 +225,16 @@ impl<'v> LInstruction<'v> for Op2<'v> {
 
 #[derive(Debug)]
 pub struct End {}
-impl LInstruction<'_> for End {}
+
+impl LInstruction<'_> for End {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
+        exec.memory.clear();
+        exec.iterations += 1;
+        // SAFETY: if we exist, 0 exists.
+        unsafe { exec.jump(Instruction::new(0)) };
+        Flow::Stay
+    }
+}
 
 #[derive(Debug)]
 pub struct AlwaysJump {
@@ -270,7 +276,8 @@ impl<'v> LInstruction<'v> for DynJump<'v> {
         if let &LVar::Num(n) = exec.get(&self.to) {
             let i = n.round() as usize;
             if i < self.proglen {
-                exec.jump(Instruction(i));
+                // SAFETY: just checked bounds
+                exec.jump(unsafe { Instruction::new(i) });
                 return Flow::Stay;
             }
         }
