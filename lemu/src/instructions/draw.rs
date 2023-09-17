@@ -143,7 +143,7 @@ impl<'v> DrawInstruction<'v> for Line<'v> {
 
 macro_rules! unbounded {
     ($img:ident @ $x:expr => $y:expr) => {
-        $img.width() < $x || $img.height() < $y
+        $img.width() <= $x || $img.height() <= $y
     };
 }
 
