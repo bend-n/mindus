@@ -196,114 +196,129 @@ impl Error<'_> {
     /// Produces a [`Error`](lerr::Error) from this error.
     #[cfg(feature = "diagnose")]
     pub fn diagnose<'s>(&self, source: &'s str) -> lerr::Error<'s> {
+        use comat::{cformat as cmt, cformat_args};
         use lerr::Error;
 
-        let error = "[1;34;31merror[0m";
-        let note = "[1;34;34mnote[0m";
-        let help = "[1;34;32mhelp[0m";
-        macro_rules! err {
-            ($span:expr, $msg:literal $(, $args:expr)* $(,)?) => {
-                (($span.clone(), format!($msg $(, $args)*)))
-            };
-        }
+        let error = cformat_args!("{bold_red}error{reset}");
+        let note = cformat_args!("{bold_blue}note{reset}");
+        let help = cformat_args!("{bold_green}help{reset}");
         let mut e = Error::new(source);
         macro_rules! msg {
             ($ms:literal $(, $args:expr)* $(,)?) => {
-                e.message(format!($ms $(, $args)*))
+                e.message(cmt!($ms $(, $args)*))
             };
         }
         match self {
             Self::UnexpectedEof => {
-                msg!("{error}: wasnt able to finish read").label(err!(
+                msg!("{error}: wasnt able to finish read, got newline").label((
                     source.len()..source.len(),
-                    "there was supposed to be another token here"
+                    cmt!("there was supposed to be another token here"),
                 ));
             }
             Self::ExpectedVar(_, s) => {
                 msg!("{error}: expected variable")
-                    .label(err!(s, "this was supposed to be a variable"));
+                    .label((s, cmt!("this was supposed to be a {blue}variable{reset} ({magenta}identifier{reset}, {magenta}number{reset}, or {magenta}string{reset})")));
             }
             Self::ExpectedIdent(_, s) => {
-                msg!("{error}: expected identifier")
-                    .label(err!(s, "this was supposed to be a identifier"));
+                msg!("{error}: expected identifier").label((
+                    s,
+                    cmt!("this was supposed to be a {bold_blue}identifier{reset} (eg. {magenta}name{reset})"),
+                ));
             }
             Self::ExpectedJump(t, s) => {
                 msg!("{error}: expected jump target")
-                    .label(err!(s, "this was supposed to be a jump target"))
+                    .label((s, cmt!("this was supposed to be a jump target")))
                     .note(
-                        format!("{note}: a jump target is a label(ident), or a line number in integer form (not a float)"),
+                        cmt!("{note}: a jump target is a {bold_blue}label{reset} ({magenta}ident{reset}, or {magenta}integer{reset})"),
                     );
                 if let Token::Num(n) = t {
-                    e.note(format!("{help}: remove the fractional part: {n:.0}"));
+                    e.note(cmt!(
+                        "{help}: remove the fractional part: {bold_green}{n:.0}{reset}"
+                    ));
                 }
             }
             Self::ExpectedNum(_, s) => {
-                msg!("{error}: expected number").label(err!(s, "this was supposed to be a number"));
+                msg!("{error}: expected number")
+                    .label((s, cmt!("this was supposed to be a {bold_blue}number{reset} (eg. {magenta}3.14159{reset})")));
             }
             Self::ExpectedOp(t, s) => {
                 msg!("{error}: expected operator")
-                    .label(err!(s, "this was supposed to be a operator"));
+                    .label((s, cmt!("this was supposed to be a {bold_blue}operator{reset} (eg. {magenta}equals{reset})")));
                 if let Some(i) = tokstr!(*t) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).first() && *score > 0.5 {
-                    e.note(format!("{help}: maybe you meant {mat}"));
+                    e.note(cmt!("{help}: maybe you meant {bold_green}{mat}{reset}"));
                 }
             }
             Self::ExpectedInt(t, s) => {
                 msg!("{error}: expected integer")
-                    .label(err!(s, "this was supposed to be a integer"));
+                    .label((s, cmt!("this was supposed to be a {bold_blue}integer{reset} (eg. {magenta}4{reset})")));
                 if let Token::Num(n) = t {
-                    e.note(format!("{help}: remove the fractional part: {n:.0}"));
+                    e.note(cmt!(
+                        "{help}: remove the mantissa: {bold_green}{n:.0}{reset}"
+                    ));
                 }
             }
             Self::ExpectedInstr(_, s) => {
                 msg!("{error}: expected instruction")
-                    .label(err!(s, "this was supposed to be a instruction"));
+                    .label((s, cmt!("this was supposed to be a {bold_blue}instruction{reset} (eg. {magenta}print{reset})")));
                 // it occurs to me that this wont ever be a string, as idents are turned into `Code`
                 // if let Some(i) = tokstr!(t.clone()) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::INSTRS, 1).get(0) && *score > 0.5 {
                 //     e.note(format!("{help}: maybe you meant {mat}"));
                 // }
             }
             Self::LabelNotFound(_, s) => {
-                msg!("{error}: label not found")
-                    .label(err!(s, "this was supposed to be a (existing) label"));
+                msg!("{error}: label not found").label((
+                    s,
+                    cmt!("this was supposed to be a (existing) {bold_blue}label{reset}"),
+                )).note(cmt!("{note}: define a label with {yellow}`label_name:`{reset}, then you can {yellow}`jump label_name`{reset}."));
             }
             Self::InvalidJump(target, s) => {
                 msg!("{error}: invalid jump")
-                    .label(err!(s, "line#{} is not in the program", target.get()))
-                    .note(format!(
-                        "{help}: there are 0..{} available lines",
+                    .label((
+                        s,
+                        cmt!(
+                            "line#{bold_red}{}{reset} is not in the program",
+                            target.get()
+                        ),
+                    ))
+                    .note(cmt!(
+                        "{help}: there are {bold_blue}{}{reset} available lines",
                         source.lines().count()
                     ));
             }
             Self::MemoryTooFar(b, s) => {
                 msg!("{error}: invalid memory cell/bank")
-                    .label(err!(s, "cant get cell/bank#{b}"))
-                    .note(format!("{note}: only 126 cells/banks are allowed"));
+                    .label((s, cmt!("cant get cell/bank#{bold_red}{b}{reset}")))
+                    .note(cmt!(
+                        "{note}: only {blue}126{reset} cells/banks are allowed"
+                    ));
             }
             Self::InvalidMemoryType(t, s) => {
-                msg!("{error}: invalid memory type")
-                    .label(err!(s, "cant get {t}"))
-                    .note(format!("{note}: only banks/cells are allowed"));
+                msg!("{error}: invalid memory type {bold_red}{}{reset}", t)
+                    .label((s, "here"))
+                    .note(cmt!("{note}: only banks/cells are allowed"));
             }
             Self::InvalidDisplayType(disp, s) => {
-                msg!("{error}: invalid display type")
-                    .label(err!(s, "cant get {disp}"))
-                    .note(format!("{help}: change this to 'display'"));
+                msg!("{error}: invalid display type {bold_red}{}{reset}", disp)
+                    .label((s, "here"))
+                    .note(cmt!("{help}: change this to {bold_green}'display'{reset}"));
             }
             Self::UnsupportedImageOp(op, s) => {
-                msg!("{error}: invalid image op").label(err!(
+                msg!("{error}: invalid image op {}", op).label((
                     s,
-                    "must be one of {{clear, color, col, stroke, line, rect, lineRect, triangle}}"
+                    "must be one of {clear, color, col, stroke, line, rect, lineRect, triangle}",
                 ));
                 if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(op, crate::instructions::draw::INSTRS, 1).first() && *score > 0.5 {
-                    e.note(format!("{help}: you may have meant {mat}"));
+                    e.note(cmt!("{help}: you may have meant {bold_green}{mat}{reset}"));
                 }
             }
             Self::NoDisplay(disp, s) => {
-                msg!("{error}: no display allocated").label(err!(s, "display#{disp} has not been created")).note(format!("{note}: it is impossible for me to dynamically allocate displays, as 'display1' could be large or small"));
+                msg!("{error}: no display allocated")
+                    .label((s, cmt!("display#{bold_red}{disp}{reset} has not been created")))
+                    .note(cmt!("{note}: it is impossible for me to dynamically allocate displays, as {blue}'display1'{reset} could be large or small"));
             }
             Self::IndexOutOfBounds(index, size, s) => {
-                msg!("{error}: index {index} out of bounds")
-                    .label(err!(s, "memory has only {size} elements"));
+                msg!("{error}: {bold_red}index{reset} {} out of bounds", index)
+                    .label((s, cmt!("memory has only {magenta}{size}{reset} elements")));
             }
         };
         e

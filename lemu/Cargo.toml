@@ -1,6 +1,6 @@
 [package]
 name = "lemu"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
 description = "M-LOG runner"
 authors = ["bend-n <bend.n@outlook.com>"]
@@ -16,11 +16,12 @@ fimg = { version = "0.4", default-features = false }
 logos = "0.13.0"
 rust-fuzzy-search = { version = "0.1.1", optional = true }
 beef = "0.5"
-lerr = { version = "0.1.1", optional = true }
+lerr = { version = "0.1.5", optional = true }
+comat = { version = "0.1.2", optional = true }
 
 [features]
 bin = ["fimg/save", "diagnose"]
-diagnose = ["rust-fuzzy-search", "lerr"]
+diagnose = ["rust-fuzzy-search", "lerr", "comat"]
 default = ["bin"]
 
 [[bin]]
