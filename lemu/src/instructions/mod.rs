@@ -30,21 +30,6 @@ use super::{
     memory::{LAddress, LVar},
 };
 
-// pub const INSTRS: &[&str] = &[
-//     "getlink",
-//     "read",
-//     "write",
-//     "set",
-//     "op",
-//     "end",
-//     "drawflush",
-//     "draw",
-//     "print",
-//     "packcolor",
-//     "jump",
-//     "stop",
-// ];
-
 pub const OPS: &[&str] = &[
     "equal",
     "notEqual",

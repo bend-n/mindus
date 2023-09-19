@@ -1,6 +1,8 @@
 mod builder;
+
 use super::{
     instructions::{DrawInstr, DrawInstruction, Flow, Instr, LInstruction},
+    lexer::Token,
     memory::{LAddress, LRegistry, LVar},
 };
 pub use builder::ExecutorBuilderInternal;
@@ -13,7 +15,7 @@ pub struct Display(pub usize);
 // negative means bank, positive means cell
 pub struct Memory(pub(crate) i8);
 impl Memory {
-    pub(crate) fn fits(self, i: usize) -> bool {
+    pub(crate) const fn fits(self, i: usize) -> bool {
         if self.0 < 0 {
             i < BANK_SIZE
         } else {
@@ -38,7 +40,7 @@ pub struct Instruction(usize);
 impl Instruction {
     /// # Safety
     /// verify n is valid.
-    pub unsafe fn new(n: usize) -> Self {
+    pub const unsafe fn new(n: usize) -> Self {
         Self(n)
     }
 
@@ -57,7 +59,7 @@ impl std::fmt::Debug for Instruction {
 pub enum PInstr<'s> {
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
-    Code(String),
+    Code(Box<[Token<'s>]>),
     NoOp,
 }
 
@@ -104,7 +106,7 @@ pub enum UPInstr<'s> {
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
     UnfinishedJump,
-    Code(String),
+    Code(Box<[Token<'s>]>),
     NoOp,
 }
 

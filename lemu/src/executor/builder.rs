@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     instructions::{DrawInstr, Instr},
+    lexer::Token,
     memory::LRegistry,
 };
 
@@ -50,8 +51,8 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         self.program.push(UPInstr::UnfinishedJump);
     }
 
-    pub(crate) fn code(&mut self, s: String) {
-        self.program.push(UPInstr::Code(s));
+    pub(crate) fn code(&mut self, v: Box<[Token<'s>]>) {
+        self.program.push(UPInstr::Code(v));
     }
 
     pub(crate) fn bank(&mut self, n: usize) -> Memory {
@@ -141,15 +142,12 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             program: Pin::new(
                 program
                     .into_iter()
-                    .map(|v| {
-                        match v {
-                            UPInstr::Instr(i) => PInstr::Instr(i),
-                            UPInstr::Draw(i) => PInstr::Draw(i),
-                            UPInstr::NoOp => PInstr::NoOp,
-                            UPInstr::UnfinishedJump => panic!("all jumps should have finished"),
-                            // todo
-                            UPInstr::Code(c) => PInstr::Code(c),
-                        }
+                    .map(|v| match v {
+                        UPInstr::Instr(i) => PInstr::Instr(i),
+                        UPInstr::Draw(i) => PInstr::Draw(i),
+                        UPInstr::NoOp => PInstr::NoOp,
+                        UPInstr::UnfinishedJump => panic!("all jumps should have finished"),
+                        UPInstr::Code(c) => PInstr::Code(c),
                     })
                     .collect::<Box<[PInstr]>>(),
             ),

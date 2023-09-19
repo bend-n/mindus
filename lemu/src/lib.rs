@@ -1,5 +1,5 @@
 //! crate for [MLOG](https://mindustrygame.github.io/wiki/logic/0-introduction/#what-is-mindustry-logic) emulation.
-#![feature(let_chains)]
+#![feature(let_chains, trace_macros)]
 #![allow(clippy::redundant_closure_call)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
