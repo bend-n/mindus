@@ -159,21 +159,18 @@ impl Renderable for Map {
         } else {
             Scale::Eigth
         };
-        // todo combine these (beware of floor drawing atop buildings) (planned solution:? ptr blocks)
-        let mut floor: Image<_, 3> =
+        let mut img: Image<_, 3> =
             Image::alloc(scale * self.width as u32, scale * self.height as u32);
-        let mut top: Image<_, 4> =
-            Image::alloc(scale * self.width as u32, scale * self.height as u32);
+        // loop1 draws the floor
         for y in 0..self.height {
             for x in 0..self.width {
                 // Map::new() allocates w*h items
                 let j = x + self.width * y;
                 let tile = unsafe { self.tiles.get_unchecked(j) };
                 let y = self.height - y - 1;
-                // draw the floor first.
                 // println!("draw {tile:?} ({x}, {y})");
                 unsafe {
-                    floor.as_mut().overlay_at(
+                    img.as_mut().overlay_at(
                         &tile.floor(scale).borrow(),
                         scale * x as u32,
                         scale * y as u32,
@@ -181,14 +178,21 @@ impl Renderable for Map {
                 };
                 if tile.has_ore() {
                     unsafe {
-                        floor.as_mut().overlay_at(
+                        img.as_mut().overlay_at(
                             &tile.ore(scale).borrow(),
                             scale * x as u32,
                             scale * y as u32,
                         )
                     };
                 }
-
+            }
+        }
+        // loop2 draws the buildings
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let j = x + self.width * y;
+                let tile = unsafe { self.tiles.get_unchecked(j) };
+                let y = self.height - y - 1;
                 if let Some(build) = tile.build() {
                     let s = build.block.get_size();
                     let x = x
@@ -223,7 +227,7 @@ impl Renderable for Map {
                         }
                     });
                     unsafe {
-                        top.as_mut().overlay_at(
+                        img.as_mut().overlay_at(
                             &tile.build_image(ctx.as_ref(), scale).borrow(),
                             scale * x as u32,
                             scale * y as u32,
@@ -232,6 +236,7 @@ impl Renderable for Map {
                 }
             }
         }
+        // loop3 draws the units
         for entity in &self.entities {
             // bounds checks
             let (x, y) = (
@@ -242,12 +247,11 @@ impl Renderable for Map {
                 continue;
             }
             unsafe {
-                top.as_mut()
+                img.as_mut()
                     .overlay_at(&entity.draw(scale).borrow(), scale * x, scale * y)
             };
         }
-        unsafe { floor.as_mut().overlay(&top.as_ref()) };
-        floor
+        img
     }
 }
 
