@@ -184,19 +184,18 @@ impl<'d> DataRead<'d> {
 
     pub fn deflate(&mut self) -> Result<Vec<u8>, DecompressError> {
         let mut dec = Decompress::new(true);
-        let mut raw = Vec::<u8>::new();
-        raw.reserve(1024);
+        let mut raw = Vec::with_capacity(1024);
         loop {
             let t_in = dec.total_in();
             let t_out = dec.total_out();
-            let res = dec.decompress_vec(self.data, &mut raw, FlushDecompress::Finish)?;
+            let res = dec.decompress_vec(self.data, &mut raw, FlushDecompress::None)?;
             if dec.total_in() > t_in {
                 // we have to advance input every time, decompress_vec only knows the output position
                 self.data = &self.data[(dec.total_in() - t_in) as usize..];
             }
             match res {
                 // there's no more input (and the flush mode says so), we need to reserve additional space
-                Status::Ok | Status::BufError => (),
+                Status::Ok | Status::BufError => {}
                 // input was already at the end, so this is referring to the output
                 Status::StreamEnd => break,
             }

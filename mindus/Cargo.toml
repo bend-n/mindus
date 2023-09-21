@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "5.0.2"
+version = "5.0.3"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -14,7 +14,7 @@ readme = "README.md"
 keywords = ["mindustry", "format", "drawing"]
 
 [dependencies]
-flate2 = { version = "1.0", features = ["zlib-ng"], default-features = false }
+flate2 = "1.0"
 base64 = "0.21"
 paste = "1.0"
 strconv = "0.1"
