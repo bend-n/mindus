@@ -72,10 +72,6 @@ impl ImageUtils for ImageHolder<4> {
         self.borrow_mut().shadow();
         self
     }
-
-    fn scale(mut self, to: u32) -> Image<Vec<u8>, 4> {
-        self.borrow_mut().scale(to)
-    }
 }
 
 impl<const CHANNELS: usize> From<Image<&'static [u8], CHANNELS>> for ImageHolder<CHANNELS> {

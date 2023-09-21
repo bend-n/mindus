@@ -1,4 +1,3 @@
-use fast_image_resize as fr;
 pub use fimg::*;
 
 mod holder;
@@ -14,8 +13,6 @@ pub trait ImageUtils {
     unsafe fn rotate(&mut self, times: u8) -> &mut Self;
     /// shadow
     fn shadow(&mut self) -> &mut Self;
-    /// scale a image
-    fn scale(self, to: u32) -> Image<Vec<u8>, 4>;
 }
 
 impl ImageUtils for Image<&mut [u8], 4> {
@@ -37,23 +34,6 @@ impl ImageUtils for Image<&mut [u8], 4> {
             *b = (*b as f32 * tb) as u8;
         }
         self
-    }
-
-    // this function is very cold but im removing image so might as well use fir
-    fn scale(self, to: u32) -> Image<Vec<u8>, 4> {
-        let from = fr::Image::from_slice_u8(
-            self.width().try_into().unwrap(),
-            self.height().try_into().unwrap(),
-            self.take_buffer(),
-            fr::PixelType::U8x4,
-        )
-        .unwrap();
-        let toz = to.try_into().unwrap();
-        let mut dst = fr::Image::new(toz, toz, fr::PixelType::U8x4);
-        fr::Resizer::new(fr::ResizeAlg::Nearest)
-            .resize(&from.view(), &mut dst.view_mut())
-            .unwrap();
-        Image::build(to, to).buf(dst.into_vec())
     }
 
     fn shadow(&mut self) -> &mut Self {
