@@ -140,12 +140,6 @@ impl<'v> DrawInstruction<'v> for Line<'v> {
     }
 }
 
-macro_rules! unbounded {
-    ($img:ident @ $x:expr => $y:expr) => {
-        $img.width() <= $x || $img.height() <= $y
-    };
-}
-
 #[derive(Debug)]
 pub struct RectFilled<'v> {
     pub position: Point<'v>,
@@ -162,11 +156,7 @@ impl<'v> DrawInstruction<'v> for RectFilled<'v> {
         let pos = map!(point!(mem@self.position), |n| n as u32);
         let width = get_num!(mem.get(&self.width)) as u32;
         let height = get_num!(mem.get(&self.height)) as u32;
-        if unbounded!(image @ pos.0 + width => pos.1 + height) {
-            return;
-        }
-        // SAFETY: bounds checked above
-        unsafe { image.filled_box(pos, width, height, state.col()) };
+        image.filled_box(pos, width, height, state.col());
     }
 }
 
@@ -188,11 +178,7 @@ impl<'v> DrawInstruction<'v> for RectBordered<'v> {
         let pos = map!(point!(mem@self.position), |n| n as u32);
         let width = get_num!(mem.get(&self.width)) as u32;
         let height = get_num!(mem.get(&self.height)) as u32;
-        if unbounded!(image @ pos.0 + width => pos.1 + height) {
-            return;
-        }
-        // SAFETY: bounds checked above
-        unsafe { image.r#box(pos, width, height, state.col()) };
+        image.r#box(pos, width, height, state.col());
     }
 }
 
@@ -208,14 +194,7 @@ impl<'v> DrawInstruction<'v> for Triangle<'v> {
             map!(point!(mem@self.points.1), to32),
             map!(point!(mem@self.points.2), to32),
         );
-        if unbounded!(i @ a.0 as u32 => a.1 as u32)
-            || unbounded!(i @ b.0 as u32 => b.1 as u32)
-            || unbounded!(i @ c.0 as u32 => c.1 as u32)
-        {
-            return;
-        }
-        // SAFETY: bounds are checked
-        unsafe { i.tri(a, b, c, state.col()) };
+        i.tri(a, b, c, state.col());
     }
 }
 
