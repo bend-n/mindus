@@ -138,13 +138,15 @@ impl BlockLogic for CanvasBlock {
                 (*r, *g, *b) = PALETTE[y as usize];
                 *a = 255;
             }
-            let img = unsafe { fimg::scale::Nearest::scale(img.as_ref(), (s * self.size as u32) - offset * 2, (s * self.size as u32) - offset * 2) };
-            let mut borders = load!("canvas", s);
-            unsafe {
-                borders
-                    .borrow_mut()
-                    .overlay_at(&img.as_ref(), offset, offset)
+            let img = unsafe {
+                fimg::scale::Nearest::scale(
+                    img.as_ref(),
+                    (s * self.size as u32) - offset * 2,
+                    (s * self.size as u32) - offset * 2,
+                )
             };
+            let mut borders = load!("canvas", s);
+            unsafe { borders.overlay_at(&ImageHolder::from(img), offset, offset) };
             return borders;
         }
 

@@ -200,7 +200,7 @@ impl Tile {
     pub fn floor_image(&self, s: Scale) -> ImageHolder<3> {
         let mut floor = self.floor(s);
         if self.has_ore() {
-            unsafe { floor.borrow_mut().overlay(&self.ore(s).borrow()) };
+            unsafe { floor.overlay(&self.ore(s)) };
         }
         floor
     }

@@ -1,4 +1,4 @@
-use super::{Image, ImageUtils, Overlay, OverlayAt};
+use super::{ClonerOverlay, ClonerOverlayAt, Image, ImageUtils, Overlay, OverlayAt};
 #[derive(Clone, Debug)]
 pub enum ImageHolder<const CHANNELS: usize> {
     Borrow(Image<&'static [u8], CHANNELS>),
@@ -38,18 +38,38 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     }
 }
 
+macro_rules! make {
+    ($me: ident . $fn:ident($($argv:expr),*)) => {
+        match $me {
+            Self::Own(v) => {
+                #[allow(unused_unsafe)]
+                unsafe { v.as_mut().$fn($($argv,)*) };
+                $me
+            }
+            Self::Borrow(v) => {
+                #[allow(unused_unsafe)]
+                { *$me = Self::from(unsafe { v.cloner().$fn($($argv,)*) }) };
+                $me
+            }
+        }
+    };
+}
+
 impl OverlayAt<ImageHolder<4>> for ImageHolder<4> {
     unsafe fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
-        // SAFETY: this is basically a deref impl, the caller upholds the safety invariants
-        unsafe { self.borrow_mut().overlay_at(&with.borrow(), x, y) };
-        self
+        make!(self.overlay_at(&with.borrow(), x, y))
+    }
+}
+
+impl Overlay<ImageHolder<4>> for ImageHolder<3> {
+    unsafe fn overlay(&mut self, with: &ImageHolder<4>) -> &mut Self {
+        make!(self.overlay(&with.borrow()))
     }
 }
 
 impl Overlay<ImageHolder<4>> for ImageHolder<4> {
     unsafe fn overlay(&mut self, with: &Self) -> &mut Self {
-        unsafe { self.borrow_mut().overlay(&with.borrow()) };
-        self
+        make!(self.overlay(&with.borrow()))
     }
 }
 
@@ -60,12 +80,12 @@ impl ImageUtils for ImageHolder<4> {
     }
 
     unsafe fn rotate(&mut self, times: u8) -> &mut Self {
-        if times == 0 {
-            return self;
+        match times {
+            2 => make!(self.rot_180()),
+            1 => make!(self.rot_90()),
+            3 => make!(self.rot_270()),
+            _ => self,
         }
-        // borrow mut may clone, so try to avoid
-        unsafe { self.borrow_mut().rotate(times) };
-        self
     }
 
     fn shadow(&mut self) -> &mut Self {
