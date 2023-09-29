@@ -8,7 +8,7 @@ use fimg::Image;
 use std::fmt::{self, Display as Disp, Formatter};
 
 pub const INSTRS: &[&str] = &[
-    "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle",
+    "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle", "poly",
 ];
 
 #[enum_dispatch]
@@ -24,24 +24,27 @@ pub trait DrawInstruction<'v>: Disp {
 #[derive(Debug)]
 #[enum_dispatch(DrawInstruction)]
 pub enum DrawInstr<'v> {
-    DrawLine(Line<'v>),
-    DrawRectBordered(RectBordered<'v>),
-    DrawRectFilled(RectFilled<'v>),
-    DrawTriangle(Triangle<'v>),
+    Line(Line<'v>),
+    RectBordered(RectBordered<'v>),
+    RectFilled(RectFilled<'v>),
+    Triangle(Triangle<'v>),
     Clear(Clear<'v>),
     SetColor(SetColor<'v>),
     SetStroke(SetStroke<'v>),
+    Poly(Poly<'v>),
 }
+
 impl Disp for DrawInstr<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DrawLine(i) => write!(f, "{i}"),
-            Self::DrawRectBordered(i) => write!(f, "{i}"),
-            Self::DrawRectFilled(i) => write!(f, "{i}"),
-            Self::DrawTriangle(i) => write!(f, "{i}"),
+            Self::Line(i) => write!(f, "{i}"),
+            Self::RectBordered(i) => write!(f, "{i}"),
+            Self::RectFilled(i) => write!(f, "{i}"),
+            Self::Triangle(i) => write!(f, "{i}"),
             Self::Clear(i) => write!(f, "{i}"),
             Self::SetColor(i) => write!(f, "{i}"),
             Self::SetStroke(i) => write!(f, "{i}"),
+            Self::Poly(i) => write!(f, "{i}"),
         }
     }
 }
@@ -151,10 +154,9 @@ impl<'v> DrawInstruction<'v> for Line<'v> {
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
-        // i will happily ignore that stroke specifys the stroke of lines
-        let a = map!(point!(mem@self.point_a), |n| n as i32);
-        let b = map!(point!(mem@self.point_b), |n| n as i32);
-        image.line(a, b, state.col());
+        let a = map!(point!(mem@self.point_a), |n| n as f32);
+        let b = map!(point!(mem@self.point_b), |n| n as f32);
+        image.thick_line(a, b, state.stroke as f32, state.col());
     }
 }
 
@@ -223,11 +225,10 @@ impl<'v> DrawInstruction<'v> for RectBordered<'v> {
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
-        // happily ignoring that state specifies box stroke width
         let pos = map!(point!(mem@self.position), |n| n as u32);
         let width = get_num!(mem.get(&self.width)) as u32;
         let height = get_num!(mem.get(&self.height)) as u32;
-        image.r#box(pos, width, height, state.col());
+        image.stroked_box(pos, width, height, state.stroke.round() as u32, state.col());
     }
 }
 
@@ -257,6 +258,42 @@ impl Disp for Triangle<'_> {
             self.points.1.1,
             self.points.2.0,
             self.points.2.1
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct Poly<'v> {
+    pub(crate) pos: Point<'v>,
+    pub(crate) sides: LAddress<'v>,
+    pub(crate) radius: LAddress<'v>,
+    pub(crate) rot: LAddress<'v>,
+}
+
+impl<'v> DrawInstruction<'v> for Poly<'v> {
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        let pos = map!(point!(mem@self.pos), |n| n as f32);
+        image.poly(
+            pos,
+            get_num!(mem.get(&self.sides)).round() as usize,
+            get_num!(mem.get(&self.radius)) as f32,
+            get_num!(mem.get(&self.rot)) as f32,
+            state.col(),
+        );
+    }
+}
+
+impl Disp for Poly<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw poly {} {} {} {} {}",
+            self.pos.0, self.pos.1, self.sides, self.radius, self.rot
         )
     }
 }

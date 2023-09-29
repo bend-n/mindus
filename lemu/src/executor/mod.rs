@@ -186,7 +186,7 @@ impl Default for DisplayState {
     fn default() -> Self {
         Self {
             color: Default::default(),
-            stroke: 1.0,
+            stroke: 5.0,
         }
     }
 }
@@ -216,7 +216,7 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
     pub fn mem(&mut self, m: Memory) -> &mut [f64] {
         match m {
             Memory::Bank(m) => &mut self.banks[m as usize],
-            Memory::Cell(m) => &mut self.banks[m as usize],
+            Memory::Cell(m) => &mut self.cells[m as usize],
         }
     }
 

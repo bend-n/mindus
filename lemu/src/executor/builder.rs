@@ -59,6 +59,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         assert!(n != 0);
         if n * BANK_SIZE > self.banks.len() {
             self.banks.resize(n * BANK_SIZE, 0.0);
+            println!("resized");
         }
         Memory::Bank(((self.banks.len() - BANK_SIZE) / BANK_SIZE) as u8)
     }

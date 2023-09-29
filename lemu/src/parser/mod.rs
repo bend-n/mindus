@@ -6,7 +6,7 @@ pub use error::Error;
 use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
-        draw::{Clear, Flush, Line, RectBordered, RectFilled, SetColor, SetStroke, Triangle},
+        draw::{Clear, Flush, Line, Poly, RectBordered, RectFilled, SetColor, SetStroke, Triangle},
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
@@ -129,9 +129,13 @@ pub fn parse<'source, W: Wr>(
             let t = tok!()?;
             let container = take_ident!(t.clone())?;
             let mut out = String::new();
-            for ch in container.bytes() {
-                if matches!(ch, b'0'..=b'9') {
-                    out.push(ch as char);
+            for ch in container.chars() {
+                if matches!(ch, '0'..='9') {
+                    out.push(ch);
+                    continue;
+                }
+                if out.len() != 0 {
+                    yeet!(InvalidMemoryType(container));
                 }
             }
             let container = &container[..container.len() - out.len()];
@@ -325,6 +329,8 @@ pub fn parse<'source, W: Wr>(
                 #[rustfmt::skip]
                 macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
                 #[rustfmt::skip]
+                macro_rules! five { ($a:expr) => { ($a, $a, $a, $a, $a) }; }
+                #[rustfmt::skip]
                 macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
                 match instr {
                     "clear" => {
@@ -381,20 +387,42 @@ pub fn parse<'source, W: Wr>(
                             points: ((x, y), (x2, y2), (x3, y3)),
                         });
                     }
-                    // poly is TODO, image is WONTFIX
+                    "poly" => {
+                        let (x, y, sides, radius, rot) = five! { take_numvar!(tok!()?)? };
+                        executor.draw(Poly {
+                            pos: (x, y),
+                            sides,
+                            radius,
+                            rot,
+                        })
+                    }
+                    // image is WONTFIX
                     i => yeet!(UnsupportedImageOp(i)),
                 }
             }
             Token::DrawFlush => {
                 let t = tok!();
                 if let Ok(t) = t && t != Token::Newline {
-                    let screen = take_ident!(t)?;
+                    let screen = take_ident!(t.clone())?;
+                    let mut out = String::new();
+                    for ch in screen.chars() {
+                        if matches!(ch, '0'..='9') {
+                            out.push(ch);
+                            continue;
+                        }
+                        if out.len() != 0 {
+                            yeet!(InvalidDisplayType(screen));
+                        }
+                    }
+                    let screen = &screen[..screen.len() - out.len()];
                     if screen != "display" {
                         yeet!(InvalidDisplayType(screen));
                     }
+                    let n_span = tokens.span().start + screen.len()..tokens.span().end;
+                    let screen_n = out.parse::<usize>().map_err(|_| Error::ExpectedInt(t, n_span.clone()))?;
                     let display = executor
-                        .display(take_int!(tok!()?)?)
-                        .map_err(|n| err!(NoDisplay(n)))?;
+                        .display(screen_n)
+                        .map_err(|n| Error::NoDisplay(n, n_span))?;
                     executor.add(Flush { display });
                 } else {
                     executor.add(Flush::default())
