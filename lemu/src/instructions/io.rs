@@ -3,7 +3,10 @@ use crate::{
     executor::{ExecutorContext, Memory},
     memory::{LAddress, LVar},
 };
-use std::io::Write as Wr;
+use std::{
+    fmt::{self, Display, Formatter},
+    io::Write as Wr,
+};
 
 #[derive(Debug)]
 pub struct Read<'v> {
@@ -21,6 +24,12 @@ impl<'v> LInstruction<'v> for Read<'v> {
             }
         };
         Flow::Continue
+    }
+}
+
+impl Display for Read<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "read {} {} {}", self.output, self.container, self.index)
     }
 }
 
@@ -43,6 +52,12 @@ impl<'v> LInstruction<'v> for Write<'v> {
     }
 }
 
+impl Display for Write<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "write {} {} {}", self.set, self.container, self.index)
+    }
+}
+
 #[derive(Debug)]
 pub struct Print<'v> {
     pub(crate) val: LAddress<'v>,
@@ -51,8 +66,17 @@ impl LInstruction<'_> for Print<'_> {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let v = exec.get(&self.val).clone();
         if let Some(o) = &mut exec.output {
-            write!(o, "{v}").unwrap();
+            match v {
+                LVar::Num(n) => write!(o, "{n}"),
+                LVar::String(s) => write!(o, r#"{s}"#),
+            }
+            .unwrap();
         }
         Flow::Continue
+    }
+}
+impl Display for Print<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "print {}", self.val)
     }
 }

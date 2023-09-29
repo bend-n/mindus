@@ -25,15 +25,15 @@ impl LVar<'_> {
 #[derive(Clone)]
 pub enum LAddress<'str> {
     Const(LVar<'str>),
-    Address(usize, Priv),
+    Address(usize, &'str str, Priv),
 }
 
 impl<'v> LAddress<'v> {
     /// # Safety
     ///
     /// you must make sure that addr is in bounds of the memory.
-    pub(crate) const unsafe fn addr(addr: usize) -> Self {
-        LAddress::Address(addr, Priv { _priv: () })
+    pub(crate) const unsafe fn addr(addr: usize, name: &'v str) -> Self {
+        LAddress::Address(addr, name, Priv { _priv: () })
     }
 
     pub(crate) fn cnst(c: impl Into<LVar<'v>>) -> Self {
@@ -50,7 +50,16 @@ impl std::fmt::Debug for LAddress<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Const(c) => write!(f, "{c}"),
-            Self::Address(n, ..) => write!(f, "0x{n:x}"),
+            Self::Address(n, name, ..) => write!(f, "{name}@0x{n:x}"),
+        }
+    }
+}
+
+impl std::fmt::Display for LAddress<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Const(c) => write!(f, "{c}"),
+            Self::Address(_, n, ..) => write!(f, "{n}"),
         }
     }
 }
@@ -59,7 +68,7 @@ impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Num(n) => write!(f, "{n}"),
-            Self::String(s) => write!(f, r#"{s}"#),
+            Self::String(s) => write!(f, r#""{s}""#),
         }
     }
 }
@@ -73,6 +82,12 @@ impl From<f64> for LVar<'_> {
 impl From<bool> for LVar<'_> {
     fn from(value: bool) -> Self {
         Self::Num(value.into())
+    }
+}
+
+impl From<usize> for LVar<'_> {
+    fn from(value: usize) -> Self {
+        Self::Num(value as f64)
     }
 }
 

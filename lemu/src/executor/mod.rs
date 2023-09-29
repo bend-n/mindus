@@ -11,26 +11,44 @@ use std::{collections::VecDeque, io::Write, num::NonZeroUsize, pin::Pin};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Display(pub usize);
+
+impl std::fmt::Display for Display {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "display{}", self.0 + 1)
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
-// negative means bank, positive means cell
-pub struct Memory(pub(crate) i8);
+pub enum Memory {
+    Cell(u8),
+    Bank(u8),
+}
+
 impl Memory {
     pub(crate) const fn fits(self, i: usize) -> bool {
-        if self.0 < 0 {
-            i < BANK_SIZE
-        } else {
-            i < CELL_SIZE
+        match self {
+            Self::Bank(_) => i < BANK_SIZE,
+            Self::Cell(_) => i < CELL_SIZE,
         }
     }
 
-    pub(crate) fn size(self) -> usize {
-        if self.0 < 0 {
-            BANK_SIZE
-        } else {
-            CELL_SIZE
+    pub(crate) fn size(&self) -> usize {
+        match self {
+            Self::Bank(_) => BANK_SIZE,
+            Self::Cell(_) => CELL_SIZE,
         }
     }
 }
+
+impl std::fmt::Display for Memory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bank(n) => write!(f, "bank{}", n + 1),
+            Self::Cell(n) => write!(f, "cell{}", n + 1),
+        }
+    }
+}
+
 pub const BANK_SIZE: usize = 512;
 pub const CELL_SIZE: usize = 64;
 
@@ -60,9 +78,28 @@ pub enum PInstr<'s> {
     Instr(Instr<'s>),
     Draw(DrawInstr<'s>),
     Code(Box<[Token<'s>]>),
-    NoOp,
+    Comment(&'s str),
 }
 
+impl std::fmt::Display for PInstr<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Instr(i) => write!(f, "{i}"),
+            Self::Draw(i) => write!(f, "{i}"),
+            Self::Code(c) => {
+                let mut toks = c.iter();
+                if let Some(t) = toks.next() {
+                    write!(f, "{t}")?;
+                }
+                for token in toks {
+                    write!(f, " {token}")?;
+                }
+                Ok(())
+            }
+            Self::Comment(c) => write!(f, "{c}"),
+        }
+    }
+}
 #[derive(Debug, Copy, Clone)]
 pub enum Limit {
     /// limited to n
@@ -107,7 +144,7 @@ pub enum UPInstr<'s> {
     Draw(DrawInstr<'s>),
     UnfinishedJump,
     Code(Box<[Token<'s>]>),
-    NoOp,
+    Comment(&'s str),
 }
 
 pub struct Drawing<'v> {
@@ -154,6 +191,15 @@ impl Default for DisplayState {
     }
 }
 
+impl<W: Write> std::fmt::Display for Executor<'_, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for instr in &*self.program {
+            writeln!(f, "{instr}")?;
+        }
+        Ok(())
+    }
+}
+
 impl<'s, W: Write> ExecutorContext<'s, W> {
     pub fn flush(&mut self, to: Display) {
         let mut state = DisplayState::default();
@@ -167,13 +213,10 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         }
     }
 
-    pub fn mem(&mut self, Memory(m): Memory) -> &mut [f64] {
-        if m < 0 {
-            let m = (m + 1).unsigned_abs() as usize;
-            &mut self.banks[m]
-        } else {
-            let m = m as usize;
-            &mut self.cells[m]
+    pub fn mem(&mut self, m: Memory) -> &mut [f64] {
+        match m {
+            Memory::Bank(m) => &mut self.banks[m as usize],
+            Memory::Cell(m) => &mut self.banks[m as usize],
         }
     }
 

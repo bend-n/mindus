@@ -60,7 +60,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         if n * BANK_SIZE > self.banks.len() {
             self.banks.resize(n * BANK_SIZE, 0.0);
         }
-        Memory(-(((self.banks.len() - BANK_SIZE) / BANK_SIZE) as i8) - 1)
+        Memory::Bank(((self.banks.len() - BANK_SIZE) / BANK_SIZE) as u8)
     }
 
     pub(crate) fn cell(&mut self, n: usize) -> Memory {
@@ -68,7 +68,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         if n * CELL_SIZE > self.cells.len() {
             self.cells.resize(n * CELL_SIZE, 0.0);
         }
-        Memory(((self.cells.len() - CELL_SIZE) / CELL_SIZE) as i8)
+        Memory::Cell(((self.cells.len() - CELL_SIZE) / CELL_SIZE) as u8)
     }
 
     pub(crate) fn next(&self) -> Instruction {
@@ -95,10 +95,6 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         self.program.len() > i
     }
 
-    pub(crate) fn noop(&mut self) {
-        self.program.push(UPInstr::NoOp);
-    }
-
     pub(crate) fn display(&mut self, n: usize) -> Result<Display, usize> {
         self.displays
             .get(n.checked_sub(1).ok_or(n)?)
@@ -114,15 +110,27 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 core::ptr::slice_from_raw_parts_mut(ptr.cast::<[f64; N]>(), len / N);
             unsafe { Box::from_raw(ptr) }
         }
+        let program = Pin::new(
+            self.program
+                .into_iter()
+                .map(|v| match v {
+                    UPInstr::Instr(i) => PInstr::Instr(i),
+                    UPInstr::Draw(i) => PInstr::Draw(i),
+                    UPInstr::Comment(c) => PInstr::Comment(c),
+                    UPInstr::UnfinishedJump => panic!("all jumps should have finished"),
+                    UPInstr::Code(c) => PInstr::Code(c),
+                })
+                .collect::<Box<[PInstr]>>(),
+        );
         let Self {
             instruction_limit,
             iteration_limit,
-            program,
             displays,
             output,
             banks,
             cells,
             mem,
+            ..
         } = self;
         Executor {
             instruction_limit,
@@ -139,19 +147,8 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 },
                 output,
             },
-            program: Pin::new(
-                program
-                    .into_iter()
-                    .map(|v| match v {
-                        UPInstr::Instr(i) => PInstr::Instr(i),
-                        UPInstr::Draw(i) => PInstr::Draw(i),
-                        UPInstr::NoOp => PInstr::NoOp,
-                        UPInstr::UnfinishedJump => panic!("all jumps should have finished"),
-                        UPInstr::Code(c) => PInstr::Code(c),
-                    })
-                    .collect::<Box<[PInstr]>>(),
-            ),
             instructions_ran: 0,
+            program,
         }
     }
 }

@@ -6,10 +6,7 @@ pub use error::Error;
 use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
-        draw::{
-            Clear, Flush, Line, RectBordered, RectFilled, SetColorConst, SetColorDyn, SetStroke,
-            Triangle,
-        },
+        draw::{Clear, Flush, Line, RectBordered, RectFilled, SetColor, SetStroke, Triangle},
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
@@ -95,7 +92,7 @@ pub fn parse<'source, W: Wr>(
     executor: &mut ExecutorBuilderInternal<'source, W>,
 ) -> Result<(), Error<'source>> {
     let mut mem = Vec::new(); // maps &str to usize
-                              // maps "start" to 0
+    // maps "start" to 0
     let mut labels = Vec::new();
     let mut unfinished_jumps = Vec::new();
     macro_rules! tok {
@@ -152,7 +149,7 @@ pub fn parse<'source, W: Wr>(
                     return Err(Error::InvalidMemoryType(
                         container,
                         tokens.span().start..tokens.span().end - out.len(),
-                    ))
+                    ));
                 }
             }
         }};
@@ -167,11 +164,11 @@ pub fn parse<'source, W: Wr>(
                 .map(|(i, _)| i)
             {
                 // SAFETY: we tell it the size is mem.len(); i comes from mem, this is fine
-                Some(i) => unsafe { LAddress::addr(i) },
+                Some(i) => unsafe { LAddress::addr(i, n) },
                 None => {
                     mem.push(n);
                     // SAFETY: see above
-                    unsafe { LAddress::addr(mem.len() - 1) }
+                    unsafe { LAddress::addr(mem.len() - 1, n) }
                 }
             }
         }};
@@ -212,12 +209,10 @@ pub fn parse<'source, W: Wr>(
     while let Some(token) = tokens.next() {
         match token {
             // # omg
-            Token::Comment(_) => {
-                executor.noop();
-            }
+            Token::Comment(c) => executor.program.push(UPInstr::Comment(c)),
             // label:
             Token::Ident(v) if v.ends_with(':') => {
-                labels.push((&v[..v.len() - 1], executor.next()));
+                labels.push((&v[..v.len() - 1], executor.next()))
             }
             // print "5"
             Token::Print => {
@@ -266,12 +261,12 @@ pub fn parse<'source, W: Wr>(
                     let to = unsafe { Instruction::new(n) };
                     let op = tok!()?;
                     if op == Token::Always {
-                        executor.add(AlwaysJump { to });
+                        executor.add(AlwaysJump { to, label: None });
                     } else {
                         let op = op.try_into().map_err(|op| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
-                        executor.add(Jump::new(op, to, a, b));
+                        executor.add(Jump::new(op, to, a, b, None));
                     }
                 } else {
                     yeet!(ExpectedJump(tok));
@@ -338,15 +333,20 @@ pub fn parse<'source, W: Wr>(
                     }
                     "color" => {
                         let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
-                        executor.draw(SetColorDyn { r, g, b, a });
+                        executor.draw(SetColor { r, g, b, a });
                     }
                     "col" => {
                         let col = take_int!(tok!()?)?;
-                        let r = (col & 0xff00_0000 >> 24) as u8;
-                        let g = (col & 0x00ff_0000 >> 16) as u8;
-                        let b = (col & 0x0000_ff00 >> 8) as u8;
-                        let a = (col & 0x0000_00ff) as u8;
-                        executor.draw(SetColorConst { r, g, b, a });
+                        let r = col & 0xff00_0000 >> 24;
+                        let g = col & 0x00ff_0000 >> 16;
+                        let b = col & 0x0000_ff00 >> 8;
+                        let a = col & 0x0000_00ff;
+                        executor.draw(SetColor {
+                            r: LAddress::cnst(r),
+                            g: LAddress::cnst(g),
+                            b: LAddress::cnst(b),
+                            a: LAddress::cnst(a),
+                        });
                     }
                     "stroke" => {
                         let size = take_numvar!(tok!()?)?;
@@ -565,7 +565,7 @@ pub fn parse<'source, W: Wr>(
                     "packcolor" => instr! { (4) => all!(num!()) },
                     "ubind" => instr! { (1) => |b| {
                         let t = tok!()?;
-                        if matches!(t, Token::String(_) | Token::Null) {
+                        if tokstr!(t).is_some() || matches!(t, Token::Null) {
                             b[0] = t;
                         } else {
                             yeet!(ExpectedString(t));
@@ -706,22 +706,26 @@ pub fn parse<'source, W: Wr>(
         nextline!();
     }
 
-    for (j, (l, s), i) in unfinished_jumps {
+    for (j, (label, s), i) in unfinished_jumps {
         let to = labels
             .iter()
-            .find(|(v, _)| v == &l)
-            .ok_or_else(|| Error::LabelNotFound(l, s))?
+            .find(|(v, _)| v == &label)
+            .ok_or_else(|| Error::LabelNotFound(label, s))?
             .1;
         executor.program[i.get()] = UPInstr::Instr(match j {
-            UJump::Always => Instr::from(AlwaysJump { to }),
-            UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b)),
+            UJump::Always => Instr::from(AlwaysJump {
+                to,
+                label: Some(label),
+            }),
+            UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b, Some(label))),
         });
     }
 
     // check jump validity
     for i in &executor.program {
-        if let UPInstr::Instr(Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to })) =
-            i
+        if let UPInstr::Instr(
+            Instr::Jump(Jump { to, .. }) | Instr::AlwaysJump(AlwaysJump { to, .. }),
+        ) = i
         {
             if !executor.valid(*to) {
                 yeet!(InvalidJump(*to));

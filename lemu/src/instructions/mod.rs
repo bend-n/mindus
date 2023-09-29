@@ -23,10 +23,14 @@ pub use draw::{DrawInstr, DrawInstruction};
 use enum_dispatch::enum_dispatch;
 pub use mop::MathOp1;
 pub use mop2::MathOp2;
-use std::io::Write;
+use std::{
+    fmt::{self, Display, Formatter},
+    io::Write,
+};
 
 use super::{
     executor::{ExecutorContext, Instruction},
+    lexer::Token,
     memory::{LAddress, LVar},
 };
 
@@ -84,7 +88,7 @@ pub enum Flow {
 }
 
 #[enum_dispatch]
-pub trait LInstruction<'v> {
+pub trait LInstruction<'v>: Display {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow;
 }
 
@@ -93,7 +97,7 @@ pub trait LInstruction<'v> {
 pub enum Instr<'v> {
     Op2(Op2<'v>),
     Jump(Jump<'v>),
-    AlwaysJump(AlwaysJump),
+    AlwaysJump(AlwaysJump<'v>),
     Set(Set<'v>),
     Op1(Op1<'v>),
     Read(io::Read<'v>),
@@ -103,6 +107,24 @@ pub enum Instr<'v> {
     Print(io::Print<'v>),
     Stop(Stop),
     End(End),
+}
+impl Display for Instr<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Op2(i) => write!(f, "{i}"),
+            Self::Jump(i) => write!(f, "{i}"),
+            Self::AlwaysJump(i) => write!(f, "{i}"),
+            Self::Set(i) => write!(f, "{i}"),
+            Self::Op1(i) => write!(f, "{i}"),
+            Self::Read(i) => write!(f, "{i}"),
+            Self::Write(i) => write!(f, "{i}"),
+            Self::DrawFlush(i) => write!(f, "{i}"),
+            Self::DynJump(i) => write!(f, "{i}"),
+            Self::Print(i) => write!(f, "{i}"),
+            Self::Stop(i) => write!(f, "{i}"),
+            Self::End(i) => write!(f, "{i}"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -114,6 +136,12 @@ impl<'v> LInstruction<'v> for Set<'v> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         exec.set(&self.from, self.to.clone());
         Flow::Continue
+    }
+}
+
+impl Display for Set<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "set {} {}", self.from, self.to)
     }
 }
 
@@ -135,6 +163,14 @@ macro_rules! op_enum {
                 }
             }
         }
+
+        impl<'a> From<$name> for Token<'a> {
+            fn from(value: $name) -> Self {
+                match value {
+                    $($name::$variant => Self::$variant,)+
+                }
+            }
+        }
     }
 }
 use op_enum;
@@ -151,13 +187,15 @@ use get_num;
 
 #[derive(Debug)]
 pub struct Op1<'v> {
-    pub(crate) op: fn(&LVar<'v>) -> f64,
-    pub(crate) x: LAddress<'v>,
-    pub(crate) out: LAddress<'v>,
+    op_id: MathOp1,
+    op: fn(&LVar<'v>) -> f64,
+    x: LAddress<'v>,
+    out: LAddress<'v>,
 }
 impl<'v> Op1<'v> {
     pub(crate) const fn new(op: MathOp1, x: LAddress<'v>, out: LAddress<'v>) -> Self {
         Self {
+            op_id: op,
             op: op.get_fn(),
             x,
             out,
@@ -175,12 +213,20 @@ impl<'s> LInstruction<'s> for Op1<'s> {
     }
 }
 
+impl Display for Op1<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Self { op_id, x, out, .. } = self;
+        write!(f, "op {} {out} {x}", Token::from(*op_id))
+    }
+}
+
 #[derive(Debug)]
 pub struct Op2<'v> {
-    pub(crate) op: fn(&LVar<'v>, &LVar<'v>) -> f64,
-    pub(crate) a: LAddress<'v>,
-    pub(crate) b: LAddress<'v>,
-    pub(crate) out: LAddress<'v>,
+    op_id: MathOp2,
+    op: fn(&LVar<'v>, &LVar<'v>) -> f64,
+    a: LAddress<'v>,
+    b: LAddress<'v>,
+    out: LAddress<'v>,
 }
 impl<'v> Op2<'v> {
     pub(crate) const fn new(
@@ -190,6 +236,7 @@ impl<'v> Op2<'v> {
         out: LAddress<'v>,
     ) -> Self {
         Self {
+            op_id: op,
             op: op.get_fn(),
             a,
             b,
@@ -208,6 +255,15 @@ impl<'v> LInstruction<'v> for Op2<'v> {
     }
 }
 
+impl Display for Op2<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Self {
+            op_id, a, b, out, ..
+        } = self;
+        write!(f, "op {} {out} {a} {b}", Token::from(*op_id))
+    }
+}
+
 #[derive(Debug)]
 pub struct End {}
 
@@ -221,32 +277,88 @@ impl LInstruction<'_> for End {
     }
 }
 
-#[derive(Debug)]
-pub struct AlwaysJump {
-    pub(crate) to: Instruction,
+impl Display for End {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "end")
+    }
 }
-impl LInstruction<'_> for AlwaysJump {
+
+#[derive(Debug)]
+pub struct AlwaysJump<'s> {
+    pub(crate) to: Instruction,
+    pub(crate) label: Option<&'s str>,
+}
+impl LInstruction<'_> for AlwaysJump<'_> {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         exec.jump(self.to);
         Flow::Stay
     }
 }
 
+impl Display for AlwaysJump<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.label {
+            None => write!(f, "jump {} always", self.to.get()),
+            Some(l) => write!(f, "jump {l} always"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Jump<'v> {
-    pub(crate) op: fn(&LVar<'v>, &LVar<'v>) -> bool,
+    label: Option<&'v str>,
+    op_id: ConditionOp,
+    op: fn(&LVar<'v>, &LVar<'v>) -> bool,
     pub(crate) to: Instruction,
-    pub(crate) a: LAddress<'v>,
-    pub(crate) b: LAddress<'v>,
+    a: LAddress<'v>,
+    b: LAddress<'v>,
 }
 impl<'v> Jump<'v> {
-    pub fn new(op: ConditionOp, to: Instruction, a: LAddress<'v>, b: LAddress<'v>) -> Self {
+    pub fn new(
+        op: ConditionOp,
+        to: Instruction,
+        a: LAddress<'v>,
+        b: LAddress<'v>,
+        label: Option<&'v str>,
+    ) -> Self {
         Self {
+            op_id: op,
             op: op.get_fn(),
+            label,
             to,
             a,
             b,
         }
+    }
+}
+
+impl<'v> LInstruction<'v> for Jump<'v> {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        if (self.op)(exec.get(&self.a), exec.get(&self.b)) {
+            exec.jump(self.to);
+            Flow::Stay
+        } else {
+            Flow::Continue
+        }
+    }
+}
+
+impl Display for Jump<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Self {
+            op_id,
+            label,
+            to,
+            a,
+            b,
+            ..
+        } = self;
+        write!(f, "jump ")?;
+        match label {
+            Some(v) => write!(f, "{v} "),
+            None => write!(f, "{} ", to.get()),
+        }?;
+        write!(f, "{} {a} {b}", Token::from(*op_id))
     }
 }
 
@@ -270,15 +382,9 @@ impl<'v> LInstruction<'v> for DynJump<'v> {
     }
 }
 
-impl<'v> LInstruction<'v> for Jump<'v> {
-    #[allow(unused_variables)]
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if (self.op)(exec.get(&self.a), exec.get(&self.b)) {
-            exec.jump(self.to);
-            Flow::Stay
-        } else {
-            Flow::Continue
-        }
+impl Display for DynJump<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "set @counter {}", self.to)
     }
 }
 
@@ -287,5 +393,11 @@ pub struct Stop {}
 impl LInstruction<'_> for Stop {
     fn run<W: Write>(&self, _: &mut ExecutorContext<'_, W>) -> Flow {
         Flow::Exit
+    }
+}
+
+impl Display for Stop {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "stop")
     }
 }
