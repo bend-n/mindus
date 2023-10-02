@@ -20,11 +20,9 @@ pub fn main(args: Args) {
             Err(e) => print_err!(e, "fail"),
             Ok(m) => {
                 let deser_took = starting_deser.elapsed();
-                if let Ok(v) = std::env::var("SAVE") {
-                    if v == "1" {
-                        m.render().save("x.png");
-                        continue;
-                    }
+                if let Ok(v) = std::env::var("SAVE") && v == "1" {
+                    m.render().save("x.png");
+                    continue;
                 }
                 let starting_render = Instant::now();
                 for _ in 0..runs {
