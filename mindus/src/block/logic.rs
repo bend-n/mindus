@@ -56,11 +56,11 @@ impl CanvasBlock {
         }
     }
 
-    state_impl!(pub Image<Vec<u8>, 1>);
+    state_impl!(pub Image<Box<[u8]>, 1>);
 }
 
-fn deser_canvas_image(b: &[u8], size: usize) -> Image<Vec<u8>, 1> {
-    let mut p = Image::alloc(size as u32, size as u32);
+fn deser_canvas_image(b: &[u8], size: usize) -> Image<Box<[u8]>, 1> {
+    let mut p = Image::alloc(size as u32, size as u32).boxed();
     for i in 0..(size * size) {
         let offset = i * 3;
         let mut n = 0;
@@ -144,13 +144,15 @@ impl BlockLogic for CanvasBlock {
                     (s * self.size as u32) - offset * 2,
                     (s * self.size as u32) - offset * 2,
                 )
+                .boxed()
             };
             let mut borders = load!("canvas", s);
             unsafe { borders.overlay_at(&ImageHolder::from(img), offset, offset) };
             return borders;
         }
 
-        let mut def = Image::alloc(s * self.size as u32, s * self.size as u32);
+        // FIXME: make const
+        let mut def = Image::alloc(s * self.size as u32, s * self.size as u32).boxed();
         for [r, g, b, a] in def.chunked_mut() {
             (*r, *g, *b) = PALETTE[0];
             *a = 255;

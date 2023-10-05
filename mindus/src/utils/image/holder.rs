@@ -2,15 +2,15 @@ use super::{ClonerOverlay, ClonerOverlayAt, Image, ImageUtils, Overlay, OverlayA
 #[derive(Clone, Debug)]
 pub enum ImageHolder<const CHANNELS: usize> {
     Borrow(Image<&'static [u8], CHANNELS>),
-    Own(Image<Vec<u8>, CHANNELS>),
+    Own(Image<Box<[u8]>, CHANNELS>),
 }
 
 impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     #[must_use]
-    pub fn own(self) -> Image<Vec<u8>, CHANNELS> {
+    pub fn own(self) -> Image<Box<[u8]>, CHANNELS> {
         match self {
             Self::Own(x) => x,
-            Self::Borrow(x) => x.to_owned(),
+            Self::Borrow(x) => x.boxed(),
         }
     }
 }
@@ -31,7 +31,7 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
         match self {
             Self::Own(x) => x.as_mut(),
             Self::Borrow(x) => {
-                *self = Self::from(x.to_owned());
+                *self = Self::from(x.boxed());
                 self.borrow_mut()
             }
         }
@@ -48,7 +48,7 @@ macro_rules! make {
             }
             Self::Borrow(v) => {
                 #[allow(unused_unsafe)]
-                { *$me = Self::from(unsafe { v.cloner().$fn($($argv,)*) }) };
+                { *$me = Self::from(unsafe { v.cloner().$fn($($argv,)*).boxed() }) };
                 $me
             }
         }
@@ -100,8 +100,8 @@ impl<const CHANNELS: usize> From<Image<&'static [u8], CHANNELS>> for ImageHolder
     }
 }
 
-impl<const CHANNELS: usize> From<Image<Vec<u8>, CHANNELS>> for ImageHolder<CHANNELS> {
-    fn from(value: Image<Vec<u8>, CHANNELS>) -> Self {
+impl<const CHANNELS: usize> From<Image<Box<[u8]>, CHANNELS>> for ImageHolder<CHANNELS> {
+    fn from(value: Image<Box<[u8]>, CHANNELS>) -> Self {
         Self::Own(value)
     }
 }

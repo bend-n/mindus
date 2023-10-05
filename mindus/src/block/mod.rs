@@ -149,7 +149,7 @@ stater! {
     String(String),
     Item(Option<crate::item::Type>),
     Fluid(Option<crate::fluid::Type>),
-    Image(Image<Vec<u8>, 1>),
+    Image(Image<Box<[u8]>, 1>),
     Point(Option<(i32, i32)>),
     Bool(bool),
     Processor(logic::ProcessorState),
