@@ -62,7 +62,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
         self
     }
 }
-
+use umath::FFloat;
 pub fn blend(bg: &mut [u8; 4], fg: [u8; 4]) {
     if fg[3] == 0 {
         return;
@@ -71,22 +71,31 @@ pub fn blend(bg: &mut [u8; 4], fg: [u8; 4]) {
         *bg = fg;
         return;
     }
-    let bg_a = bg[3] as f32 / 255.0;
-    let fg_a = fg[3] as f32 / 255.0;
-    let a = bg_a + fg_a - bg_a * fg_a;
-    if a == 0.0 {
-        return;
-    };
-    *bg = [
-        (255.0
-            * ((((fg[0] as f32 / 255.0) * fg_a) + ((bg[0] as f32 / 255.0) * bg_a) * (1.0 - fg_a))
-                / a)) as u8,
-        (255.0
-            * ((((fg[1] as f32 / 255.0) * fg_a) + ((bg[1] as f32 / 255.0) * bg_a) * (1.0 - fg_a))
-                / a)) as u8,
-        (255.0
-            * ((((fg[2] as f32 / 255.0) * fg_a) + ((bg[2] as f32 / 255.0) * bg_a) * (1.0 - fg_a))
-                / a)) as u8,
-        (255.0 * a) as u8,
-    ]
+    #[allow(clippy::multiple_unsafe_ops_per_block)]
+    // SAFETY: no u8 can possibly become INF / NAN
+    unsafe {
+        let max = FFloat::new(255.0);
+        let bg_a = FFloat::new(bg[3] as f32) / max;
+        let fg_a = FFloat::new(fg[3] as f32) / max;
+        let a = bg_a + fg_a - bg_a * fg_a;
+        if a == 0.0 {
+            return;
+        };
+        // could turn it into array::map
+        *bg = [
+            *(max
+                * ((((FFloat::new(fg[0] as f32) / max) * fg_a)
+                    + ((FFloat::new(bg[0] as f32) / max) * bg_a) * (FFloat::new(1.0) - fg_a))
+                    / a)) as u8,
+            *(max
+                * ((((FFloat::new(fg[1] as f32) / max) * fg_a)
+                    + ((FFloat::new(bg[1] as f32) / max) * bg_a) * (FFloat::new(1.0) - fg_a))
+                    / a)) as u8,
+            *(max
+                * ((((FFloat::new(fg[2] as f32) / max) * fg_a)
+                    + ((FFloat::new(bg[2] as f32) / max) * bg_a) * (FFloat::new(1.0) - fg_a))
+                    / a)) as u8,
+            *(max * a) as u8,
+        ]
+    }
 }

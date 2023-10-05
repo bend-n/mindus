@@ -496,8 +496,7 @@ impl Serializable for Schematic {
         if num_table < 0 {
             return Err(ReadError::TableSize(num_table));
         }
-        let mut block_table = Vec::new();
-        block_table.reserve(num_table as usize);
+        let mut block_table = Vec::with_capacity(num_table as usize);
         for _ in 0..num_table {
             let name = buff.read_utf()?;
             match BLOCK_REGISTRY.get(name) {

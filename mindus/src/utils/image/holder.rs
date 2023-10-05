@@ -21,7 +21,7 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     pub fn borrow(&self) -> Image<&[u8], CHANNELS> {
         match self {
             Self::Own(x) => x.as_ref(),
-            Self::Borrow(x) => x.clone(),
+            Self::Borrow(x) => *x,
         }
     }
 

@@ -141,10 +141,9 @@ impl Serializable for DynData {
                 let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::BoolArrayLen(len));
                 };
-                let mut result = vec![];
-                result.reserve(len);
-                for _ in 0..len {
-                    result.push(buff.read_bool()?);
+                let mut result = vec![false; len];
+                for item in result.iter_mut() {
+                    *item = buff.read_bool()?;
                 }
                 Ok(DynData::from(result))
             }
