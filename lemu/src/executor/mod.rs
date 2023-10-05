@@ -1,6 +1,7 @@
 mod builder;
 
 use super::{
+    code::{Code, PInstr},
     instructions::{DrawInstr, DrawInstruction, Flow, Instr, LInstruction},
     lexer::Token,
     memory::{LAddress, LRegistry, LVar},
@@ -32,7 +33,7 @@ impl Memory {
         }
     }
 
-    pub(crate) fn size(&self) -> usize {
+    pub(crate) const fn size(&self) -> usize {
         match self {
             Self::Bank(_) => BANK_SIZE,
             Self::Cell(_) => CELL_SIZE,
@@ -62,7 +63,7 @@ impl Instruction {
         Self(n)
     }
 
-    pub fn get(self) -> usize {
+    pub const fn get(self) -> usize {
         self.0
     }
 }
@@ -73,33 +74,6 @@ impl std::fmt::Debug for Instruction {
     }
 }
 
-#[derive(Debug)]
-pub enum PInstr<'s> {
-    Instr(Instr<'s>),
-    Draw(DrawInstr<'s>),
-    Code(Box<[Token<'s>]>),
-    Comment(&'s str),
-}
-
-impl std::fmt::Display for PInstr<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Instr(i) => write!(f, "{i}"),
-            Self::Draw(i) => write!(f, "{i}"),
-            Self::Code(c) => {
-                let mut toks = c.iter();
-                if let Some(t) = toks.next() {
-                    write!(f, "{t}")?;
-                }
-                for token in toks {
-                    write!(f, " {token}")?;
-                }
-                Ok(())
-            }
-            Self::Comment(c) => write!(f, "{c}"),
-        }
-    }
-}
 #[derive(Debug, Copy, Clone)]
 pub enum Limit {
     /// limited to n
@@ -134,7 +108,7 @@ pub struct Executor<'varnames, W: Write> {
     pub iteration_limit: Limit,
     pub(crate) inner: ExecutorContext<'varnames, W>,
     /// gets pointed to by drawbuf
-    pub(crate) program: Pin<Box<[PInstr<'varnames>]>>,
+    pub(crate) program: Pin<Code<'varnames>>,
     /// Counter for the number of instructions we have run so far.
     pub instructions_ran: usize,
 }
@@ -188,15 +162,6 @@ impl Default for DisplayState {
             color: Default::default(),
             stroke: 5.0,
         }
-    }
-}
-
-impl<W: Write> std::fmt::Display for Executor<'_, W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for instr in &*self.program {
-            writeln!(f, "{instr}")?;
-        }
-        Ok(())
     }
 }
 

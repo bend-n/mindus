@@ -406,11 +406,11 @@ pub fn parse<'source, W: Wr>(
                     let screen = take_ident!(t.clone())?;
                     let mut out = String::new();
                     for ch in screen.chars() {
-                        if matches!(ch, '0'..='9') {
+                        if ch.is_ascii_digit() {
                             out.push(ch);
                             continue;
                         }
-                        if out.len() != 0 {
+                        if !out.is_empty() {
                             yeet!(InvalidDisplayType(screen));
                         }
                     }

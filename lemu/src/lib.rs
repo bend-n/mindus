@@ -11,6 +11,7 @@
     clippy::dbg_macro,
     missing_docs
 )]
+pub(crate) mod code;
 mod executor;
 mod instructions;
 mod lexer;

@@ -6,6 +6,7 @@ use super::{
     BANK_SIZE, CELL_SIZE,
 };
 use crate::{
+    code::Code,
     instructions::{DrawInstr, Instr},
     lexer::Token,
     memory::LRegistry,
@@ -111,7 +112,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 core::ptr::slice_from_raw_parts_mut(ptr.cast::<[f64; N]>(), len / N);
             unsafe { Box::from_raw(ptr) }
         }
-        let program = Pin::new(
+        let program = Pin::new(Code::new(
             self.program
                 .into_iter()
                 .map(|v| match v {
@@ -122,7 +123,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                     UPInstr::Code(c) => PInstr::Code(c),
                 })
                 .collect::<Box<[PInstr]>>(),
-        );
+        ));
         let Self {
             instruction_limit,
             iteration_limit,
