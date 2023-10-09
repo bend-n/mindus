@@ -277,14 +277,22 @@ impl<'v> DrawInstruction<'v> for Poly<'v> {
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
-        let pos = map!(point!(mem@self.pos), |n| n as f32);
-        image.poly(
-            pos,
-            get_num!(mem.get(&self.sides)).round() as usize,
-            get_num!(mem.get(&self.radius)) as f32,
-            get_num!(mem.get(&self.rot)) as f32,
-            state.col(),
-        );
+        let sides = get_num!(mem.get(&self.sides)).round() as usize;
+        if sides < 90 {
+            image.poly(
+                map!(point!(mem@self.pos), |n| n as f32),
+                sides,
+                get_num!(mem.get(&self.radius)) as f32,
+                get_num!(mem.get(&self.rot)) as f32,
+                state.col(),
+            );
+        } else {
+            image.circle(
+                map!(point!(mem@self.pos), |n: f64| n.round() as i32),
+                get_num!(mem.get(&self.radius)).round() as i32,
+                state.col(),
+            );
+        }
     }
 }
 
