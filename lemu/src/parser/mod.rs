@@ -6,7 +6,10 @@ pub use error::Error;
 use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
-        draw::{Clear, Flush, Line, Poly, RectBordered, RectFilled, SetColor, SetStroke, Triangle},
+        draw::{
+            Clear, Flush, Line, LinePoly, Poly, RectBordered, RectFilled, SetColor, SetStroke,
+            Triangle,
+        },
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
     },
@@ -327,6 +330,8 @@ pub fn parse<'source, W: Wr>(
                     yeet!(ExpectedIdent(dty));
                 };
                 #[rustfmt::skip]
+                macro_rules! three { ($a:expr) => { ($a, $a, $a) }; }
+                #[rustfmt::skip]
                 macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
                 #[rustfmt::skip]
                 macro_rules! five { ($a:expr) => { ($a, $a, $a, $a, $a) }; }
@@ -334,8 +339,8 @@ pub fn parse<'source, W: Wr>(
                 macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
                 match instr {
                     "clear" => {
-                        let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
-                        executor.draw(Clear { r, g, b, a });
+                        let (r, g, b) = three! { take_numvar!(tok!()?)? };
+                        executor.draw(Clear { r, g, b });
                     }
                     "color" => {
                         let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
@@ -390,6 +395,15 @@ pub fn parse<'source, W: Wr>(
                     "poly" => {
                         let (x, y, sides, radius, rot) = five! { take_numvar!(tok!()?)? };
                         executor.draw(Poly {
+                            pos: (x, y),
+                            sides,
+                            radius,
+                            rot,
+                        })
+                    }
+                    "linePoly" => {
+                        let (x, y, sides, radius, rot) = five! { take_numvar!(tok!()?)? };
+                        executor.draw(LinePoly {
                             pos: (x, y),
                             sides,
                             radius,

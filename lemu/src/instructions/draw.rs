@@ -8,7 +8,7 @@ use fimg::Image;
 use std::fmt::{self, Display as Disp, Formatter};
 
 pub const INSTRS: &[&str] = &[
-    "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle", "poly",
+    "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle", "poly", "linePoly",
 ];
 
 #[enum_dispatch]
@@ -32,6 +32,7 @@ pub enum DrawInstr<'v> {
     SetColor(SetColor<'v>),
     SetStroke(SetStroke<'v>),
     Poly(Poly<'v>),
+    LinePoly(LinePoly<'v>),
 }
 
 impl Disp for DrawInstr<'_> {
@@ -45,6 +46,7 @@ impl Disp for DrawInstr<'_> {
             Self::SetColor(i) => write!(f, "{i}"),
             Self::SetStroke(i) => write!(f, "{i}"),
             Self::Poly(i) => write!(f, "{i}"),
+            Self::LinePoly(i) => write!(f, "{i}"),
         }
     }
 }
@@ -54,7 +56,6 @@ pub struct Clear<'v> {
     pub r: LAddress<'v>,
     pub g: LAddress<'v>,
     pub b: LAddress<'v>,
-    pub a: LAddress<'v>,
 }
 
 impl<'v> DrawInstruction<'v> for Clear<'v> {
@@ -67,16 +68,16 @@ impl<'v> DrawInstruction<'v> for Clear<'v> {
                 }
             };
         }
-        let (r, g, b, a) = (u8!(r), u8!(g), u8!(b), u8!(a));
+        let (r, g, b) = (u8!(r), u8!(g), u8!(b));
         for [r2, g2, b2, a2] in image.chunked_mut() {
-            (*r2, *b2, *g2, *a2) = (r, g, b, a);
+            (*r2, *b2, *g2, *a2) = (r, g, b, 255);
         }
     }
 }
 
 impl Disp for Clear<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "draw clear {} {} {} {}", self.r, self.g, self.b, self.a)
+        write!(f, "draw clear {} {} {}", self.r, self.g, self.b)
     }
 }
 
@@ -301,6 +302,51 @@ impl Disp for Poly<'_> {
         write!(
             f,
             "draw poly {} {} {} {} {}",
+            self.pos.0, self.pos.1, self.sides, self.radius, self.rot
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct LinePoly<'v> {
+    pub(crate) pos: Point<'v>,
+    pub(crate) sides: LAddress<'v>,
+    pub(crate) radius: LAddress<'v>,
+    pub(crate) rot: LAddress<'v>,
+}
+
+impl<'v> DrawInstruction<'v> for LinePoly<'v> {
+    fn draw(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        let sides = get_num!(mem.get(&self.sides)).round() as usize;
+        if sides < 90 {
+            image.border_poly(
+                map!(point!(mem@self.pos), |n| n as f32),
+                sides,
+                get_num!(mem.get(&self.radius)) as f32,
+                get_num!(mem.get(&self.rot)) as f32,
+                state.stroke as f32,
+                state.col(),
+            );
+        } else {
+            image.border_circle(
+                map!(point!(mem@self.pos), |n: f64| n.round() as i32),
+                get_num!(mem.get(&self.radius)).round() as i32,
+                state.col(),
+            );
+        }
+    }
+}
+
+impl Disp for LinePoly<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw linePoly {} {} {} {} {}",
             self.pos.0, self.pos.1, self.sides, self.radius, self.rot
         )
     }
