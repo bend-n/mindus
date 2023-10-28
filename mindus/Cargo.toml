@@ -25,7 +25,7 @@ bobbin-bits = "0.1"
 blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
 phf = { version = "0.11", features = ["macros"] }
-fimg = { version = "0.4.15", default-features = false }
+fimg = { version = "0.4.20", features = ["scale"], default-features = false }
 umath = "0.0.1"
 
 [features]
