@@ -20,7 +20,9 @@ pub fn main(args: Args) {
             Err(e) => print_err!(e, "fail"),
             Ok(m) => {
                 let deser_took = starting_deser.elapsed();
-                if let Ok(v) = std::env::var("SAVE") && v == "1" {
+                if let Ok(v) = std::env::var("SAVE")
+                    && v == "1"
+                {
                     m.render().save("x.png");
                     continue;
                 }

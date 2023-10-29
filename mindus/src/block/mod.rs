@@ -16,7 +16,7 @@ macro_rules! mods {
         $(pub mod $mod;)*
 
         mod all {
-            $(pub use crate::block::$mod::*;)*
+            $(#[allow(unused_imports)] pub use crate::block::$mod::*;)*
             pub use super::simple::BasicBlock;
         }
     }
@@ -26,6 +26,7 @@ mods! {
     content defense distribution drills liquid logic payload power production turrets walls units
 }
 
+pub mod ratios;
 mod simple;
 use simple::*;
 
@@ -36,6 +37,15 @@ macro_rules! disp {
         pub(crate) enum BlockLogicEnum {
             $($k,)+
         }
+
+        impl ratios::Ratios for BlockLogicEnum {
+            fn io(&self, state: Option<&State>, name: &str) -> ratios::Io {
+                match self {
+                    $(Self::$k(x) => x.io(state, name),)+
+                }
+            }
+        }
+
         #[const_trait]
         pub trait ConstFrom<T>: Sized {
             fn fro(value: T) -> Self;
@@ -106,6 +116,7 @@ disp! {
     ProcessorLogic,
     PayloadBlock,
     LampBlock,
+    UnitCargoLoader,
     DoorBlock,
 }
 
@@ -175,7 +186,7 @@ impl State {
 }
 
 #[enum_dispatch::enum_dispatch(BlockLogicEnum)]
-pub trait BlockLogic {
+pub trait BlockLogic: ratios::Ratios {
     /// mindustry blocks are the same width and height
     fn get_size(&self) -> u8;
 
@@ -323,6 +334,10 @@ impl Block {
     #[inline]
     pub const fn name(&self) -> &'static str {
         self.name
+    }
+
+    pub fn io(&self, state: Option<&State>) -> ratios::Io {
+        <BlockLogicEnum as ratios::Ratios>::io(&self.logic, state, self.name)
     }
 
     /// should you send context to [`image`]?
@@ -793,7 +808,7 @@ make_register! {
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
     "surge-router" => SurgeRouter::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" -> BasicBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "unit-cargo-loader" -> UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     "cultivator" -> ProductionBlock::new(2, true, cost!(Copper: 25, Lead: 25, Silicon: 10));
     "graphite-press" -> ProductionBlock::new(2, true, cost!(Copper: 75, Lead: 30));

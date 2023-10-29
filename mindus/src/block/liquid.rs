@@ -87,7 +87,9 @@ impl BlockLogic for FluidBlock {
         s: Scale,
     ) -> ImageHolder<4> {
         let mut p = load!("liquid-source", s);
-        if let Some(state) = state && let Some(liq) = Self::get_state(state) {
+        if let Some(state) = state
+            && let Some(liq) = Self::get_state(state)
+        {
             let mut top = load!("center", s);
             unsafe { p.overlay(top.tint(liq.color())) };
             return p;

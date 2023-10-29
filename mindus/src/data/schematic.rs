@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Write};
 use thiserror::Error;
 
+use crate::block::ratios::{Io, IoBuilder};
 use crate::block::{self, Block, Rotation, State, BLOCK_REGISTRY};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData};
@@ -170,6 +171,21 @@ impl Schematic {
             get(s!(c.position.0), s!(c.position.1 => 1)),
             get(s!(c.position.0 => 1), s!(c.position.1)),
         ]
+    }
+
+    /// Ratios of this schematic.
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::block::ratios::ratios;
+    /// assert_eq!(Schematic::deserialize_base64("bXNjaAF4nEWMSw7CMAxEh9REVSqx5hKcCLFISxaR0o9Sg8rtSTpFePPkmWfDwTWQyY8B5z75VdE9wzrkuGicJwA2+T6kFeb+aNDtym2MW8i4LJ/sNWo4dje8ksa31zmXuyv+Y4BTgRD2iIi9M+xM7WrUgnoNhYpQESpCxfKLrUo9FsISLX6vKgwhhCVK+wX5/BtM").unwrap().ratios(),
+    ///     ratios![[Coal: 5.25, Lead: 10.5, Sand: 10.5, Water: 180] => [BlastCompound: 5.25, SporePod: 0.75]]);
+    /// ```
+    pub fn ratios(&self) -> Io {
+        let mut io = IoBuilder::default();
+        for p in self.blocks.iter().filter_map(|o| o.as_ref()) {
+            io += p.block.io(p.state.as_ref());
+        }
+        io.into()
     }
 
     /// create a new schematic, erroring if too big

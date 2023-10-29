@@ -24,7 +24,9 @@ pub fn main(args: Args) {
         } {
             Ok(s) => {
                 let i = s.render();
-                if let Ok(v) = std::env::var("SAVE") && v == "1" {
+                if let Ok(v) = std::env::var("SAVE")
+                    && v == "1"
+                {
                     i.save("x.png");
                     continue;
                 }

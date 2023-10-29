@@ -167,7 +167,9 @@ impl Controller {
                     None
                 };
                 let n = buff.read_i8()?;
-                let command = if let Ok(n) = u8::try_from(n) && let Ok(u) = UnitCommand::try_from(n) {
+                let command = if let Ok(n) = u8::try_from(n)
+                    && let Ok(u) = UnitCommand::try_from(n)
+                {
                     Some(u)
                 } else {
                     None
@@ -363,7 +365,9 @@ fn read_status(buff: &mut DataRead) -> Result<[Status; 3], ReadError> {
     for i in 0..buff.read_i32()? {
         let this = Status::try_from(buff.read_u16()?);
         buff.skip(4)?;
-        if let Ok(s) = this && i < 3 {
+        if let Ok(s) = this
+            && i < 3
+        {
             status[i as usize] = s;
         }
     }

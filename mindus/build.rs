@@ -59,20 +59,63 @@ fn main() {
     }
     for e in walkdir.into_iter().filter_map(Result::ok) {
         let path = e.path();
-        if path.is_file() && let Some(e) = path.extension() && e == "png" {
-            let p = DynamicImage::from_decoder(PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap()).unwrap();
-            if path.file_name().unwrap().to_str().unwrap().contains("-liquid.png") {
-                continue
+        if path.is_file()
+            && let Some(e) = path.extension()
+            && e == "png"
+        {
+            let p = DynamicImage::from_decoder(
+                PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap(),
+            )
+            .unwrap();
+            if path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .contains("-liquid.png")
+            {
+                continue;
             }
             let f = path.file_name().unwrap().to_str().unwrap();
-            if f.contains("bottom") || f.contains("-team") || f.contains("-end") || f.contains("stack") {
+            if f.contains("bottom")
+                || f.contains("-team")
+                || f.contains("-end")
+                || f.contains("stack")
+            {
                 continue;
             }
             let rgb = path.components().any(|c| c.as_os_str() == "floors");
             let env = path.components().any(|c| c.as_os_str() == "environment");
-            let path = kebab2bigsnek(path.with_extension("").file_name().unwrap().to_str().unwrap());
-            if matches!(path.as_str(), "CLIFF_CRUSHER_ROTATOR" | "NEOPLASIA_REACTOR_CENTER" | "FLUX_REACTOR_MID" | "EDGE" | "PHASE_CONVEYOR_BRIDGE" | "BRIDGE_ARROW" | "DUCT_BRIDGE_BRIDGE" | "DUCT_BRIDGE_ARROW" | "LAUNCHPOD" | "BRIDGE_CONVEYOR_BRIDGE" | "BRIDGE_CONVEYOR_ARROW" | "PHASE_CONVEYOR_ARROW" | "REINFORCED_BRIDGE_CONDUIT_ARROW" | "REINFORCED_BRIDGE_CONDUIT_BRIDGE" | "PHASE_CONDUIT_BRIDGE" | "BRIDGE_CONDUIT_ARROW" | "PHASE_CONDUIT_ARROW" | "BRIDGE_CONDUIT_BRIDGE" | "PLATED_CONDUIT_CAP") {
-                continue
+            let path = kebab2bigsnek(
+                path.with_extension("")
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+            );
+            if matches!(
+                path.as_str(),
+                "CLIFF_CRUSHER_ROTATOR"
+                    | "NEOPLASIA_REACTOR_CENTER"
+                    | "FLUX_REACTOR_MID"
+                    | "EDGE"
+                    | "PHASE_CONVEYOR_BRIDGE"
+                    | "BRIDGE_ARROW"
+                    | "DUCT_BRIDGE_BRIDGE"
+                    | "DUCT_BRIDGE_ARROW"
+                    | "LAUNCHPOD"
+                    | "BRIDGE_CONVEYOR_BRIDGE"
+                    | "BRIDGE_CONVEYOR_ARROW"
+                    | "PHASE_CONVEYOR_ARROW"
+                    | "REINFORCED_BRIDGE_CONDUIT_ARROW"
+                    | "REINFORCED_BRIDGE_CONDUIT_BRIDGE"
+                    | "PHASE_CONDUIT_BRIDGE"
+                    | "BRIDGE_CONDUIT_ARROW"
+                    | "PHASE_CONDUIT_ARROW"
+                    | "BRIDGE_CONDUIT_BRIDGE"
+                    | "PLATED_CONDUIT_CAP"
+            ) {
+                continue;
             }
             println!("do {path}");
             macro_rules! writ {

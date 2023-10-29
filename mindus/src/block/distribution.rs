@@ -197,7 +197,9 @@ impl BlockLogic for ItemBlock {
         s: Scale,
     ) -> ImageHolder<4> {
         let mut p = load!(from name which is ["sorter" | "inverted-sorter" | "duct-router" | "duct-unloader" | "unit-cargo-unload-point" | "unloader" | "item-source"], s);
-        if let Some(state) = state && let Some(item) = Self::get_state(state) {
+        if let Some(state) = state
+            && let Some(item) = Self::get_state(state)
+        {
             let mut top = load!(s -> match name {
                 "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
                 "unloader" => "unloader-center",
