@@ -207,7 +207,7 @@ rats!(ConstructorBlock {
 rats!(BasicBlock {
     "water-extractor": [] => [Water: 6.6]
     "unit-repair-tower": [Ozone: 3] => []
-    "oil-extractor": [Water: 9] => [] // *cough*
+    "oil-extractor": [Water: 9, Sand: 1] => [] // *cough*
 });
 rats!(WallDrillBlock { none }); // more cough
 rats!(DrillBlock { none });
