@@ -229,7 +229,7 @@ just!(NuclearGeneratorBlock, [Thorium: 0.16, Cryofluid: 2.4] => []); // thoreact
 just!(ImpactReactorBlock, [BlastCompound: 0.42, Cryofluid: 15] => []);
 just!(Neoplasia, [Arkycite: 80, Water: 10, PhaseFabric: 0.33] => [Neoplasm: 20]);
 rats!(GeneratorBlock {
-    "differential-generator": [Pyratite: 1, Cryofluid: 6] => []
+    "differential-generator": [Pyratite: 0.27, Cryofluid: 6] => []
     "turbine-condenser": [] => [Water: 5]
     "chemical-combustion-chamber": [Ozone: 2, Arkycite: 40] => []
     "pyrolysis-generator": [Slag: 20, Arkycite: 40] => [Water: 20]
