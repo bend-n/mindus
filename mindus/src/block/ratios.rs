@@ -210,7 +210,13 @@ rats!(BasicBlock {
     "oil-extractor": [Water: 9, Sand: 1] => [] // *cough*
 });
 rats!(WallDrillBlock { none }); // more cough
-rats!(DrillBlock { none });
+rats!(DrillBlock {
+    "laser-drill": [Water: 4.8] => []
+    "blast-drill": [Water: 6] => []
+    "large-plasma-bore": [Nitrogen: 3] => []
+    "impact-drill": [Water: 12] => []
+    "eruption-drill": [Hydrogen: 4] => []
+});
 rats!(MessageLogic { none });
 rats!(SwitchLogic { none });
 rats!(ProcessorLogic { "hyper-processor": [Cryofluid: 4.8] => [] });
