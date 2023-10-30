@@ -163,8 +163,8 @@ rats!(ProductionBlock {
     "vent-condenser": [] => [Water: 30]
 });
 rats!(SeparatorBlock {
-    "separator": [Slag: 4] => [Copper: 2.15, Lead: 1.29, Graphite: 0.86, Titanium: 0.86]
-    "disassembler": [Slag: 7.2, Scrap: 4] => [Sand: 2, Graphite: 1, Titanium: 1, Thorium: 1]
+    "separator": [Slag: 4] => [Copper: 0.71, Lead: 0.43, Graphite: 0.28, Titanium: 0.28]
+    "disassembler": [Slag: 7.2, Scrap: 4] => [Sand: 1.6, Graphite: 0.8, Titanium: 0.8, Thorium: 0.8]
 });
 rats!(HeatConduit { none });
 rats!(HeatCrafter {
