@@ -5,6 +5,8 @@ use super::GridPos;
 use crate::block::Rotation;
 pub(crate) use crate::utils::*;
 use crate::Map;
+use fimg::BlendingOverlay;
+
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
 include!(concat!(env!("OUT_DIR"), "/eigh.rs"));
@@ -140,17 +142,7 @@ impl Renderable for Schematic {
             unsafe { bg.overlay(&canvas) };
         } else {
             canvas.as_mut().shadow();
-            // this is a slow imageops::overlay style overlay (blending etc)
-            for x in 0..canvas.width() {
-                for y in 0..canvas.height() {
-                    // canvas has a shadow
-                    let p2 = unsafe { canvas.pixel(x, y) };
-                    let p = unsafe { bg.pixel_mut(x, y) };
-                    let mut p3 = [p[0], p[1], p[2], 255];
-                    crate::utils::image::blend(&mut p3, p2);
-                    p.copy_from_slice(&p3[..3]);
-                }
-            }
+            unsafe { bg.overlay_blended(&canvas) };
         }
         bg
     }
