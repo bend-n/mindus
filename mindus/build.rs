@@ -1,8 +1,7 @@
 #![feature(let_chains)]
-use image::codecs::png::PngDecoder;
-use image::DynamicImage;
+use fimg::DynImage;
 use std::fs::File;
-use std::io::{BufReader, Write as _};
+use std::io::Write as _;
 use std::iter::Iterator;
 use std::path::Path;
 use walkdir::WalkDir;
@@ -63,10 +62,7 @@ fn main() {
             && let Some(e) = path.extension()
             && e == "png"
         {
-            let p = DynamicImage::from_decoder(
-                PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap(),
-            )
-            .unwrap();
+            let mut p = DynImage::open(path);
             if path
                 .file_name()
                 .unwrap()
@@ -136,20 +132,15 @@ fn main() {
                     let new = if $scale == 1 {
                         p.clone()
                     } else {
-                        DynamicImage::ImageRgba8(image::imageops::resize(
-                            &p,
-                            mx / $scale,
-                            my / $scale,
-                            image::imageops::Nearest,
-                        ))
+                        p.scale::<fimg::scale::Nearest>(mx / $scale, my / $scale)
                     };
                     let x = new.width();
                     let y = new.height();
                     if rgb {
-                        buf.write_all(&new.into_rgb8().into_raw()).unwrap();
+                        buf.write_all(&new.to_rgb().bytes()).unwrap();
                         wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 3> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!("{out_path}")) }};"#);
                     } else {
-                        buf.write_all(&new.into_rgba8().into_raw()).unwrap();
+                        buf.write_all(&new.to_rgba().bytes()).unwrap();
                         wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 4> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!("{out_path}")) }};"#);
                     }
                 };
