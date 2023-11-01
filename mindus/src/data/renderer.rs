@@ -138,12 +138,8 @@ impl Renderable for Schematic {
                 )
             };
         }
-        if self.width * self.height > 2250 {
-            unsafe { bg.overlay(&canvas) };
-        } else {
-            canvas.as_mut().shadow();
-            unsafe { bg.overlay_blended(&canvas) };
-        }
+        canvas.as_mut().shadow();
+        unsafe { bg.overlay_blended(&canvas) };
         bg
     }
 }

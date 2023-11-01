@@ -37,7 +37,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
     }
 
     fn shadow(&mut self) -> &mut Self {
-        let mut shadow: Image<Vec<u8>, 4> = self.to_owned();
+        let mut shadow = self.to_owned().boxed();
         for [r, g, b, a] in shadow.chunked_mut() {
             if *a < 128 {
                 *r /= 10;
@@ -45,13 +45,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
                 *b /= 10;
             }
         }
-        blurslice::gaussian_blur_bytes::<4>(
-            unsafe { shadow.buffer_mut() },
-            self.width() as usize,
-            self.height() as usize,
-            9.0,
-        )
-        .unwrap();
+        shadow.blur(22);
         for ([r, g, b, a], &[from_r, from_g, from_b, from_a]) in
             self.chunked_mut().zip(shadow.chunked())
         {
