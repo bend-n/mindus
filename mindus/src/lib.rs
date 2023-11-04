@@ -10,7 +10,7 @@
     clippy::perf
 )]
 pub mod block;
-mod content;
+pub mod content;
 pub mod data;
 pub mod fluid;
 pub mod item;

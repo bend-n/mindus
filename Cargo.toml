@@ -1,5 +1,5 @@
 [workspace]
-members = ["mindus", "lemu"]
+members = ["mindus", "lemu", "p2s"]
 resolver = "2"
 
 [profile.release]
