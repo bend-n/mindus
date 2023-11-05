@@ -30,7 +30,6 @@ use std::{
 
 use super::{
     executor::{ExecutorContext, Instruction},
-    lexer::Token,
     memory::{LAddress, LVar},
 };
 
@@ -88,27 +87,27 @@ pub enum Flow {
 }
 
 #[enum_dispatch]
-pub trait LInstruction<'v>: Display {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow;
+pub trait LInstruction: Display {
+    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[enum_dispatch(LInstruction)]
-pub enum Instr<'v> {
-    Op2(Op2<'v>),
-    Jump(Jump<'v>),
-    AlwaysJump(AlwaysJump<'v>),
-    Set(Set<'v>),
-    Op1(Op1<'v>),
-    Read(io::Read<'v>),
-    Write(io::Write<'v>),
+pub enum Instr {
+    Op2(Op2),
+    Jump(Jump),
+    AlwaysJump(AlwaysJump),
+    Set(Set),
+    Op1(Op1),
+    Read(io::Read),
+    Write(io::Write),
     DrawFlush(draw::Flush),
-    DynJump(DynJump<'v>),
-    Print(io::Print<'v>),
+    DynJump(DynJump),
+    Print(io::Print),
     Stop(Stop),
     End(End),
 }
-impl Display for Instr<'_> {
+impl Display for Instr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Op2(i) => write!(f, "{i}"),
@@ -127,19 +126,19 @@ impl Display for Instr<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct Set<'v> {
-    pub(crate) from: LAddress<'v>,
-    pub(crate) to: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+pub struct Set {
+    pub(crate) from: LAddress,
+    pub(crate) to: LAddress,
 }
-impl<'v> LInstruction<'v> for Set<'v> {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        exec.set(&self.from, self.to.clone());
+impl LInstruction for Set {
+    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        exec.set(self.from, self.to.clone());
         Flow::Continue
     }
 }
 
-impl Display for Set<'_> {
+impl Display for Set {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "set {} {}", self.from, self.to)
     }
@@ -185,17 +184,15 @@ macro_rules! get_num {
 }
 use get_num;
 
-#[derive(Debug)]
-pub struct Op1<'v> {
-    op_id: MathOp1,
-    op: fn(&LVar<'v>) -> f64,
-    x: LAddress<'v>,
-    out: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+pub struct Op1 {
+    op: for<'v> fn(&LVar<'v>) -> f64,
+    x: LAddress,
+    out: LAddress,
 }
-impl<'v> Op1<'v> {
-    pub(crate) const fn new(op: MathOp1, x: LAddress<'v>, out: LAddress<'v>) -> Self {
+impl<'v> Op1 {
+    pub(crate) const fn new(op: MathOp1, x: LAddress, out: LAddress) -> Self {
         Self {
-            op_id: op,
             op: op.get_fn(),
             x,
             out,
@@ -203,40 +200,31 @@ impl<'v> Op1<'v> {
     }
 }
 
-impl<'s> LInstruction<'s> for Op1<'s> {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
-        let x = (self.op)(exec.get(&self.x));
-        if let Some(y) = exec.get_mut(&self.out) {
-            *y = LVar::Num(x);
-        }
+impl LInstruction for Op1 {
+    fn run<'s, W: Write>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
+        let x = (self.op)(exec.get(self.x));
+        *exec.get_mut(self.out) = LVar::Num(x);
         Flow::Continue
     }
 }
 
-impl Display for Op1<'_> {
+impl Display for Op1 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self { op_id, x, out, .. } = self;
-        write!(f, "op {} {out} {x}", Token::from(*op_id))
+        let Self { x, out, .. } = self;
+        write!(f, "op .. {out} {x}")
     }
 }
 
-#[derive(Debug)]
-pub struct Op2<'v> {
-    op_id: MathOp2,
-    op: fn(&LVar<'v>, &LVar<'v>) -> f64,
-    a: LAddress<'v>,
-    b: LAddress<'v>,
-    out: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+pub struct Op2 {
+    op: for<'v> fn(&LVar<'v>, &LVar<'v>) -> f64,
+    a: LAddress,
+    b: LAddress,
+    out: LAddress,
 }
-impl<'v> Op2<'v> {
-    pub(crate) const fn new(
-        op: MathOp2,
-        a: LAddress<'v>,
-        b: LAddress<'v>,
-        out: LAddress<'v>,
-    ) -> Self {
+impl Op2 {
+    pub(crate) const fn new(op: MathOp2, a: LAddress, b: LAddress, out: LAddress) -> Self {
         Self {
-            op_id: op,
             op: op.get_fn(),
             a,
             b,
@@ -245,31 +233,26 @@ impl<'v> Op2<'v> {
     }
 }
 
-impl<'v> LInstruction<'v> for Op2<'v> {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let x = (self.op)(exec.get(&self.a), exec.get(&self.b));
-        if let Some(y) = exec.get_mut(&self.out) {
-            *y = LVar::from(x);
-        }
+impl LInstruction for Op2 {
+    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        let x = (self.op)(exec.get(self.a), exec.get(self.b));
+        exec.memory[self.out] = LVar::Num(x);
         Flow::Continue
     }
 }
 
-impl Display for Op2<'_> {
+impl Display for Op2 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self {
-            op_id, a, b, out, ..
-        } = self;
-        write!(f, "op {} {out} {a} {b}", Token::from(*op_id))
+        let Self { a, b, out, .. } = self;
+        write!(f, "op .. {out} {a} {b}")
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct End {}
 
-impl LInstruction<'_> for End {
+impl LInstruction for End {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
-        exec.memory.clear();
         exec.iterations += 1;
         // SAFETY: if we exist, 0 exists.
         unsafe { exec.jump(Instruction::new(0)) };
@@ -283,48 +266,34 @@ impl Display for End {
     }
 }
 
-#[derive(Debug)]
-pub struct AlwaysJump<'s> {
+#[derive(Debug, Copy, Clone)]
+pub struct AlwaysJump {
     pub(crate) to: Instruction,
-    pub(crate) label: Option<&'s str>,
 }
-impl LInstruction<'_> for AlwaysJump<'_> {
+impl LInstruction for AlwaysJump {
     fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         exec.jump(self.to);
         Flow::Stay
     }
 }
 
-impl Display for AlwaysJump<'_> {
+impl Display for AlwaysJump {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self.label {
-            None => write!(f, "jump {} always", self.to.get()),
-            Some(l) => write!(f, "jump {l} always"),
-        }
+        write!(f, "jump {} always", self.to.get())
     }
 }
 
-#[derive(Debug)]
-pub struct Jump<'v> {
-    label: Option<&'v str>,
-    op_id: ConditionOp,
-    op: fn(&LVar<'v>, &LVar<'v>) -> bool,
+#[derive(Debug, Copy, Clone)]
+pub struct Jump {
+    op: for<'v> fn(&LVar<'v>, &LVar<'v>) -> bool,
     pub(crate) to: Instruction,
-    a: LAddress<'v>,
-    b: LAddress<'v>,
+    a: LAddress,
+    b: LAddress,
 }
-impl<'v> Jump<'v> {
-    pub fn new(
-        op: ConditionOp,
-        to: Instruction,
-        a: LAddress<'v>,
-        b: LAddress<'v>,
-        label: Option<&'v str>,
-    ) -> Self {
+impl Jump {
+    pub fn new(op: ConditionOp, to: Instruction, a: LAddress, b: LAddress) -> Self {
         Self {
-            op_id: op,
             op: op.get_fn(),
-            label,
             to,
             a,
             b,
@@ -332,9 +301,9 @@ impl<'v> Jump<'v> {
     }
 }
 
-impl<'v> LInstruction<'v> for Jump<'v> {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if (self.op)(exec.get(&self.a), exec.get(&self.b)) {
+impl LInstruction for Jump {
+    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        if (self.op)(exec.get(self.a), exec.get(self.b)) {
             exec.jump(self.to);
             Flow::Stay
         } else {
@@ -343,34 +312,22 @@ impl<'v> LInstruction<'v> for Jump<'v> {
     }
 }
 
-impl Display for Jump<'_> {
+impl Display for Jump {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self {
-            op_id,
-            label,
-            to,
-            a,
-            b,
-            ..
-        } = self;
-        write!(f, "jump ")?;
-        match label {
-            Some(v) => write!(f, "{v} "),
-            None => write!(f, "{} ", to.get()),
-        }?;
-        write!(f, "{} {a} {b}", Token::from(*op_id))
+        let Self { to, a, b, .. } = self;
+        write!(f, "jump .. {} {a} {b}", to.get())
     }
 }
 
-#[derive(Debug)]
-pub struct DynJump<'v> {
-    pub to: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+pub struct DynJump {
+    pub to: LAddress,
     pub proglen: usize,
 }
 
-impl<'v> LInstruction<'v> for DynJump<'v> {
-    fn run<W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        if let &LVar::Num(n) = exec.get(&self.to) {
+impl LInstruction for DynJump {
+    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        if let &LVar::Num(n) = exec.get(self.to) {
             let i = n.round() as usize;
             if i < self.proglen {
                 // SAFETY: just checked bounds
@@ -382,15 +339,15 @@ impl<'v> LInstruction<'v> for DynJump<'v> {
     }
 }
 
-impl Display for DynJump<'_> {
+impl Display for DynJump {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "set @counter {}", self.to)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Stop {}
-impl LInstruction<'_> for Stop {
+impl LInstruction for Stop {
     fn run<W: Write>(&self, _: &mut ExecutorContext<'_, W>) -> Flow {
         Flow::Exit
     }

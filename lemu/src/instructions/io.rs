@@ -8,42 +8,42 @@ use std::{
     io::Write as Wr,
 };
 
-#[derive(Debug)]
-pub struct Read<'v> {
-    pub(crate) index: LAddress<'v>,
-    pub(crate) output: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Read {
+    pub(crate) index: LAddress,
+    pub(crate) output: LAddress,
     pub(crate) container: Memory,
 }
 
-impl<'v> LInstruction<'v> for Read<'v> {
-    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let i = get_num!(exec.get(&self.index)).round() as usize;
+impl LInstruction for Read {
+    fn run<'v, W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        let i = get_num!(exec.get(self.index)).round() as usize;
         if let Some(&n) = exec.mem(self.container).get(i) {
-            if let Some(out) = exec.get_mut(&self.output) {
-                *out = LVar::from(n);
-            }
+            *exec.get_mut(self.output) = LVar::from(n);
         };
         Flow::Continue
     }
 }
 
-impl Display for Read<'_> {
+impl Display for Read {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "read {} {} {}", self.output, self.container, self.index)
     }
 }
 
-#[derive(Debug)]
-pub struct Write<'v> {
-    pub(crate) index: LAddress<'v>,
-    pub(crate) set: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Write {
+    pub(crate) index: LAddress,
+    pub(crate) set: LAddress,
     pub(crate) container: Memory,
 }
 
-impl<'v> LInstruction<'v> for Write<'v> {
-    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        let i = get_num!(exec.get(&self.index)).round() as usize;
-        if let &LVar::Num(b) = exec.get(&self.set) {
+impl LInstruction for Write {
+    fn run<'v, W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+        let i = get_num!(exec.get(self.index)).round() as usize;
+        if let &LVar::Num(b) = exec.get(self.set) {
             if let Some(a) = exec.mem(self.container).get_mut(i) {
                 *a = b;
             }
@@ -52,19 +52,20 @@ impl<'v> LInstruction<'v> for Write<'v> {
     }
 }
 
-impl Display for Write<'_> {
+impl Display for Write {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "write {} {} {}", self.set, self.container, self.index)
     }
 }
 
-#[derive(Debug)]
-pub struct Print<'v> {
-    pub(crate) val: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Print {
+    pub(crate) val: LAddress,
 }
-impl LInstruction<'_> for Print<'_> {
+impl LInstruction for Print {
     fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
-        let v = exec.get(&self.val).clone();
+        let v = exec.get(self.val).clone();
         if let Some(o) = &mut exec.output {
             match v {
                 LVar::Num(n) => write!(o, "{n}"),
@@ -75,7 +76,7 @@ impl LInstruction<'_> for Print<'_> {
         Flow::Continue
     }
 }
-impl Display for Print<'_> {
+impl Display for Print {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "print {}", self.val)
     }

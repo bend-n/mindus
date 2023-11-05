@@ -21,7 +21,7 @@ pub struct ExecutorBuilderInternal<'v, W: Wr> {
     cells: Vec<f64>,
     iteration_limit: Limit,
     instruction_limit: Limit,
-    mem: usize,
+    pub(crate) mem: LRegistry<'v>,
 }
 
 impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
@@ -34,7 +34,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             cells: vec![],
             iteration_limit: Limit::limited(1),
             instruction_limit: Limit::Unlimited,
-            mem: 0,
+            mem: LRegistry::default(),
         }
     }
 
@@ -81,15 +81,11 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
         Instruction(self.program.len() - 1)
     }
 
-    pub(crate) fn mem(&mut self, size: usize) {
-        self.mem = size;
-    }
-
-    pub(crate) fn add(&mut self, i: impl Into<Instr<'s>>) {
+    pub(crate) fn add(&mut self, i: impl Into<Instr>) {
         self.program.push(UPInstr::Instr(i.into()));
     }
 
-    pub(crate) fn draw(&mut self, i: impl Into<DrawInstr<'s>>) {
+    pub(crate) fn draw(&mut self, i: impl Into<DrawInstr>) {
         self.program.push(UPInstr::Draw(i.into()));
     }
 
@@ -140,7 +136,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             inner: ExecutorContext {
                 cells: cst::<CELL_SIZE>(cells),
                 banks: cst::<BANK_SIZE>(banks),
-                memory: LRegistry::new(mem),
+                memory: mem,
                 counter: 0,
                 iterations: 0,
                 display: Drawing {

@@ -12,8 +12,8 @@ pub const INSTRS: &[&str] = &[
 ];
 
 #[enum_dispatch]
-pub trait DrawInstruction<'v>: Disp {
-    fn draw(
+pub trait DrawInstruction: Disp {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
@@ -21,21 +21,21 @@ pub trait DrawInstruction<'v>: Disp {
     );
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[enum_dispatch(DrawInstruction)]
-pub enum DrawInstr<'v> {
-    Line(Line<'v>),
-    RectBordered(RectBordered<'v>),
-    RectFilled(RectFilled<'v>),
-    Triangle(Triangle<'v>),
-    Clear(Clear<'v>),
-    SetColor(SetColor<'v>),
-    SetStroke(SetStroke<'v>),
-    Poly(Poly<'v>),
-    LinePoly(LinePoly<'v>),
+pub enum DrawInstr {
+    Line(Line),
+    RectBordered(RectBordered),
+    RectFilled(RectFilled),
+    Triangle(Triangle),
+    Clear(Clear),
+    SetColor(SetColor),
+    SetStroke(SetStroke),
+    Poly(Poly),
+    LinePoly(LinePoly),
 }
 
-impl Disp for DrawInstr<'_> {
+impl Disp for DrawInstr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Line(i) => write!(f, "{i}"),
@@ -51,18 +51,24 @@ impl Disp for DrawInstr<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct Clear<'v> {
-    pub r: LAddress<'v>,
-    pub g: LAddress<'v>,
-    pub b: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Clear {
+    pub r: LAddress,
+    pub g: LAddress,
+    pub b: LAddress,
 }
 
-impl<'v> DrawInstruction<'v> for Clear<'v> {
-    fn draw(&self, mem: &mut LRegistry<'v>, image: &mut Image<&mut [u8], 4>, _: &mut DisplayState) {
+impl DrawInstruction for Clear {
+    fn draw<'v>(
+        &self,
+        mem: &mut LRegistry<'v>,
+        image: &mut Image<&mut [u8], 4>,
+        _: &mut DisplayState,
+    ) {
         macro_rules! u8 {
             ($v:ident) => {
-                match mem.get(&self.$v) {
+                match mem.get(self.$v) {
                     LVar::Num(n) => n.round() as u8,
                     _ => return,
                 }
@@ -75,24 +81,30 @@ impl<'v> DrawInstruction<'v> for Clear<'v> {
     }
 }
 
-impl Disp for Clear<'_> {
+impl Disp for Clear {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "draw clear {} {} {}", self.r, self.g, self.b)
     }
 }
 
-#[derive(Debug)]
-pub struct SetColor<'v> {
-    pub r: LAddress<'v>,
-    pub g: LAddress<'v>,
-    pub b: LAddress<'v>,
-    pub a: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct SetColor {
+    pub r: LAddress,
+    pub g: LAddress,
+    pub b: LAddress,
+    pub a: LAddress,
 }
-impl<'v> DrawInstruction<'v> for SetColor<'v> {
-    fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+impl DrawInstruction for SetColor {
+    fn draw<'v>(
+        &self,
+        mem: &mut LRegistry<'v>,
+        _: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
         macro_rules! u8 {
             ($v:ident) => {
-                match mem.get(&self.$v) {
+                match mem.get(self.$v) {
                     LVar::Num(n) => n.round() as u8,
                     _ => return,
                 }
@@ -102,36 +114,42 @@ impl<'v> DrawInstruction<'v> for SetColor<'v> {
     }
 }
 
-impl Disp for SetColor<'_> {
+impl Disp for SetColor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "draw color {} {} {} {}", self.r, self.g, self.b, self.a)
     }
 }
 
-#[derive(Debug)]
-pub struct SetStroke<'v> {
-    pub size: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct SetStroke {
+    pub size: LAddress,
 }
-impl<'v> DrawInstruction<'v> for SetStroke<'v> {
-    fn draw(&self, mem: &mut LRegistry<'v>, _: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
-        if let &LVar::Num(n) = mem.get(&self.size) {
+impl DrawInstruction for SetStroke {
+    fn draw<'v>(
+        &self,
+        mem: &mut LRegistry<'v>,
+        _: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
+        if let &LVar::Num(n) = mem.get(self.size) {
             state.stroke = n;
         }
     }
 }
 
-impl Disp for SetStroke<'_> {
+impl Disp for SetStroke {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "draw stroke {}", self.size)
     }
 }
 
-pub type Point<'v> = (LAddress<'v>, LAddress<'v>);
+pub type Point = (LAddress, LAddress);
 #[rustfmt::skip]
 macro_rules! point {
     ($mem:ident@$point:expr) => {{
-        let &LVar::Num(a) = $mem.get(&$point.0) else { return; };
-        let &LVar::Num(b) = $mem.get(&$point.1) else { return; };
+        let &LVar::Num(a) = $mem.get($point.0) else { return };
+        let &LVar::Num(b) = $mem.get($point.1) else { return };
         (a,b)
     }}
 }
@@ -142,14 +160,15 @@ macro_rules! map {
         ($fn(a), $fn(b))
     }};
 }
-#[derive(Debug)]
-pub struct Line<'v> {
-    pub point_a: Point<'v>,
-    pub point_b: Point<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Line {
+    pub point_a: Point,
+    pub point_b: Point,
 }
 
-impl<'v> DrawInstruction<'v> for Line<'v> {
-    fn draw(
+impl DrawInstruction for Line {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
@@ -161,7 +180,7 @@ impl<'v> DrawInstruction<'v> for Line<'v> {
     }
 }
 
-impl Disp for Line<'_> {
+impl Disp for Line {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -171,28 +190,29 @@ impl Disp for Line<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct RectFilled<'v> {
-    pub position: Point<'v>,
-    pub width: LAddress<'v>,
-    pub height: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct RectFilled {
+    pub position: Point,
+    pub width: LAddress,
+    pub height: LAddress,
 }
 
-impl<'v> DrawInstruction<'v> for RectFilled<'v> {
-    fn draw(
+impl DrawInstruction for RectFilled {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
         let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(&self.width)) as u32;
-        let height = get_num!(mem.get(&self.height)) as u32;
+        let width = get_num!(mem.get(self.width)) as u32;
+        let height = get_num!(mem.get(self.height)) as u32;
         image.filled_box(pos, width, height, state.col());
     }
 }
 
-impl Disp for RectFilled<'_> {
+impl Disp for RectFilled {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -202,14 +222,15 @@ impl Disp for RectFilled<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct RectBordered<'v> {
-    pub position: Point<'v>,
-    pub width: LAddress<'v>,
-    pub height: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct RectBordered {
+    pub position: Point,
+    pub width: LAddress,
+    pub height: LAddress,
 }
 
-impl Disp for RectBordered<'_> {
+impl Disp for RectBordered {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -219,26 +240,32 @@ impl Disp for RectBordered<'_> {
     }
 }
 
-impl<'v> DrawInstruction<'v> for RectBordered<'v> {
-    fn draw(
+impl DrawInstruction for RectBordered {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
         let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(&self.width)) as u32;
-        let height = get_num!(mem.get(&self.height)) as u32;
+        let width = get_num!(mem.get(self.width)) as u32;
+        let height = get_num!(mem.get(self.height)) as u32;
         image.stroked_box(pos, width, height, state.stroke.round() as u32, state.col());
     }
 }
 
-#[derive(Debug)]
-pub struct Triangle<'v> {
-    pub points: (Point<'v>, Point<'v>, Point<'v>),
+#[derive(Debug, Copy, Clone)]
+
+pub struct Triangle {
+    pub points: (Point, Point, Point),
 }
-impl<'v> DrawInstruction<'v> for Triangle<'v> {
-    fn draw(&self, mem: &mut LRegistry<'v>, i: &mut Image<&mut [u8], 4>, state: &mut DisplayState) {
+impl DrawInstruction for Triangle {
+    fn draw<'v>(
+        &self,
+        mem: &mut LRegistry<'v>,
+        i: &mut Image<&mut [u8], 4>,
+        state: &mut DisplayState,
+    ) {
         let to32 = |n| n as f32;
         let (a, b, c) = (
             map!(point!(mem@self.points.0), to32),
@@ -248,7 +275,7 @@ impl<'v> DrawInstruction<'v> for Triangle<'v> {
         i.tri(a, b, c, state.col());
     }
 }
-impl Disp for Triangle<'_> {
+impl Disp for Triangle {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -263,41 +290,42 @@ impl Disp for Triangle<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct Poly<'v> {
-    pub(crate) pos: Point<'v>,
-    pub(crate) sides: LAddress<'v>,
-    pub(crate) radius: LAddress<'v>,
-    pub(crate) rot: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct Poly {
+    pub(crate) pos: Point,
+    pub(crate) sides: LAddress,
+    pub(crate) radius: LAddress,
+    pub(crate) rot: LAddress,
 }
 
-impl<'v> DrawInstruction<'v> for Poly<'v> {
-    fn draw(
+impl DrawInstruction for Poly {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
-        let sides = get_num!(mem.get(&self.sides)).round() as usize;
+        let sides = get_num!(mem.get(self.sides)).round() as usize;
         if sides < 90 {
             image.poly(
                 map!(point!(mem@self.pos), |n| n as f32),
                 sides,
-                get_num!(mem.get(&self.radius)) as f32,
-                get_num!(mem.get(&self.rot)) as f32,
+                get_num!(mem.get(self.radius)) as f32,
+                get_num!(mem.get(self.rot)) as f32,
                 state.col(),
             );
         } else {
             image.circle(
                 map!(point!(mem@self.pos), |n: f64| n.round() as i32),
-                get_num!(mem.get(&self.radius)).round() as i32,
+                get_num!(mem.get(self.radius)).round() as i32,
                 state.col(),
             );
         }
     }
 }
 
-impl Disp for Poly<'_> {
+impl Disp for Poly {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -307,42 +335,43 @@ impl Disp for Poly<'_> {
     }
 }
 
-#[derive(Debug)]
-pub struct LinePoly<'v> {
-    pub(crate) pos: Point<'v>,
-    pub(crate) sides: LAddress<'v>,
-    pub(crate) radius: LAddress<'v>,
-    pub(crate) rot: LAddress<'v>,
+#[derive(Debug, Copy, Clone)]
+
+pub struct LinePoly {
+    pub(crate) pos: Point,
+    pub(crate) sides: LAddress,
+    pub(crate) radius: LAddress,
+    pub(crate) rot: LAddress,
 }
 
-impl<'v> DrawInstruction<'v> for LinePoly<'v> {
-    fn draw(
+impl DrawInstruction for LinePoly {
+    fn draw<'v>(
         &self,
         mem: &mut LRegistry<'v>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
-        let sides = get_num!(mem.get(&self.sides)).round() as usize;
+        let sides = get_num!(mem.get(self.sides)).round() as usize;
         if sides < 90 {
             image.border_poly(
                 map!(point!(mem@self.pos), |n| n as f32),
                 sides,
-                get_num!(mem.get(&self.radius)) as f32,
-                get_num!(mem.get(&self.rot)) as f32,
+                get_num!(mem.get(self.radius)) as f32,
+                get_num!(mem.get(self.rot)) as f32,
                 state.stroke as f32,
                 state.col(),
             );
         } else {
             image.border_circle(
                 map!(point!(mem@self.pos), |n: f64| n.round() as i32),
-                get_num!(mem.get(&self.radius)).round() as i32,
+                get_num!(mem.get(self.radius)).round() as i32,
                 state.col(),
             );
         }
     }
 }
 
-impl Disp for LinePoly<'_> {
+impl Disp for LinePoly {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -352,11 +381,12 @@ impl Disp for LinePoly<'_> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Copy, Clone, Default)]
+
 pub struct Flush {
     pub(crate) display: Display,
 }
-impl LInstruction<'_> for Flush {
+impl LInstruction for Flush {
     fn run<W: std::io::Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         exec.flush(self.display);
         Flow::Continue
@@ -365,6 +395,7 @@ impl LInstruction<'_> for Flush {
 
 impl Disp for Flush {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "drawflush {}", self.display)
+        let d = self.display;
+        write!(f, "drawflush {d}")
     }
 }

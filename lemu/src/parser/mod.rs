@@ -81,10 +81,10 @@ macro_rules! tokstr {
 use tokstr;
 
 #[derive(Debug)]
-enum UJump<'v> {
+enum UJump {
     Sometimes {
-        a: LAddress<'v>,
-        b: LAddress<'v>,
+        a: LAddress,
+        b: LAddress,
         op: ConditionOp,
     },
     Always,
@@ -94,7 +94,39 @@ pub fn parse<'source, W: Wr>(
     mut tokens: Lexer<'source>,
     executor: &mut ExecutorBuilderInternal<'source, W>,
 ) -> Result<(), Error<'source>> {
-    let mut mem = Vec::new(); // maps &str to usize
+    let mut used = 0u8;
+    let mut mem: [Option<&str>; 255] = [None; 255]; // maps &str to usize 
+    macro_rules! push {
+        ($var:expr) => {{
+            mem[used as usize] = Some($var);
+            used = used
+                .checked_add(1)
+                .ok_or(Error::TooManyVariables(tokens.span()))?;
+            Ok(LAddress::addr(used - 1))
+        }};
+        (const $var:expr) => {{
+            executor.mem[LAddress::addr(used)] = LVar::from($var);
+            used = used
+                .checked_add(1)
+                .ok_or(Error::TooManyVariables(tokens.span()))?;
+            Ok(LAddress::addr(used - 1))
+        }};
+    }
+    macro_rules! addr {
+        ($val:expr) => {{
+            let val = $val;
+            match mem
+                .iter()
+                .zip(0..used)
+                .find(|(&v, _)| v == Some(val))
+                .map(|(_, i)| i)
+            {
+                Some(n) => Ok(LAddress::addr(n)),
+                None => push!(val),
+            }
+        }};
+    }
+
     // maps "start" to 0
     let mut labels = Vec::new();
     let mut unfinished_jumps = Vec::new();
@@ -113,7 +145,7 @@ pub fn parse<'source, W: Wr>(
             return Err(Error::$e($($stuff,)+ tokens.span()))
         };
     }
-    #[rustfmt::skip]
+    #[rustfmt::skip] 
     macro_rules! nextline {
         () => {
             while let Some(tok) = tokens.next() && tok != Token::Newline { }
@@ -161,25 +193,6 @@ pub fn parse<'source, W: Wr>(
             }
         }};
     }
-    macro_rules! addr {
-        ($n:expr) => {{
-            let n = $n;
-            match mem
-                .iter()
-                .enumerate()
-                .find(|(_, &v)| v == n)
-                .map(|(i, _)| i)
-            {
-                // SAFETY: we tell it the size is mem.len(); i comes from mem, this is fine
-                Some(i) => unsafe { LAddress::addr(i, n) },
-                None => {
-                    mem.push(n);
-                    // SAFETY: see above
-                    unsafe { LAddress::addr(mem.len() - 1, n) }
-                }
-            }
-        }};
-    }
     macro_rules! take_ident {
         ($tok:expr) => {{
             let tok = $tok;
@@ -190,11 +203,11 @@ pub fn parse<'source, W: Wr>(
         ($tok:expr) => {{
             let tok = $tok;
             if let Some(i) = tokstr!(tok) {
-                Ok(addr!(i))
+                addr!(i)
             } else {
                 match tok {
-                    Token::Num(n) => Ok(LAddress::cnst(n)),
-                    Token::String(s) => Ok(LAddress::cnst(s)),
+                    Token::Num(n) => push!(const n),
+                    Token::String(s) => push!(const s),
                     t => Err(err!(ExpectedVar(t))),
                 }
             }
@@ -204,10 +217,10 @@ pub fn parse<'source, W: Wr>(
         ($tok:expr) => {{
             let tok = $tok;
             if let Some(i) = tokstr!(tok) {
-                Ok(addr!(i))
+                addr!(i)
             } else {
                 match tok {
-                    Token::Num(n) => Ok(LAddress::cnst(n)),
+                    Token::Num(n) => push!(const n),
                     t => Err(err!(ExpectedNum(t))),
                 }
             }
@@ -233,7 +246,7 @@ pub fn parse<'source, W: Wr>(
                     let to = take_numvar!(tok!()?)?;
                     executor.add(DynJump { to, proglen: 0 });
                 } else {
-                    let from = addr!(take_ident!(from)?);
+                    let from = addr!(take_ident!(from)?)?;
                     let to = take_var!(tok!()?)?;
                     executor.add(Set { from, to });
                 }
@@ -268,12 +281,12 @@ pub fn parse<'source, W: Wr>(
                     let to = unsafe { Instruction::new(n) };
                     let op = tok!()?;
                     if op == Token::Always {
-                        executor.add(AlwaysJump { to, label: None });
+                        executor.add(AlwaysJump { to });
                     } else {
                         let op = op.try_into().map_err(|op| err!(ExpectedOp(op)))?;
                         let a = take_var!(tok!()?)?;
                         let b = take_var!(tok!()?)?;
-                        executor.add(Jump::new(op, to, a, b, None));
+                        executor.add(Jump::new(op, to, a, b));
                     }
                 } else {
                     yeet!(ExpectedJump(tok));
@@ -301,7 +314,9 @@ pub fn parse<'source, W: Wr>(
                 let set = take_numvar!(tok!()?)?;
                 let container = take_memory!();
                 let index = take_numvar!(tok!()?)?;
-                if let LAddress::Const(LVar::Num(v)) = index && !container.fits(v.round() as usize) {
+                if let LVar::Num(v) = executor.mem[index]
+                    && !container.fits(v.round() as usize)
+                {
                     yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
                 }
                 executor.add(Write {
@@ -315,7 +330,9 @@ pub fn parse<'source, W: Wr>(
                 let output = take_var!(tok!()?)?;
                 let container = take_memory!();
                 let index = take_numvar!(tok!()?)?;
-                if let LAddress::Const(LVar::Num(v)) = index && !container.fits(v.round() as usize) {
+                if let LVar::Num(v) = executor.mem[index]
+                    && !container.fits(v.round() as usize)
+                {
                     yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
                 }
                 executor.add(Read {
@@ -352,12 +369,13 @@ pub fn parse<'source, W: Wr>(
                         let g = col & 0x00ff_0000 >> 16;
                         let b = col & 0x0000_ff00 >> 8;
                         let a = col & 0x0000_00ff;
-                        executor.draw(SetColor {
-                            r: LAddress::cnst(r),
-                            g: LAddress::cnst(g),
-                            b: LAddress::cnst(b),
-                            a: LAddress::cnst(a),
-                        });
+                        let i = SetColor {
+                            r: push!(const r)?,
+                            g: push!(const g)?,
+                            b: push!(const b)?,
+                            a: push!(const a)?,
+                        };
+                        executor.draw(i);
                     }
                     "stroke" => {
                         let size = take_numvar!(tok!()?)?;
@@ -416,7 +434,9 @@ pub fn parse<'source, W: Wr>(
             }
             Token::DrawFlush => {
                 let t = tok!();
-                if let Ok(t) = t && t != Token::Newline {
+                if let Ok(t) = t
+                    && t != Token::Newline
+                {
                     let screen = take_ident!(t.clone())?;
                     let mut out = String::new();
                     for ch in screen.chars() {
@@ -433,7 +453,9 @@ pub fn parse<'source, W: Wr>(
                         yeet!(InvalidDisplayType(screen));
                     }
                     let n_span = tokens.span().start + screen.len()..tokens.span().end;
-                    let screen_n = out.parse::<usize>().map_err(|_| Error::ExpectedInt(t, n_span.clone()))?;
+                    let screen_n = out
+                        .parse::<usize>()
+                        .map_err(|_| Error::ExpectedInt(t, n_span.clone()))?;
                     let display = executor
                         .display(screen_n)
                         .map_err(|n| Error::NoDisplay(n, n_span))?;
@@ -733,7 +755,9 @@ pub fn parse<'source, W: Wr>(
                     "effect" => {
                         let mut v = Vec::with_capacity(6);
                         v.push(Token::Ident("effect"));
-                        while let Some(tok) = tokens.next() && tok != Token::Newline {
+                        while let Some(tok) = tokens.next()
+                            && tok != Token::Newline
+                        {
                             v.push(tok);
                         }
                         executor.code(v.into_boxed_slice());
@@ -755,11 +779,8 @@ pub fn parse<'source, W: Wr>(
             .ok_or_else(|| Error::LabelNotFound(label, s))?
             .1;
         executor.program[i.get()] = UPInstr::Instr(match j {
-            UJump::Always => Instr::from(AlwaysJump {
-                to,
-                label: Some(label),
-            }),
-            UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b, Some(label))),
+            UJump::Always => Instr::from(AlwaysJump { to }),
+            UJump::Sometimes { a, b, op } => Instr::from(Jump::new(op, to, a, b)),
         });
     }
 
@@ -782,8 +803,6 @@ pub fn parse<'source, W: Wr>(
             *proglen = len;
         }
     }
-
-    executor.mem(mem.len());
 
     Ok(())
 }

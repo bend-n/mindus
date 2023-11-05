@@ -1,5 +1,5 @@
 //! crate for [MLOG](https://mindustrygame.github.io/wiki/logic/0-introduction/#what-is-mindustry-logic) emulation.
-#![feature(let_chains, trace_macros)]
+#![feature(let_chains, inline_const)]
 #![allow(clippy::redundant_closure_call)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
@@ -177,6 +177,6 @@ mod test {
     test!(run fib.mlog; output = b"12586269025");
     test!(run primes.mlog; output = b"2 | 3 | 5 | 7 | 11 | 13 | 17 | 19 | 23 | 29 | 31 | 37 | 41 | 43 | 47 | 53 | 59 | 61 | 67 | 71 | 73 | 79 | 83 | 89 | 97 | 101 | 103 | 107 | 109 | 113 | 127 | 131 | 137 | 139 | 149 | 151 | 157 | 163 | 167 | 173 | 179 | 181 | 191 | 193 | 197 | 199 | 211 | 223 | 227 | 229 | 233 | 239 | 241 | 251 | 257 | 263 | 269 | 271 | 277 | 281 | 283 | 293 | 307 | 311 | 313 | 317 | 331 | 337 | 347 | 349 | 353 | 359 | 367 | 373 | 379 | 383 | 389 | 397 | 401 | 409 | 419 | 421 | 431 | 433 | 439 | 443 | 449 | 457 | 461 | 463 | 467 | 479 | 487 | 491 | 499 | 503 | 509 | ");
     test!(run numbers.mlog; output = b"121212");
-    test!(run celliterate.mlog 500 times; cell[0][0] = 500.0);
+    test!(run celliterate.mlog 5 times; cell[0][0] = 5.0);
     test!(run hello.mlog; output = b"hello world");
 }

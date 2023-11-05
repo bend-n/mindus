@@ -113,33 +113,34 @@ pub struct Executor<'varnames, W: Write> {
     pub instructions_ran: usize,
 }
 
+#[derive(Debug)]
 pub enum UPInstr<'s> {
-    Instr(Instr<'s>),
-    Draw(DrawInstr<'s>),
+    Instr(Instr),
+    Draw(DrawInstr),
     UnfinishedJump,
     Code(Box<[Token<'s>]>),
     Comment(&'s str),
 }
 
-pub struct Drawing<'v> {
+pub struct Drawing {
     pub displays: Box<[fimg::Image<Vec<u8>, 4>]>,
     /// points to `Executor.program`
-    pub buffer: VecDeque<*const DrawInstr<'v>>,
+    pub buffer: VecDeque<*const DrawInstr>,
 }
 
-impl<'v> Drawing<'v> {
-    fn buffer(&mut self, i: &DrawInstr<'v>) {
+impl<'v> Drawing {
+    fn buffer(&mut self, i: &DrawInstr) {
         self.buffer.push_back(i);
     }
 }
-pub struct ExecutorContext<'varnames, W: Write> {
+pub struct ExecutorContext<'strings, W: Write> {
     // maximum of 128 elements, so can use ~60KB
     pub cells: Box<[[f64; CELL_SIZE]]>, // screw world cells
     // maximum of 127 elements, so can use ~500KB
     pub banks: Box<[[f64; BANK_SIZE]]>,
-    pub memory: LRegistry<'varnames>,
+    pub memory: LRegistry<'strings>,
     pub counter: usize,
-    pub display: Drawing<'varnames>,
+    pub display: Drawing,
     pub output: Option<W>,
     /// Counter for the number of iterations we have run so far.
     pub iterations: usize,
@@ -185,20 +186,20 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         }
     }
 
-    pub fn set(&mut self, a: &LAddress<'s>, b: LAddress<'s>) -> bool {
-        self.memory.set(a, b)
+    pub fn set(&mut self, a: LAddress, b: LAddress) {
+        self.memory[a] = self.memory[b].clone();
     }
 
-    pub fn get_mut(&mut self, a: &LAddress<'s>) -> Option<&mut LVar<'s>> {
-        self.memory.get_mut(a)
+    pub fn get_mut(&mut self, a: LAddress) -> &mut LVar<'s> {
+        &mut self.memory[a]
     }
 
     pub fn jump(&mut self, Instruction(n): Instruction) {
         self.counter = n;
     }
 
-    pub fn get<'a>(&'a self, a: &'a LAddress<'s>) -> &LVar<'s> {
-        self.memory.get(a)
+    pub fn get<'a>(&'a self, a: LAddress) -> &LVar<'s> {
+        &self.memory[a]
     }
 }
 
@@ -236,7 +237,7 @@ impl<'s, W: Write> Executor<'s, W> {
         // SAFETY: yee
         match unsafe { self.program.get_unchecked(self.inner.counter) } {
             PInstr::Instr(i) => {
-                // println!("run {i:?} ({:?})", self.inner.memory);
+                // println!("run {i:?} ({})", self.inner.memory);
                 i.run(&mut self.inner)
             }
             PInstr::Draw(i) => {
@@ -266,7 +267,6 @@ impl<'s, W: Write> Executor<'s, W> {
             if self.inner.counter >= self.program.len() {
                 self.inner.counter = 0;
                 self.inner.iterations += 1;
-                self.inner.memory.clear();
             }
         }
     }

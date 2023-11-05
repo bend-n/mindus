@@ -144,6 +144,9 @@ pub enum Error<'s> {
     ///     .display();
     /// ```
     NoDisplay(usize, Span),
+    /// We have a limit of [`u8::MAX`] variables.
+    #[error("too many variables")]
+    TooManyVariables(Span),
 }
 
 impl Error<'_> {
@@ -172,11 +175,14 @@ impl Error<'_> {
                     write!(out, ", {}", op).unwrap();
                 }
                 out.write_char('}').unwrap();
-                if let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n($op, $ops, 1).first() && *score > 0.5 {
+                if let Some((mat, score)) =
+                    rust_fuzzy_search::fuzzy_search_best_n($op, $ops, 1).first()
+                    && *score > 0.5
+                {
                     e.note(cmt!("{help}: you may have meant {bold_green}{mat}{reset}"));
                 }
                 out
-            }}
+            }};
         }
         match self {
             Self::UnexpectedEof => {
@@ -220,7 +226,12 @@ impl Error<'_> {
             Self::ExpectedOp(t, s) => {
                 msg!("{error}: expected operator")
                     .label((s, cmt!("this was supposed to be a {bold_blue}operator{reset} (eg. {magenta}equal{reset})")));
-                if let Some(i) = tokstr!(*t) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1).first() && *score > 0.5 {
+                if let Some(i) = tokstr!(*t)
+                    && let Some((mat, score)) =
+                        rust_fuzzy_search::fuzzy_search_best_n(i, crate::instructions::OPS, 1)
+                            .first()
+                    && *score > 0.5
+                {
                     e.note(cmt!("{help}: maybe you meant {bold_green}{mat}{reset}"));
                 }
             }
@@ -236,9 +247,53 @@ impl Error<'_> {
             Self::ExpectedInstr(t, s) => {
                 msg!("{error}: expected instruction")
                     .label((s, cmt!("this was supposed to be a {bold_blue}instruction{reset} (eg. {magenta}print{reset})")));
-                if let Some(i) = tokstr!(*t) && let Some((mat,score)) = rust_fuzzy_search::fuzzy_search_best_n(i, &[
-                    "getlink", "read", "write", "set", "op", "end", "drawflush", "draw", "print", "packcolor", "jump", "stop", "printflush", "control", "radar", "sensor", "wait", "lookup", "packcolor", "ubind", "ucontrol", "uradar", "ulocate", "getblock", "setblock", "spawn", "status", "spawnwave", "setrule", "cutscene", "explosion", "setrate", "fetch", "getflag", "setflag", "setprop", "effect"
-                ], 1).first() && *score > 0.5 {
+                if let Some(i) = tokstr!(*t)
+                    && let Some((mat, score)) = rust_fuzzy_search::fuzzy_search_best_n(
+                        i,
+                        &[
+                            "getlink",
+                            "read",
+                            "write",
+                            "set",
+                            "op",
+                            "end",
+                            "drawflush",
+                            "draw",
+                            "print",
+                            "packcolor",
+                            "jump",
+                            "stop",
+                            "printflush",
+                            "control",
+                            "radar",
+                            "sensor",
+                            "wait",
+                            "lookup",
+                            "packcolor",
+                            "ubind",
+                            "ucontrol",
+                            "uradar",
+                            "ulocate",
+                            "getblock",
+                            "setblock",
+                            "spawn",
+                            "status",
+                            "spawnwave",
+                            "setrule",
+                            "cutscene",
+                            "explosion",
+                            "setrate",
+                            "fetch",
+                            "getflag",
+                            "setflag",
+                            "setprop",
+                            "effect",
+                        ],
+                        1,
+                    )
+                    .first()
+                    && *score > 0.5
+                {
                     e.note(cmt!("{help}: maybe you meant {mat}"));
                 }
             }
@@ -375,6 +430,11 @@ impl Error<'_> {
             Self::IndexOutOfBounds(index, size, s) => {
                 msg!("{error}: {bold_red}index{reset} {} out of bounds", index)
                     .label((s, cmt!("memory has only {magenta}{size}{reset} elements")));
+            }
+            Self::TooManyVariables(s) => {
+                msg!("{error}: {bold_red}too many variables{reset}. ")
+                    .label((s, cmt!("we only have 255 variable slots")))
+                    .note(cmt!("consider not using variables"));
             }
         };
         e

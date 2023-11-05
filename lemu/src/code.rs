@@ -5,8 +5,8 @@ use super::{
 
 #[derive(Debug)]
 pub enum PInstr<'s> {
-    Instr(Instr<'s>),
-    Draw(DrawInstr<'s>),
+    Instr(Instr),
+    Draw(DrawInstr),
     Code(Box<[Token<'s>]>),
     Comment(&'s str),
 }
