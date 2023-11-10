@@ -97,15 +97,22 @@ pub fn parse<'source, W: Wr>(
     let mut used = 0u8;
     let mut mem: [Option<&str>; 255] = [None; 255]; // maps &str to usize 
     macro_rules! push {
+        // push a ident
         ($var:expr) => {{
-            mem[used as usize] = Some($var);
+            let v = $var;
+            executor.debug_info.set_var(used, v, tokens.span());
+            mem[used as usize] = Some(v);
             used = used
                 .checked_add(1)
                 .ok_or(Error::TooManyVariables(tokens.span()))?;
             Ok(LAddress::addr(used - 1))
         }};
         (const $var:expr) => {{
-            executor.mem[LAddress::addr(used)] = LVar::from($var);
+            let v = $var;
+            executor
+                .debug_info
+                .set_const(used, v.clone(), tokens.span());
+            executor.mem[LAddress::addr(used)] = LVar::from(v);
             used = used
                 .checked_add(1)
                 .ok_or(Error::TooManyVariables(tokens.span()))?;
@@ -127,8 +134,6 @@ pub fn parse<'source, W: Wr>(
         }};
     }
 
-    // maps "start" to 0
-    let mut labels = Vec::new();
     let mut unfinished_jumps = Vec::new();
     macro_rules! tok {
         () => {
@@ -242,9 +247,10 @@ pub fn parse<'source, W: Wr>(
             // # omg
             Token::Comment(c) => executor.program.push(UPInstr::Comment(c)),
             // label:
-            Token::Ident(v) if v.ends_with(':') => {
-                labels.push((&v[..v.len() - 1], executor.next()))
-            }
+            Token::Ident(v) if v.ends_with(':') => executor
+                .debug_info
+                .labels
+                .push((&v[..v.len() - 1], executor.next())),
             // print "5"
             Token::Print => {
                 let val = take_var!(tok!()?)?;
@@ -784,7 +790,9 @@ pub fn parse<'source, W: Wr>(
     }
 
     for (j, (label, s), i) in unfinished_jumps {
-        let to = labels
+        let to = executor
+            .debug_info
+            .labels
             .iter()
             .find(|(v, _)| v == &label)
             .ok_or_else(|| Error::LabelNotFound(label, s))?

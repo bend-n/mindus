@@ -29,15 +29,12 @@ op!(gt >);
 op!(le <=);
 op!(ge >=);
 
-impl ConditionOp {
-    pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>, &LVar<'f>) -> bool {
-        match self {
-            Self::Equal | Self::StrictEqual => eq,
-            Self::NotEqual => ne,
-            Self::LessThan => lt,
-            Self::GreaterThan => gt,
-            Self::LessThanEq => le,
-            Self::GreaterThanEq => ge,
-        }
-    }
-}
+super::op_impl!(ConditionOp, ptr type = for<'f> fn(&LVar<'f>, &LVar<'f>) -> bool {
+    Equal => eq,
+    StrictEqual => eq,
+    NotEqual => ne,
+    LessThan => lt,
+    GreaterThan => gt,
+    LessThanEq => le,
+    GreaterThanEq => ge,
+});

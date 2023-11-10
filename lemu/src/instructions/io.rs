@@ -1,12 +1,10 @@
 use super::{get_num, Flow, LInstruction};
 use crate::{
+    debug::{info::DebugInfo, printable::Printable},
     executor::{ExecutorContext, Memory},
     memory::{LAddress, LVar},
 };
-use std::{
-    fmt::{self, Display, Formatter},
-    io::Write as Wr,
-};
+use std::{fmt, io::Write as Wr};
 
 #[derive(Debug, Copy, Clone)]
 
@@ -17,7 +15,7 @@ pub struct Read {
 }
 
 impl LInstruction for Read {
-    fn run<'v, W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let i = get_num!(exec.get(self.index)).round() as usize;
         if let Some(&n) = exec.mem(self.container).get(i) {
             *exec.get_mut(self.output) = LVar::from(n);
@@ -26,9 +24,13 @@ impl LInstruction for Read {
     }
 }
 
-impl Display for Read {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "read {} {} {}", self.output, self.container, self.index)
+impl Printable for Read {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "read {} {} {}",
+            info[self.output], self.container, info[self.index]
+        )
     }
 }
 
@@ -41,7 +43,7 @@ pub struct Write {
 }
 
 impl LInstruction for Write {
-    fn run<'v, W: Wr>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+    fn run<W: Wr>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let i = get_num!(exec.get(self.index)).round() as usize;
         if let &LVar::Num(b) = exec.get(self.set) {
             if let Some(a) = exec.mem(self.container).get_mut(i) {
@@ -52,9 +54,13 @@ impl LInstruction for Write {
     }
 }
 
-impl Display for Write {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "write {} {} {}", self.set, self.container, self.index)
+impl Printable for Write {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "write {} {} {}",
+            info[self.set], self.container, info[self.index]
+        )
     }
 }
 
@@ -76,8 +82,9 @@ impl LInstruction for Print {
         Flow::Continue
     }
 }
-impl Display for Print {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "print {}", self.val)
+// haha
+impl Printable for Print {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "print {}", info[self.val])
     }
 }

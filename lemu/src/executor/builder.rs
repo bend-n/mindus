@@ -1,5 +1,5 @@
 use fimg::Image;
-use std::{collections::VecDeque, io::Write as Wr, pin::Pin};
+use std::{collections::VecDeque, io::Write as Wr};
 
 use super::{
     Display, Drawing, Executor, ExecutorContext, Instruction, Limit, Memory, PInstr, UPInstr,
@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     code::Code,
+    debug::info::DebugInfo,
     instructions::{DrawInstr, Instr},
     lexer::Token,
     memory::LRegistry,
@@ -22,6 +23,7 @@ pub struct ExecutorBuilderInternal<'v, W: Wr> {
     iteration_limit: Limit,
     instruction_limit: Limit,
     pub(crate) mem: LRegistry<'v>,
+    pub(crate) debug_info: DebugInfo<'v>,
 }
 
 impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
@@ -35,6 +37,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             iteration_limit: Limit::limited(1),
             instruction_limit: Limit::Unlimited,
             mem: LRegistry::default(),
+            debug_info: DebugInfo::default(),
         }
     }
 
@@ -108,7 +111,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 core::ptr::slice_from_raw_parts_mut(ptr.cast::<[f64; N]>(), len / N);
             unsafe { Box::from_raw(ptr) }
         }
-        let program = Pin::new(Code::new(
+        let program = Code::new(
             self.program
                 .into_iter()
                 .map(|v| match v {
@@ -119,13 +122,14 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                     UPInstr::Code(c) => PInstr::Code(c),
                 })
                 .collect::<Box<[PInstr]>>(),
-        ));
+        );
         let Self {
             instruction_limit,
             iteration_limit,
             displays,
             output,
             banks,
+            debug_info,
             cells,
             mem,
             ..
@@ -146,6 +150,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 output,
             },
             instructions_ran: 0,
+            debug_info,
             program,
         }
     }

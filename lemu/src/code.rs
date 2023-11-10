@@ -1,3 +1,5 @@
+use crate::debug::{info::DebugInfo, printable::Printable};
+
 use super::{
     instructions::{DrawInstr, Instr},
     lexer::Token,
@@ -11,11 +13,11 @@ pub enum PInstr<'s> {
     Comment(&'s str),
 }
 
-impl std::fmt::Display for PInstr<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Printable for PInstr<'_> {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
-            Self::Instr(i) => write!(f, "{i}"),
-            Self::Draw(i) => write!(f, "{i}"),
+            Self::Instr(i) => i.print(info, f),
+            Self::Draw(i) => i.print(info, f),
             Self::Code(c) => {
                 let mut toks = c.iter();
                 if let Some(t) = toks.next() {
@@ -31,16 +33,18 @@ impl std::fmt::Display for PInstr<'_> {
     }
 }
 
-impl std::fmt::Display for Code<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Printable for Code<'_> {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         for instr in &*self.0 {
-            writeln!(f, "{instr}")?;
+            instr.print(info, f)?;
+            writeln!(f)?;
         }
         Ok(())
     }
 }
 
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct Code<'s>(Box<[PInstr<'s>]>);
 
 // Pin requires

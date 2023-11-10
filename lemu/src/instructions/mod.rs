@@ -23,10 +23,9 @@ pub use draw::{DrawInstr, DrawInstruction};
 use enum_dispatch::enum_dispatch;
 pub use mop::MathOp1;
 pub use mop2::MathOp2;
-use std::{
-    fmt::{self, Display, Formatter},
-    io::Write,
-};
+use std::{fmt, io::Write};
+
+use crate::debug::{info::DebugInfo, printable::Printable};
 
 use super::{
     executor::{ExecutorContext, Instruction},
@@ -87,8 +86,8 @@ pub enum Flow {
 }
 
 #[enum_dispatch]
-pub trait LInstruction: Display {
-    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow;
+pub trait LInstruction: Printable {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow;
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -107,21 +106,22 @@ pub enum Instr {
     Stop(Stop),
     End(End),
 }
-impl Display for Instr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+
+impl Printable for Instr {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         match self {
-            Self::Op2(i) => write!(f, "{i}"),
-            Self::Jump(i) => write!(f, "{i}"),
-            Self::AlwaysJump(i) => write!(f, "{i}"),
-            Self::Set(i) => write!(f, "{i}"),
-            Self::Op1(i) => write!(f, "{i}"),
-            Self::Read(i) => write!(f, "{i}"),
-            Self::Write(i) => write!(f, "{i}"),
-            Self::DrawFlush(i) => write!(f, "{i}"),
-            Self::DynJump(i) => write!(f, "{i}"),
-            Self::Print(i) => write!(f, "{i}"),
-            Self::Stop(i) => write!(f, "{i}"),
-            Self::End(i) => write!(f, "{i}"),
+            Self::Op2(i) => i.print(info, f),
+            Self::Jump(i) => i.print(info, f),
+            Self::AlwaysJump(i) => i.print(info, f),
+            Self::Set(i) => i.print(info, f),
+            Self::Op1(i) => i.print(info, f),
+            Self::Read(i) => i.print(info, f),
+            Self::Write(i) => i.print(info, f),
+            Self::DrawFlush(i) => i.print(info, f),
+            Self::DynJump(i) => i.print(info, f),
+            Self::Print(i) => i.print(info, f),
+            Self::Stop(i) => i.print(info, f),
+            Self::End(i) => i.print(info, f),
         }
     }
 }
@@ -132,15 +132,15 @@ pub struct Set {
     pub(crate) to: LAddress,
 }
 impl LInstruction for Set {
-    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
-        exec.set(self.from, self.to.clone());
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
+        exec.set(self.from, self.to);
         Flow::Continue
     }
 }
 
-impl Display for Set {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "set {} {}", self.from, self.to)
+impl Printable for Set {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "set {} {}", info[self.from], info[self.to])
     }
 }
 
@@ -163,6 +163,12 @@ macro_rules! op_enum {
             }
         }
 
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+                write!(f, "{}", Token::from(*self))
+            }
+        }
+
         impl<'a> From<$name> for Token<'a> {
             fn from(value: $name) -> Self {
                 match value {
@@ -173,6 +179,30 @@ macro_rules! op_enum {
     }
 }
 use op_enum;
+
+// not part of op_enum due to rem
+macro_rules! op_impl {
+    ($name:ident, ptr type = $ptr:ty { $($own:ident => $fn:ident,)+ }) => {
+        impl $name {
+            pub const fn get_fn(self) -> $ptr {
+                match self {
+                    $(Self::$own => $fn,)+
+                }
+            }
+        }
+
+        impl TryFrom<$ptr> for $name {
+            type Error = ();
+            fn try_from(f:$ptr) -> Result<Self, ()> {
+                match f {
+                    $(f if f == $fn => Ok(Self::$own),)+
+                    _ => Err(()),
+                }
+            }
+        }
+    }
+}
+use op_impl;
 
 macro_rules! get_num {
     ($x:expr) => {
@@ -190,7 +220,7 @@ pub struct Op1 {
     x: LAddress,
     out: LAddress,
 }
-impl<'v> Op1 {
+impl Op1 {
     pub(crate) const fn new(op: MathOp1, x: LAddress, out: LAddress) -> Self {
         Self {
             op: op.get_fn(),
@@ -201,17 +231,17 @@ impl<'v> Op1 {
 }
 
 impl LInstruction for Op1 {
-    fn run<'s, W: Write>(&self, exec: &mut ExecutorContext<'s, W>) -> Flow {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let x = (self.op)(exec.get(self.x));
         *exec.get_mut(self.out) = LVar::Num(x);
         Flow::Continue
     }
 }
 
-impl Display for Op1 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self { x, out, .. } = self;
-        write!(f, "op .. {out} {x}")
+impl Printable for Op1 {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        let op = mop::MathOp1::try_from(self.op).unwrap();
+        write!(f, "op {op} {} {}", info[self.out], info[self.x])
     }
 }
 
@@ -235,17 +265,21 @@ impl Op2 {
 
 impl LInstruction for Op2 {
     #[inline]
-    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         let x = (self.op)(exec.get(self.a), exec.get(self.b));
         exec.memory[self.out] = LVar::Num(x);
         Flow::Continue
     }
 }
 
-impl Display for Op2 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self { a, b, out, .. } = self;
-        write!(f, "op .. {out} {a} {b}")
+impl Printable for Op2 {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        let op = mop2::MathOp2::try_from(self.op).unwrap();
+        write!(
+            f,
+            "op {op} {} {} {}",
+            info[self.out], info[self.a], info[self.b]
+        )
     }
 }
 
@@ -261,8 +295,8 @@ impl LInstruction for End {
     }
 }
 
-impl Display for End {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for End {
+    fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(f, "end")
     }
 }
@@ -278,9 +312,14 @@ impl LInstruction for AlwaysJump {
     }
 }
 
-impl Display for AlwaysJump {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "jump {} always", self.to.get())
+impl Printable for AlwaysJump {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "jump ")?;
+        match info.label(self.to) {
+            Some(l) => f.write_str(l)?,
+            None => write!(f, "{}", self.to.get())?,
+        }
+        write!(f, " always")
     }
 }
 
@@ -303,7 +342,7 @@ impl Jump {
 }
 
 impl LInstruction for Jump {
-    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         if (self.op)(exec.get(self.a), exec.get(self.b)) {
             exec.jump(self.to);
             Flow::Stay
@@ -313,10 +352,15 @@ impl LInstruction for Jump {
     }
 }
 
-impl Display for Jump {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let Self { to, a, b, .. } = self;
-        write!(f, "jump .. {} {a} {b}", to.get())
+impl Printable for Jump {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        let op = ConditionOp::try_from(self.op).unwrap();
+        write!(f, "jump {op} ")?;
+        match info.label(self.to) {
+            Some(l) => f.write_str(l)?,
+            None => write!(f, "{}", self.to.get())?,
+        };
+        write!(f, " {} {}", info[self.a], info[self.b])
     }
 }
 
@@ -327,7 +371,7 @@ pub struct DynJump {
 }
 
 impl LInstruction for DynJump {
-    fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
         if let &LVar::Num(n) = exec.get(self.to) {
             let i = n.round() as usize;
             if i < self.proglen {
@@ -340,9 +384,9 @@ impl LInstruction for DynJump {
     }
 }
 
-impl Display for DynJump {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "set @counter {}", self.to)
+impl Printable for DynJump {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "set @counter {}", info[self.to])
     }
 }
 
@@ -354,8 +398,8 @@ impl LInstruction for Stop {
     }
 }
 
-impl Display for Stop {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for Stop {
+    fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(f, "stop")
     }
 }

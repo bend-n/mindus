@@ -1,21 +1,22 @@
 use super::{get_num, Flow, LInstruction};
 use crate::{
+    debug::{info::DebugInfo, printable::Printable},
     executor::{Display, DisplayState, ExecutorContext},
     memory::{LAddress, LRegistry, LVar},
 };
 use enum_dispatch::enum_dispatch;
 use fimg::Image;
-use std::fmt::{self, Display as Disp, Formatter};
+use std::fmt;
 
 pub const INSTRS: &[&str] = &[
     "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle", "poly", "linePoly",
 ];
 
 #[enum_dispatch]
-pub trait DrawInstruction: Disp {
-    fn draw<'v>(
+pub trait DrawInstruction: Printable {
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     );
@@ -35,18 +36,18 @@ pub enum DrawInstr {
     LinePoly(LinePoly),
 }
 
-impl Disp for DrawInstr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for DrawInstr {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         match self {
-            Self::Line(i) => write!(f, "{i}"),
-            Self::RectBordered(i) => write!(f, "{i}"),
-            Self::RectFilled(i) => write!(f, "{i}"),
-            Self::Triangle(i) => write!(f, "{i}"),
-            Self::Clear(i) => write!(f, "{i}"),
-            Self::SetColor(i) => write!(f, "{i}"),
-            Self::SetStroke(i) => write!(f, "{i}"),
-            Self::Poly(i) => write!(f, "{i}"),
-            Self::LinePoly(i) => write!(f, "{i}"),
+            Self::Line(i) => i.print(info, f),
+            Self::RectBordered(i) => i.print(info, f),
+            Self::RectFilled(i) => i.print(info, f),
+            Self::Triangle(i) => i.print(info, f),
+            Self::Clear(i) => i.print(info, f),
+            Self::SetColor(i) => i.print(info, f),
+            Self::SetStroke(i) => i.print(info, f),
+            Self::Poly(i) => i.print(info, f),
+            Self::LinePoly(i) => i.print(info, f),
         }
     }
 }
@@ -60,9 +61,9 @@ pub struct Clear {
 }
 
 impl DrawInstruction for Clear {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         _: &mut DisplayState,
     ) {
@@ -81,9 +82,13 @@ impl DrawInstruction for Clear {
     }
 }
 
-impl Disp for Clear {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "draw clear {} {} {}", self.r, self.g, self.b)
+impl Printable for Clear {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "draw clear {} {} {}",
+            info[self.r], info[self.g], info[self.b]
+        )
     }
 }
 
@@ -96,9 +101,9 @@ pub struct SetColor {
     pub a: LAddress,
 }
 impl DrawInstruction for SetColor {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         _: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -114,9 +119,13 @@ impl DrawInstruction for SetColor {
     }
 }
 
-impl Disp for SetColor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "draw color {} {} {} {}", self.r, self.g, self.b, self.a)
+impl Printable for SetColor {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "draw color {} {} {} {}",
+            info[self.r], info[self.g], info[self.b], info[self.a]
+        )
     }
 }
 
@@ -126,9 +135,9 @@ pub struct SetStroke {
     pub size: LAddress,
 }
 impl DrawInstruction for SetStroke {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         _: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -138,9 +147,9 @@ impl DrawInstruction for SetStroke {
     }
 }
 
-impl Disp for SetStroke {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "draw stroke {}", self.size)
+impl Printable for SetStroke {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "draw stroke {}", info[self.size])
     }
 }
 
@@ -168,9 +177,9 @@ pub struct Line {
 }
 
 impl DrawInstruction for Line {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -180,12 +189,12 @@ impl DrawInstruction for Line {
     }
 }
 
-impl Disp for Line {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for Line {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw line {} {} {} {}",
-            self.point_a.0, self.point_a.1, self.point_b.0, self.point_b.1
+            info[self.point_a.0], info[self.point_a.1], info[self.point_b.0], info[self.point_b.1]
         )
     }
 }
@@ -199,9 +208,9 @@ pub struct RectFilled {
 }
 
 impl DrawInstruction for RectFilled {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -212,12 +221,12 @@ impl DrawInstruction for RectFilled {
     }
 }
 
-impl Disp for RectFilled {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for RectFilled {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw rect {} {} {} {}",
-            self.position.0, self.position.1, self.width, self.height
+            info[self.position.0], info[self.position.1], info[self.width], info[self.height]
         )
     }
 }
@@ -230,20 +239,20 @@ pub struct RectBordered {
     pub height: LAddress,
 }
 
-impl Disp for RectBordered {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for RectBordered {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw lineRect {} {} {} {}",
-            self.position.0, self.position.1, self.width, self.height
+            info[self.position.0], info[self.position.1], info[self.width], info[self.height]
         )
     }
 }
 
 impl DrawInstruction for RectBordered {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -260,9 +269,9 @@ pub struct Triangle {
     pub points: (Point, Point, Point),
 }
 impl DrawInstruction for Triangle {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         i: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -275,17 +284,17 @@ impl DrawInstruction for Triangle {
         i.tri::<f32>(a, b, c, state.col());
     }
 }
-impl Disp for Triangle {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for Triangle {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw triangle {} {} {} {} {} {}",
-            self.points.0.0,
-            self.points.0.1,
-            self.points.1.0,
-            self.points.1.1,
-            self.points.2.0,
-            self.points.2.1
+            info[self.points.0.0],
+            info[self.points.0.1],
+            info[self.points.1.0],
+            info[self.points.1.1],
+            info[self.points.2.0],
+            info[self.points.2.1]
         )
     }
 }
@@ -300,9 +309,9 @@ pub struct Poly {
 }
 
 impl DrawInstruction for Poly {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -325,12 +334,12 @@ impl DrawInstruction for Poly {
     }
 }
 
-impl Disp for Poly {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for Poly {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw poly {} {} {} {} {}",
-            self.pos.0, self.pos.1, self.sides, self.radius, self.rot
+            info[self.pos.0], info[self.pos.1], info[self.sides], info[self.radius], info[self.rot],
         )
     }
 }
@@ -345,9 +354,9 @@ pub struct LinePoly {
 }
 
 impl DrawInstruction for LinePoly {
-    fn draw<'v>(
+    fn draw(
         &self,
-        mem: &mut LRegistry<'v>,
+        mem: &mut LRegistry<'_>,
         image: &mut Image<&mut [u8], 4>,
         state: &mut DisplayState,
     ) {
@@ -371,12 +380,12 @@ impl DrawInstruction for LinePoly {
     }
 }
 
-impl Disp for LinePoly {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Printable for LinePoly {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
             f,
             "draw linePoly {} {} {} {} {}",
-            self.pos.0, self.pos.1, self.sides, self.radius, self.rot
+            info[self.pos.0], info[self.pos.1], info[self.sides], info[self.radius], info[self.rot],
         )
     }
 }
@@ -393,9 +402,8 @@ impl LInstruction for Flush {
     }
 }
 
-impl Disp for Flush {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let d = self.display;
-        write!(f, "drawflush {d}")
+impl Printable for Flush {
+    fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "drawflush {}", self.display)
     }
 }

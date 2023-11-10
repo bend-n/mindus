@@ -1,4 +1,6 @@
 use beef::lean::Cow;
+
+use crate::debug::{info::VarData, printable::Printable};
 #[derive(Clone, Debug)]
 pub enum LVar<'string> {
     Num(f64),
@@ -50,16 +52,10 @@ impl std::fmt::Debug for LAddress {
     }
 }
 
-impl std::fmt::Display for LAddress {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}", self.address)
-    }
-}
-
 impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Num(n) => write!(f, "{n}"),
+            Self::Num(n) => write!(f, "{n:.4}"), // yeeeeahhhh
             Self::String(s) => write!(f, r#""{s}""#),
         }
     }
@@ -130,15 +126,42 @@ impl std::fmt::Display for LRegistry<'_> {
         if let Some((i, v)) = iter.next() {
             write!(f, "{i}: {v}")?;
         }
-        while let Some((i, v)) = iter.next() {
+        for (i, v) in iter {
             write!(f, ", {i}: {v}")?;
         }
         write!(f, "]")
     }
 }
 
-impl<'s> LRegistry<'s> {
-    pub fn get<'a>(&'a self, a: LAddress) -> &LVar {
+impl LRegistry<'_> {
+    pub fn get(&self, a: LAddress) -> &LVar {
         &self[a]
+    }
+}
+
+impl Printable for LRegistry<'_> {
+    fn print(
+        &self,
+        info: &crate::debug::info::DebugInfo<'_>,
+        f: &mut impl std::fmt::Write,
+    ) -> std::fmt::Result {
+        write!(f, "R[")?;
+        let mut iter = self
+            .0
+            .iter()
+            .zip(0..u8::MAX)
+            .filter(|&(v, _)| v != &LVar::null())
+            .map(|(v, i)| (&info[LAddress::addr(i)], v))
+            .filter_map(|(d, v)| match d {
+                VarData::Variable(d) => Some((*d, v)),
+                VarData::Constant(_) => None,
+            });
+        if let Some((i, v)) = iter.next() {
+            write!(f, "{i}: {v}")?;
+        }
+        for (i, v) in iter {
+            write!(f, ", {i}: {v}")?;
+        }
+        write!(f, "]")
     }
 }

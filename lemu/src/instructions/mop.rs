@@ -51,23 +51,19 @@ num!(acos f64::acos);
 num!(atan f64::atan);
 num!(log10 f64::log10);
 
-impl MathOp1 {
-    pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>) -> f64 {
-        match self {
-            Self::Floor => floor,
-            Self::Not => not,
-            Self::Log => log,
-            Self::Abs => abs,
-            Self::Rand => rand,
-            Self::Ceil => ceil,
-            Self::Sqrt => sqrt,
-            Self::Sin => sin,
-            Self::Cos => cos,
-            Self::Tan => tan,
-            Self::ASin => asin,
-            Self::ACos => acos,
-            Self::ATan => atan,
-            Self::Log10 => log10,
-        }
-    }
-}
+super::op_impl!(MathOp1, ptr type = for<'v> fn(&LVar<'v>) -> f64 {
+    Floor => floor,
+    Not => not,
+    Log => log,
+    Abs => abs,
+    Rand => rand,
+    Ceil => ceil,
+    Sqrt => sqrt,
+    Sin => sin,
+    Cos => cos,
+    Tan => tan,
+    ASin => asin,
+    ACos => acos,
+    ATan => atan,
+    Log10 => log10,
+});

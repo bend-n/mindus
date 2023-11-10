@@ -62,7 +62,8 @@ macro_rules! nofun {
 nofun!(eq | a, b | a == b);
 nofun!(ne | a, b | a != b);
 num!(and | a, b | a != 0.0 && b != 0.0);
-op!(add+);
+#[rustfmt::skip]
+op!(add +);
 op!(sub -);
 op!(mul *);
 bop!(idiv /);
@@ -99,35 +100,41 @@ num!(angle |a: f64, b: f64| {
     x
 });
 
-impl MathOp2 {
-    pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>, &LVar<'f>) -> f64 {
-        match self {
-            // we kind of interpret strings as numbers so yeah
-            Self::Equal | Self::StrictEqual => eq,
-            Self::NotEqual => ne,
-            Self::And => and,
-            Self::Add => add,
-            Self::Sub => sub,
-            Self::Mul => mul,
-            Self::IDiv => idiv,
-            Self::LessThan => lt,
-            Self::LessThanEq => le,
-            Self::GreaterThan => gt,
-            Self::GreaterThanEq => ge,
-            Self::Div => div,
-            Self::Mod => rem,
-            Self::Pow => pow,
-            Self::ShiftLeft => shl,
-            Self::ShiftRight => shr,
-            Self::BitOr => or,
-            Self::BitAnd => band,
-            Self::ExclusiveOr => xor,
-            Self::Max => max,
-            Self::Min => min,
-            Self::AngleDiff => angle_diff,
-            Self::Len => len,
-            Self::Noise => noise,
-            Self::Angle => angle,
-        }
-    }
-}
+super::op_impl!(MathOp2, ptr type = for<'f> fn(&LVar<'f>, &LVar<'f>) -> f64 {
+    Equal => eq,
+    StrictEqual => eq,
+    NotEqual => ne,
+    And => and,
+    Add => add,
+    Sub => sub,
+    Mul => mul,
+    IDiv => idiv,
+    LessThan => lt,
+    LessThanEq => le,
+    GreaterThan => gt,
+    GreaterThanEq => ge,
+    Div => div,
+    Mod => rem,
+    Pow => pow,
+    ShiftLeft => shl,
+    ShiftRight => shr,
+    BitOr => or,
+    BitAnd => band,
+    ExclusiveOr => xor,
+    Max => max,
+    Min => min,
+    AngleDiff => angle_diff,
+    Len => len,
+    Noise => noise,
+    Angle => angle,
+});
+
+// // no macro cuz funky rem
+// impl MathOp2 {
+//     pub const fn get_fn(self) -> for<'f> fn(&LVar<'f>, &LVar<'f>) -> f64 {
+//         match self {
+//             // we kind of interpret strings as numbers so yeah
+
+//         }
+//     }
+// }

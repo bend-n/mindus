@@ -1,5 +1,7 @@
 mod builder;
 
+use crate::debug::{info::DebugInfo, printable::Printable};
+
 use super::{
     code::{Code, PInstr},
     instructions::{DrawInstr, DrawInstruction, Flow, Instr, LInstruction},
@@ -8,7 +10,7 @@ use super::{
 };
 pub use builder::ExecutorBuilderInternal;
 use fimg::Image;
-use std::{collections::VecDeque, io::Write, num::NonZeroUsize, pin::Pin};
+use std::{collections::VecDeque, io::Write, num::NonZeroUsize};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Display(pub usize);
@@ -53,7 +55,7 @@ impl std::fmt::Display for Memory {
 pub const BANK_SIZE: usize = 512;
 pub const CELL_SIZE: usize = 64;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Instruction(usize);
 
 impl Instruction {
@@ -107,10 +109,17 @@ pub struct Executor<'varnames, W: Write> {
     /// a `Stop` instruction will break the loop.
     pub iteration_limit: Limit,
     pub(crate) inner: ExecutorContext<'varnames, W>,
-    /// gets pointed to by drawbuf
-    pub(crate) program: Pin<Code<'varnames>>,
+    /// gets pointed to by drawbuf (pls no move)
+    pub(crate) program: Code<'varnames>,
     /// Counter for the number of instructions we have run so far.
     pub instructions_ran: usize,
+    debug_info: DebugInfo<'varnames>,
+}
+
+impl<W: Write> std::fmt::Display for Executor<'_, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.program.print(&self.debug_info, f)
+    }
 }
 
 #[derive(Debug)]
@@ -128,7 +137,7 @@ pub struct Drawing {
     pub buffer: VecDeque<*const DrawInstr>,
 }
 
-impl<'v> Drawing {
+impl Drawing {
     fn buffer(&mut self, i: &DrawInstr) {
         self.buffer.push_back(i);
     }
@@ -237,7 +246,13 @@ impl<'s, W: Write> Executor<'s, W> {
         // SAFETY: yee
         match unsafe { self.program.get_unchecked(self.inner.counter) } {
             PInstr::Instr(i) => {
-                // println!("run {i:?} ({})", self.inner.memory);
+                /*
+                let mut instr = String::new();
+                i.print(&self.debug_info, &mut instr).unwrap();
+                let mut mem = String::new();
+                self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
+                println!("exec '{instr}' ({mem})");
+                */
                 i.run(&mut self.inner)
             }
             PInstr::Draw(i) => {

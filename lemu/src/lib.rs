@@ -1,6 +1,8 @@
 //! crate for [MLOG](https://mindustrygame.github.io/wiki/logic/0-introduction/#what-is-mindustry-logic) emulation.
 #![feature(let_chains, inline_const)]
-#![allow(clippy::redundant_closure_call)]
+#![allow(clippy::redundant_closure_call, incomplete_features)]
+// yeah so like well you see i kinda well kinda have to yes but sorta
+#![allow(clippy::fn_address_comparisons)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
@@ -12,6 +14,7 @@
     missing_docs
 )]
 pub(crate) mod code;
+mod debug;
 mod executor;
 mod instructions;
 mod lexer;
