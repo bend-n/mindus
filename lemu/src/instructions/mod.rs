@@ -234,6 +234,7 @@ impl Op2 {
 }
 
 impl LInstruction for Op2 {
+    #[inline]
     fn run<'v, W: Write>(&self, exec: &mut ExecutorContext<'v, W>) -> Flow {
         let x = (self.op)(exec.get(self.a), exec.get(self.b));
         exec.memory[self.out] = LVar::Num(x);
