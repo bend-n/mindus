@@ -23,7 +23,7 @@ fn main() -> ExitCode {
         lex.run();
         dbg!(lex.instructions_ran);
         let Output { displays, .. } = lex.output();
-        for (d, i) in displays.iter().zip(1..=displays.len()) {
+        for ((d, _), i) in displays.iter().zip(1..=displays.len()) {
             d.save(format!("image{i}.png"));
         }
     }

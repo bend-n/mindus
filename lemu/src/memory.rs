@@ -28,6 +28,13 @@ impl LVar<'_> {
     pub const fn null() -> LVar<'static> {
         LVar::Num(0.0)
     }
+
+    pub fn num(&self) -> Option<f64> {
+        match *self {
+            Self::Num(n) => Some(n),
+            Self::String(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

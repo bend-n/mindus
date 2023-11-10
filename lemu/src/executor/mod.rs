@@ -1,10 +1,13 @@
 mod builder;
 
-use crate::debug::{info::DebugInfo, printable::Printable};
+use crate::{
+    debug::{info::DebugInfo, printable::Printable},
+    instructions::draw::Drawn,
+};
 
 use super::{
     code::{Code, PInstr},
-    instructions::{DrawInstr, DrawInstruction, Flow, Instr, LInstruction},
+    instructions::{DrawInstr, Flow, Frozen, Instr, LInstruction},
     lexer::Token,
     memory::{LAddress, LRegistry, LVar},
 };
@@ -132,13 +135,12 @@ pub enum UPInstr<'s> {
 }
 
 pub struct Drawing {
-    pub displays: Box<[fimg::Image<Vec<u8>, 4>]>,
-    /// points to `Executor.program`
-    pub buffer: VecDeque<*const DrawInstr>,
+    pub displays: Box<[(fimg::Image<Vec<u8>, 4>, DisplayState)]>,
+    pub buffer: VecDeque<Drawn>,
 }
 
 impl Drawing {
-    fn buffer(&mut self, i: &DrawInstr) {
+    fn buffer(&mut self, i: Drawn) {
         self.buffer.push_back(i);
     }
 }
@@ -155,8 +157,11 @@ pub struct ExecutorContext<'strings, W: Write> {
     pub iterations: usize,
 }
 
+/// State of a display.
 pub struct DisplayState {
+    /// Color to draw
     pub color: (u8, u8, u8, u8),
+    /// Stroke to draw
     pub stroke: f64,
 }
 
@@ -176,15 +181,17 @@ impl Default for DisplayState {
 }
 
 impl<'s, W: Write> ExecutorContext<'s, W> {
+    pub fn buffer(&mut self, instr: &DrawInstr) {
+        if let Some(i) = instr.freeze(&self.memory) {
+            self.display.buffer(i)
+        }
+    }
+
     pub fn flush(&mut self, to: Display) {
-        let mut state = DisplayState::default();
-        // SAFETY: safe as long as the instruction isnt held too long
-        while let Some(d) = unsafe { self.display.buffer.pop_front().map(|v| &*v) } {
-            d.draw(
-                &mut self.memory,
-                &mut self.display.displays[to.0].as_mut(),
-                &mut state,
-            );
+        let (ref mut img, ref mut state) = &mut self.display.displays[to.0];
+        while let Some(d) = self.display.buffer.pop_front() {
+            use crate::instructions::draw::Apply;
+            d.apply(img.as_mut(), state);
         }
     }
 
@@ -217,7 +224,7 @@ pub struct Output<W: Write> {
     /// Everything created by a `print` instruction.
     pub output: Option<W>,
     /// Logic displays that were drawn with `draw` instructions.
-    pub displays: Box<[Image<Vec<u8>, 4>]>,
+    pub displays: Box<[(Image<Vec<u8>, 4>, DisplayState)]>,
     /// Memory banks, written to with the `write`/`read` instructions
     pub cells: Box<[[f64; CELL_SIZE]]>,
     /// Memory cells, written to with the `write`/`read` instructions
@@ -227,7 +234,7 @@ pub struct Output<W: Write> {
 impl<'s, W: Write> Executor<'s, W> {
     /// Consume this executor, returning all output.
     pub fn output(mut self) -> Output<W> {
-        for display in &mut *self.inner.display.displays {
+        for (display, _) in &mut *self.inner.display.displays {
             // TODO make the instructions draw flipped-ly
             display.flip_v();
         }
@@ -256,7 +263,7 @@ impl<'s, W: Write> Executor<'s, W> {
                 i.run(&mut self.inner)
             }
             PInstr::Draw(i) => {
-                self.inner.display.buffer(i);
+                self.inner.buffer(i);
                 Flow::Continue
             }
             _ => Flow::Continue,

@@ -2,8 +2,8 @@ use fimg::Image;
 use std::{collections::VecDeque, io::Write as Wr};
 
 use super::{
-    Display, Drawing, Executor, ExecutorContext, Instruction, Limit, Memory, PInstr, UPInstr,
-    BANK_SIZE, CELL_SIZE,
+    Display, DisplayState, Drawing, Executor, ExecutorContext, Instruction, Limit, Memory, PInstr,
+    UPInstr, BANK_SIZE, CELL_SIZE,
 };
 use crate::{
     code::Code,
@@ -15,7 +15,7 @@ use crate::{
 
 /// for internal use by [parser](crate::parser) only
 pub struct ExecutorBuilderInternal<'v, W: Wr> {
-    displays: Vec<Image<Vec<u8>, 4>>,
+    displays: Box<[(Image<Vec<u8>, 4>, DisplayState)]>,
     pub(crate) program: Vec<UPInstr<'v>>,
     output: Option<W>,
     banks: Vec<f64>,
@@ -30,7 +30,10 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
     pub(crate) fn new(w: Option<W>, d: Vec<Image<Vec<u8>, 4>>) -> Self {
         Self {
             output: w,
-            displays: d,
+            displays: d
+                .into_iter()
+                .map(|d| (d, DisplayState::default()))
+                .collect(),
             program: vec![],
             banks: vec![],
             cells: vec![],

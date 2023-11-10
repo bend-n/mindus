@@ -18,6 +18,7 @@ rust-fuzzy-search = { version = "0.1.1", optional = true }
 beef = "0.5"
 lerr = { version = "0.1.5", optional = true }
 comat = { version = "0.1.2", optional = true }
+vecto = "0.1.1"
 
 [features]
 bin = ["fimg/save", "diagnose"]

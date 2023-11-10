@@ -19,7 +19,7 @@ mod mop;
 mod mop2;
 
 pub use cop::ConditionOp;
-pub use draw::{DrawInstr, DrawInstruction};
+pub use draw::{DrawInstr, Frozen};
 use enum_dispatch::enum_dispatch;
 pub use mop::MathOp1;
 pub use mop2::MathOp2;

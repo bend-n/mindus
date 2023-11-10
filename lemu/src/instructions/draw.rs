@@ -6,34 +6,91 @@ use crate::{
 };
 use enum_dispatch::enum_dispatch;
 use fimg::Image;
-use std::fmt;
+use std::fmt::{self, Display as Disp};
+use vecto::Vec2;
 
 pub const INSTRS: &[&str] = &[
     "clear", "color", "col", "stroke", "line", "rect", "lineRect", "triangle", "poly", "linePoly",
 ];
 
 #[enum_dispatch]
-pub trait DrawInstruction: Printable {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    );
+pub trait Apply: Disp {
+    fn apply(self, image: Image<&mut [u8], 4>, state: &mut DisplayState);
 }
 
-#[derive(Debug, Copy, Clone)]
-#[enum_dispatch(DrawInstruction)]
-pub enum DrawInstr {
-    Line(Line),
-    RectBordered(RectBordered),
-    RectFilled(RectFilled),
-    Triangle(Triangle),
-    Clear(Clear),
-    SetColor(SetColor),
-    SetStroke(SetStroke),
-    Poly(Poly),
-    LinePoly(LinePoly),
+#[derive(Debug)]
+#[enum_dispatch(Apply)]
+pub enum Drawn {
+    Line(LineD),
+    RectBordered(RectBorderedD),
+    RectFilled(RectFilledD),
+    Triangle(TriangleD),
+    Clear(ClearD),
+    SetColor(SetColorD),
+    SetStroke(SetStrokeD),
+    Poly(PolyD),
+    LinePoly(LinePolyD),
+}
+
+impl std::fmt::Display for Drawn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Line(i) => write!(f, "{i}"),
+            Self::RectBordered(i) => write!(f, "{i}"),
+            Self::RectFilled(i) => write!(f, "{i}"),
+            Self::Triangle(i) => write!(f, "{i}"),
+            Self::Clear(i) => write!(f, "{i}"),
+            Self::SetColor(i) => write!(f, "{i}"),
+            Self::SetStroke(i) => write!(f, "{i}"),
+            Self::Poly(i) => write!(f, "{i}"),
+            Self::LinePoly(i) => write!(f, "{i}"),
+        }
+    }
+}
+
+pub trait Frozen<A: Apply>: Printable {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<A>;
+}
+
+macro_rules! dinstr {
+    [$($x:ident),+] => {
+        #[derive(Debug, Copy, Clone)]
+        pub enum DrawInstr {
+            $($x($x),)+
+        }
+
+        $(impl From<$x> for DrawInstr {
+            fn from(v: $x) -> Self { Self::$x(v) }
+        })+
+    }
+}
+
+dinstr! {
+    Line,
+    RectBordered,
+    RectFilled,
+    Triangle,
+    Clear,
+    SetColor,
+    SetStroke,
+    Poly,
+    LinePoly
+}
+
+impl Frozen<Drawn> for DrawInstr {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<Drawn> {
+        Some(match self {
+            Self::Line(i) => Drawn::from(i.freeze(mem)?),
+            Self::RectBordered(i) => Drawn::from(i.freeze(mem)?),
+            Self::RectFilled(i) => Drawn::from(i.freeze(mem)?),
+            Self::Triangle(i) => Drawn::from(i.freeze(mem)?),
+            Self::Clear(i) => Drawn::from(i.freeze(mem)?),
+            Self::SetColor(i) => Drawn::from(i.freeze(mem)?),
+            Self::SetStroke(i) => Drawn::from(i.freeze(mem)?),
+            Self::Poly(i) => Drawn::from(i.freeze(mem)?),
+            Self::LinePoly(i) => Drawn::from(i.freeze(mem)?),
+        })
+    }
 }
 
 impl Printable for DrawInstr {
@@ -60,25 +117,28 @@ pub struct Clear {
     pub b: LAddress,
 }
 
-impl DrawInstruction for Clear {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        _: &mut DisplayState,
-    ) {
+#[derive(Debug, Copy, Clone)]
+pub struct ClearD(u8, u8, u8);
+
+impl Apply for ClearD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, _: &mut DisplayState) {
+        for [r2, g2, b2, a2] in image.chunked_mut() {
+            (*r2, *b2, *g2, *a2) = (self.0, self.1, self.2, 255);
+        }
+    }
+}
+
+impl Frozen<ClearD> for Clear {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<ClearD> {
         macro_rules! u8 {
             ($v:ident) => {
                 match mem.get(self.$v) {
                     LVar::Num(n) => n.round() as u8,
-                    _ => return,
+                    _ => return None,
                 }
             };
         }
-        let (r, g, b) = (u8!(r), u8!(g), u8!(b));
-        for [r2, g2, b2, a2] in image.chunked_mut() {
-            (*r2, *b2, *g2, *a2) = (r, g, b, 255);
-        }
+        Some(ClearD(u8!(r), u8!(g), u8!(b)))
     }
 }
 
@@ -92,6 +152,21 @@ impl Printable for Clear {
     }
 }
 
+impl Disp for ClearD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "draw clear {} {} {}", self.0, self.1, self.2)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct SetColorD((u8, u8, u8, u8));
+
+impl Apply for SetColorD {
+    fn apply(self, _: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        state.color = self.0;
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 
 pub struct SetColor {
@@ -100,22 +175,18 @@ pub struct SetColor {
     pub b: LAddress,
     pub a: LAddress,
 }
-impl DrawInstruction for SetColor {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        _: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
+
+impl Frozen<SetColorD> for SetColor {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<SetColorD> {
         macro_rules! u8 {
             ($v:ident) => {
                 match mem.get(self.$v) {
                     LVar::Num(n) => n.round() as u8,
-                    _ => return,
+                    _ => return None,
                 }
             };
         }
-        state.color = (u8!(r), u8!(g), u8!(b), u8!(a));
+        Some(SetColorD((u8!(r), u8!(g), u8!(b), u8!(a))))
     }
 }
 
@@ -129,21 +200,40 @@ impl Printable for SetColor {
     }
 }
 
+impl Disp for SetColorD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw color {} {} {} {}",
+            self.0.0, self.0.1, self.0.2, self.0.3
+        )
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 
 pub struct SetStroke {
     pub size: LAddress,
 }
-impl DrawInstruction for SetStroke {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        _: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        if let &LVar::Num(n) = mem.get(self.size) {
-            state.stroke = n;
-        }
+
+#[derive(Debug, Copy, Clone)]
+pub struct SetStrokeD(f64);
+
+impl Apply for SetStrokeD {
+    fn apply(self, _: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        state.stroke = self.0;
+    }
+}
+
+impl Frozen<SetStrokeD> for SetStroke {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<SetStrokeD> {
+        mem.get(self.size).num().map(SetStrokeD)
+    }
+}
+
+impl Disp for SetStrokeD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "draw stroke {}", self.0)
     }
 }
 
@@ -156,11 +246,9 @@ impl Printable for SetStroke {
 pub type Point = (LAddress, LAddress);
 #[rustfmt::skip]
 macro_rules! point {
-    ($mem:ident@$point:expr) => {{
-        let &LVar::Num(a) = $mem.get($point.0) else { return };
-        let &LVar::Num(b) = $mem.get($point.1) else { return };
-        (a,b)
-    }}
+    ($mem:ident@$point:expr) => {
+        ($mem.get($point.0).num()?, $mem.get($point.1).num()?)
+    }
 }
 
 macro_rules! map {
@@ -176,16 +264,31 @@ pub struct Line {
     pub point_b: Point,
 }
 
-impl DrawInstruction for Line {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        let a = map!(point!(mem@self.point_a), |n| n as f32);
-        let b = map!(point!(mem@self.point_b), |n| n as f32);
-        image.thick_line(a, b, state.stroke as f32, state.col());
+#[derive(Debug)]
+pub struct LineD(Vec2, Vec2);
+
+impl Apply for LineD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        image.thick_line(self.0, self.1, state.stroke as f32, state.col());
+    }
+}
+
+impl Frozen<LineD> for Line {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<LineD> {
+        Some(LineD(
+            map!(point!(mem@self.point_a), |n| n as f32).into(),
+            map!(point!(mem@self.point_b), |n| n as f32).into(),
+        ))
+    }
+}
+
+impl Disp for LineD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw line {} {} {} {}",
+            self.0.x, self.0.y, self.1.x, self.1.y
+        )
     }
 }
 
@@ -207,17 +310,34 @@ pub struct RectFilled {
     pub height: LAddress,
 }
 
-impl DrawInstruction for RectFilled {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(self.width)) as u32;
-        let height = get_num!(mem.get(self.height)) as u32;
-        image.filled_box(pos, width, height, state.col());
+#[derive(Debug)]
+pub struct RectFilledD((u32, u32), (u32, u32));
+
+impl Apply for RectFilledD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        image.filled_box(self.0, self.1.0, self.1.1, state.col());
+    }
+}
+
+impl Frozen<RectFilledD> for RectFilled {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<RectFilledD> {
+        Some(RectFilledD(
+            map!(point!(mem@self.position), |n| n as u32),
+            (
+                get_num!(mem.get(self.width)) as u32,
+                get_num!(mem.get(self.height)) as u32,
+            ),
+        ))
+    }
+}
+
+impl Disp for RectFilledD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw rect {} {} {} {}",
+            self.0.0, self.0.1, self.1.0, self.1.1
+        )
     }
 }
 
@@ -239,6 +359,16 @@ pub struct RectBordered {
     pub height: LAddress,
 }
 
+impl Disp for RectBorderedD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw lineRect {} {} {} {}",
+            self.0.0, self.0.1, self.1.0, self.1.1
+        )
+    }
+}
+
 impl Printable for RectBordered {
     fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
@@ -249,17 +379,30 @@ impl Printable for RectBordered {
     }
 }
 
-impl DrawInstruction for RectBordered {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        let pos = map!(point!(mem@self.position), |n| n as u32);
-        let width = get_num!(mem.get(self.width)) as u32;
-        let height = get_num!(mem.get(self.height)) as u32;
-        image.stroked_box(pos, width, height, state.stroke.round() as u32, state.col());
+#[derive(Debug)]
+pub struct RectBorderedD((u32, u32), (u32, u32));
+
+impl Apply for RectBorderedD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        image.stroked_box(
+            self.0,
+            self.1.0,
+            self.1.1,
+            state.stroke.round() as u32,
+            state.col(),
+        );
+    }
+}
+
+impl Frozen<RectBorderedD> for RectBordered {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<RectBorderedD> {
+        Some(RectBorderedD(
+            map!(point!(mem@self.position), |n| n as u32),
+            (
+                get_num!(mem.get(self.width)) as u32,
+                get_num!(mem.get(self.height)) as u32,
+            ),
+        ))
     }
 }
 
@@ -268,22 +411,36 @@ impl DrawInstruction for RectBordered {
 pub struct Triangle {
     pub points: (Point, Point, Point),
 }
-impl DrawInstruction for Triangle {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        i: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        let to32 = |n| n as f32;
-        let (a, b, c) = (
-            map!(point!(mem@self.points.0), to32),
-            map!(point!(mem@self.points.1), to32),
-            map!(point!(mem@self.points.2), to32),
-        );
-        i.tri::<f32>(a, b, c, state.col());
+
+#[derive(Debug)]
+pub struct TriangleD(Vec2, Vec2, Vec2);
+
+impl Apply for TriangleD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        image.tri::<f32>(self.0, self.1, self.2, state.col());
     }
 }
+
+impl Frozen<TriangleD> for Triangle {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<TriangleD> {
+        Some(TriangleD(
+            map!(point!(mem@self.points.0), |n| n as f32).into(),
+            map!(point!(mem@self.points.1), |n| n as f32).into(),
+            map!(point!(mem@self.points.2), |n| n as f32).into(),
+        ))
+    }
+}
+
+impl Disp for TriangleD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw triangle {} {} {} {} {} {}",
+            self.0.x, self.0.y, self.1.x, self.1.y, self.2.x, self.2.y
+        )
+    }
+}
+
 impl Printable for Triangle {
     fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(
@@ -308,28 +465,49 @@ pub struct Poly {
     pub(crate) rot: LAddress,
 }
 
-impl DrawInstruction for Poly {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
+#[derive(Debug)]
+pub enum PolyD {
+    Poly(Vec2, usize, f32, f32),
+    Circle((i32, i32), i32),
+}
+
+impl Apply for PolyD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        match self {
+            PolyD::Poly(pos, sides, radius, rotation) => {
+                image.poly(pos, sides, radius, rotation, state.col())
+            }
+            PolyD::Circle(pos, radius) => image.circle(pos, radius, state.col()),
+        }
+    }
+}
+
+impl Frozen<PolyD> for Poly {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<PolyD> {
         let sides = get_num!(mem.get(self.sides)).round() as usize;
-        if sides < 90 {
-            image.poly(
-                map!(point!(mem@self.pos), |n| n as f32),
+        Some(if sides < 90 {
+            PolyD::Poly(
+                map!(point!(mem@self.pos), |n| n as f32).into(),
                 sides,
                 get_num!(mem.get(self.radius)) as f32,
                 get_num!(mem.get(self.rot)) as f32,
-                state.col(),
-            );
+            )
         } else {
-            image.circle(
+            PolyD::Circle(
                 map!(point!(mem@self.pos), |n: f64| n.round() as i32),
                 get_num!(mem.get(self.radius)).round() as i32,
-                state.col(),
-            );
+            )
+        })
+    }
+}
+
+impl Disp for PolyD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PolyD::Poly(Vec2 { x, y }, sides, radius, rot) => {
+                write!(f, "draw poly {x} {y} {sides} {radius} {rot}")
+            }
+            PolyD::Circle((x, y), sides) => write!(f, "draw poly {x} {y} {sides}"),
         }
     }
 }
@@ -353,30 +531,41 @@ pub struct LinePoly {
     pub(crate) rot: LAddress,
 }
 
-impl DrawInstruction for LinePoly {
-    fn draw(
-        &self,
-        mem: &mut LRegistry<'_>,
-        image: &mut Image<&mut [u8], 4>,
-        state: &mut DisplayState,
-    ) {
-        let sides = get_num!(mem.get(self.sides)).round() as usize;
-        if sides < 90 {
-            image.border_poly(
-                map!(point!(mem@self.pos), |n| n as f32),
-                sides,
-                get_num!(mem.get(self.radius)) as f32,
-                get_num!(mem.get(self.rot)) as f32,
-                state.stroke as f32,
-                state.col(),
-            );
-        } else {
-            image.border_circle(
-                map!(point!(mem@self.pos), |n: f64| n.round() as i32),
-                get_num!(mem.get(self.radius)).round() as i32,
-                state.col(),
-            );
-        }
+#[derive(Debug)]
+/// border_Circle doesnt let you specify a stroke
+pub struct LinePolyD(Vec2, usize, f32, f32);
+
+impl Apply for LinePolyD {
+    fn apply(self, mut image: Image<&mut [u8], 4>, state: &mut DisplayState) {
+        image.border_poly(
+            self.0,
+            self.1,
+            self.2,
+            self.3,
+            state.stroke as f32,
+            state.col(),
+        )
+    }
+}
+
+impl Frozen<LinePolyD> for LinePoly {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<LinePolyD> {
+        Some(LinePolyD(
+            map!(point!(mem@self.pos), |n| n as f32).into(),
+            get_num!(mem.get(self.sides)).round() as usize,
+            get_num!(mem.get(self.radius)) as f32,
+            get_num!(mem.get(self.rot)) as f32,
+        ))
+    }
+}
+
+impl Disp for LinePolyD {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "draw linePoly {} {} {} {} {}",
+            self.0.x, self.0.y, self.1, self.2, self.3
+        )
     }
 }
 
