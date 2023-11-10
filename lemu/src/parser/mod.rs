@@ -226,6 +226,17 @@ pub fn parse<'source, W: Wr>(
             }
         }};
     }
+    macro_rules! num_or_255 {
+        ($tok:expr) => {
+            match $tok {
+                Ok(t) => match take_numvar!(t) {
+                    Err(_) => push!(const 255),
+                    n => n,
+                },
+                Err(_) => push!(const 255),
+            }
+        }
+    }
     while let Some(token) = tokens.next() {
         match token {
             // # omg
@@ -356,11 +367,11 @@ pub fn parse<'source, W: Wr>(
                 macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
                 match instr {
                     "clear" => {
-                        let (r, g, b) = three! { take_numvar!(tok!()?)? };
+                        let (r, g, b) = three! { num_or_255!(tok!())? };
                         executor.draw(Clear { r, g, b });
                     }
                     "color" => {
-                        let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
+                        let (r, g, b, a) = four! { num_or_255!(tok!())? };
                         executor.draw(SetColor { r, g, b, a });
                     }
                     "col" => {
