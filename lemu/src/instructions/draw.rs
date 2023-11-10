@@ -272,7 +272,7 @@ impl DrawInstruction for Triangle {
             map!(point!(mem@self.points.1), to32),
             map!(point!(mem@self.points.2), to32),
         );
-        i.tri(a, b, c, state.col());
+        i.tri::<f32>(a, b, c, state.col());
     }
 }
 impl Disp for Triangle {
