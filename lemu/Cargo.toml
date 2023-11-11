@@ -21,6 +21,7 @@ comat = { version = "0.1.2", optional = true }
 vecto = "0.1.1"
 
 [features]
+debug = ["comat"]
 bin = ["fimg/save", "diagnose"]
 diagnose = ["rust-fuzzy-search", "lerr", "comat"]
 default = ["bin"]

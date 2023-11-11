@@ -191,6 +191,8 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
         let (ref mut img, ref mut state) = &mut self.display.displays[to.0];
         while let Some(d) = self.display.buffer.pop_front() {
             use crate::instructions::draw::Apply;
+            #[cfg(feature = "debug")]
+            comat::cprintln!("{d:blue}");
             d.apply(img.as_mut(), state);
         }
     }
@@ -253,13 +255,18 @@ impl<'s, W: Write> Executor<'s, W> {
         // SAFETY: yee
         match unsafe { self.program.get_unchecked(self.inner.counter) } {
             PInstr::Instr(i) => {
-                /*
-                let mut instr = String::new();
-                i.print(&self.debug_info, &mut instr).unwrap();
-                let mut mem = String::new();
-                self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
-                println!("exec '{instr}' ({mem})");
-                */
+                #[cfg(feature = "debug")]
+                {
+                    let mut instr = String::new();
+                    i.print(&self.debug_info, &mut instr).unwrap();
+                    let mut mem = String::new();
+                    self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
+                    comat::cprintln!(
+                        "{black}{:0<2} | {green}{instr} {black}({mem}){reset}",
+                        self.inner.counter
+                    );
+                }
+
                 i.run(&mut self.inner)
             }
             PInstr::Draw(i) => {

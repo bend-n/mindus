@@ -62,7 +62,7 @@ impl std::fmt::Debug for LAddress {
 impl std::fmt::Display for LVar<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Num(n) => write!(f, "{n:.4}"), // yeeeeahhhh
+            Self::Num(n) => write!(f, "{}", crate::debug::ff(*n)), // yeeeeahhhh
             Self::String(s) => write!(f, r#""{s}""#),
         }
     }
