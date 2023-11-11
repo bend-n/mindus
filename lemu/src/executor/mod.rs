@@ -158,6 +158,7 @@ pub struct ExecutorContext<'strings, W: Write> {
 }
 
 /// State of a display.
+#[derive(Debug)]
 pub struct DisplayState {
     /// Color to draw
     pub color: (u8, u8, u8, u8),

@@ -1,6 +1,6 @@
 [package]
 name = "lemu"
-version = "0.2.15"
+version = "0.2.17"
 edition = "2021"
 description = "M-LOG runner"
 authors = ["bend-n <bend.n@outlook.com>"]
