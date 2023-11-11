@@ -94,8 +94,8 @@ pub fn parse<'source, W: Wr>(
     mut tokens: Lexer<'source>,
     executor: &mut ExecutorBuilderInternal<'source, W>,
 ) -> Result<(), Error<'source>> {
-    let mut used = 0u8;
-    let mut mem: [Option<&str>; 255] = [None; 255]; // maps &str to usize 
+    let mut used = 0u16;
+    let mut mem: Box<[Option<&str>; 65536]> = vec![None; 65536].try_into().unwrap(); // maps &str to usize 
     macro_rules! push {
         // push a ident
         ($var:expr) => {{

@@ -29,7 +29,7 @@ impl LVar<'_> {
         LVar::Num(0.0)
     }
 
-    pub fn num(&self) -> Option<f64> {
+    pub const fn num(&self) -> Option<f64> {
         match *self {
             Self::Num(n) => Some(n),
             Self::String(_) => None,
@@ -39,11 +39,11 @@ impl LVar<'_> {
 
 #[derive(Clone, Copy)]
 pub struct LAddress {
-    pub address: u8,
+    pub address: u16,
 }
 
 impl LAddress {
-    pub(crate) const fn addr(address: u8) -> Self {
+    pub(crate) const fn addr(address: u16) -> Self {
         LAddress { address }
     }
 }
@@ -98,9 +98,9 @@ impl<'s> From<Cow<'s, str>> for LVar<'s> {
     }
 }
 
-/// cleared every loop
+/// whats a megabyte among friends
 #[derive(Debug)]
-pub struct LRegistry<'str>(pub [LVar<'str>; 255]);
+pub struct LRegistry<'str>(pub Box<[LVar<'str>; 65536]>);
 
 impl<'s> std::ops::Index<LAddress> for LRegistry<'s> {
     type Output = LVar<'s>;
@@ -118,7 +118,7 @@ impl<'s> std::ops::IndexMut<LAddress> for LRegistry<'s> {
 
 impl<'s> Default for LRegistry<'s> {
     fn default() -> Self {
-        Self([const { LVar::null() }; 255])
+        Self(vec![LVar::null(); 65536].try_into().unwrap())
     }
 }
 
@@ -156,7 +156,7 @@ impl Printable for LRegistry<'_> {
         let mut iter = self
             .0
             .iter()
-            .zip(0..u8::MAX)
+            .zip(0..u16::MAX)
             .filter(|&(v, _)| v != &LVar::null())
             .map(|(v, i)| (&info[LAddress::addr(i)], v))
             .filter_map(|(d, v)| match d {

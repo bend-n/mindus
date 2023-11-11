@@ -144,7 +144,7 @@ pub enum Error<'s> {
     ///     .display();
     /// ```
     NoDisplay(usize, Span),
-    /// We have a limit of [`u8::MAX`] variables.
+    /// We have a limit of [`u16::MAX`] variables.
     #[error("too many variables")]
     TooManyVariables(Span),
 }

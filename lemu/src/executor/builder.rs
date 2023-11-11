@@ -147,7 +147,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 counter: 0,
                 iterations: 0,
                 display: Drawing {
-                    displays: displays.into(),
+                    displays,
                     buffer: VecDeque::new(),
                 },
                 output,
