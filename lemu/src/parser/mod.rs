@@ -4,6 +4,7 @@ mod error;
 pub use error::Error;
 
 use super::{
+    debug::info::{VarData, VarInfo},
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         draw::{
@@ -94,29 +95,37 @@ pub fn parse<'source, W: Wr>(
     mut tokens: Lexer<'source>,
     executor: &mut ExecutorBuilderInternal<'source, W>,
 ) -> Result<(), Error<'source>> {
-    let mut used = 0u16;
-    let mut mem: Box<[Option<&str>; 65536]> = vec![None; 65536].try_into().unwrap(); // maps &str to usize 
+    let mut used = 0u32;
+    let mut mem: Vec<Option<&str>> = Vec::with_capacity(64); // maps &str to usize 
+    let mut dbg_info: Vec<VarInfo> = Vec::with_capacity(64);
     macro_rules! push {
         // push a ident
         ($var:expr) => {{
             let v = $var;
-            executor.debug_info.set_var(used, v, tokens.span());
-            mem[used as usize] = Some(v);
+            dbg_info.push(VarInfo {
+                data: VarData::Variable(v),
+                span: tokens.span(),
+            });
+            executor.mem.push(LVar::null());
+            mem.push(Some(v));
             used = used
                 .checked_add(1)
                 .ok_or(Error::TooManyVariables(tokens.span()))?;
-            Ok(LAddress::addr(used - 1))
+            // SAFETY: just initialized executor.mem
+            unsafe { Ok(LAddress::addr(used - 1)) }
         }};
         (const $var:expr) => {{
             let v = $var;
-            executor
-                .debug_info
-                .set_const(used, v.clone(), tokens.span());
-            executor.mem[LAddress::addr(used)] = LVar::from(v);
+            dbg_info.push(VarInfo {
+                data: VarData::Constant(v.clone().into()),
+                span: tokens.span(),
+            });
+            executor.mem.push(LVar::from(v));
+            mem.push(None);
             used = used
                 .checked_add(1)
                 .ok_or(Error::TooManyVariables(tokens.span()))?;
-            Ok(LAddress::addr(used - 1))
+            unsafe { Ok(LAddress::addr(used - 1)) }
         }};
     }
     macro_rules! addr {
@@ -128,7 +137,7 @@ pub fn parse<'source, W: Wr>(
                 .find(|(&v, _)| v == Some(val))
                 .map(|(_, i)| i)
             {
-                Some(n) => Ok(LAddress::addr(n)),
+                Some(n) => unsafe { Ok(LAddress::addr(n)) },
                 None => push!(val),
             }
         }};
@@ -331,7 +340,8 @@ pub fn parse<'source, W: Wr>(
                 let set = take_numvar!(tok!()?)?;
                 let container = take_memory!();
                 let index = take_numvar!(tok!()?)?;
-                if let LVar::Num(v) = executor.mem[index]
+                // this is the parser so i wont bother getting unchecked
+                if let LVar::Num(v) = executor.mem[index.address as usize]
                     && !container.fits(v.round() as usize)
                 {
                     yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
@@ -347,7 +357,7 @@ pub fn parse<'source, W: Wr>(
                 let output = take_var!(tok!()?)?;
                 let container = take_memory!();
                 let index = take_numvar!(tok!()?)?;
-                if let LVar::Num(v) = executor.mem[index]
+                if let LVar::Num(v) = executor.mem[index.address as usize]
                     && !container.fits(v.round() as usize)
                 {
                     yeet!(IndexOutOfBounds(v.round() as usize, container.size()));
@@ -822,6 +832,8 @@ pub fn parse<'source, W: Wr>(
             *proglen = len;
         }
     }
+
+    executor.debug_info.variables = dbg_info.into();
 
     Ok(())
 }

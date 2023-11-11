@@ -39,11 +39,14 @@ impl LVar<'_> {
 
 #[derive(Clone, Copy)]
 pub struct LAddress {
-    pub address: u16,
+    pub address: u32,
 }
 
 impl LAddress {
-    pub(crate) const fn addr(address: u16) -> Self {
+    /// # Safety
+    ///
+    /// ensure that address is valid
+    pub(crate) const unsafe fn addr(address: u32) -> Self {
         LAddress { address }
     }
 }
@@ -98,27 +101,27 @@ impl<'s> From<Cow<'s, str>> for LVar<'s> {
     }
 }
 
-/// whats a megabyte among friends
 #[derive(Debug)]
-pub struct LRegistry<'str>(pub Box<[LVar<'str>; 65536]>);
+pub struct LRegistry<'str>(pub Box<[LVar<'str>]>);
 
 impl<'s> std::ops::Index<LAddress> for LRegistry<'s> {
     type Output = LVar<'s>;
 
     fn index(&self, index: LAddress) -> &Self::Output {
-        &self.0[index.address as usize]
+        debug_assert!((index.address as usize) < self.0.len());
+        // SAFETY: LAddress promises to be in our bounds.
+        // lreg has no constructors, so unless you keep one around, grab a laddr, and use it on the old lreg,
+        // this is safeish.
+        // lreg is private to the outside world, so its ok
+        unsafe { self.0.get_unchecked(index.address as usize) }
     }
 }
 
 impl<'s> std::ops::IndexMut<LAddress> for LRegistry<'s> {
     fn index_mut(&mut self, index: LAddress) -> &mut Self::Output {
-        &mut self.0[index.address as usize]
-    }
-}
-
-impl<'s> Default for LRegistry<'s> {
-    fn default() -> Self {
-        Self(vec![LVar::null(); 65536].try_into().unwrap())
+        debug_assert!((index.address as usize) < self.0.len());
+        // SAFETY: see above
+        unsafe { self.0.get_unchecked_mut(index.address as usize) }
     }
 }
 
@@ -156,9 +159,10 @@ impl Printable for LRegistry<'_> {
         let mut iter = self
             .0
             .iter()
-            .zip(0..u16::MAX)
+            .zip(0..self.0.len() as u32)
             .filter(|&(v, _)| v != &LVar::null())
-            .map(|(v, i)| (&info[LAddress::addr(i)], v))
+            // SAFETY: the address comes from me
+            .map(|(v, i)| (&info[unsafe { LAddress::addr(i) }], v))
             .filter_map(|(d, v)| match d {
                 VarData::Variable(d) => Some((*d, v)),
                 VarData::Constant(_) => None,

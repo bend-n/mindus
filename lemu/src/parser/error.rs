@@ -144,7 +144,7 @@ pub enum Error<'s> {
     ///     .display();
     /// ```
     NoDisplay(usize, Span),
-    /// We have a limit of [`u16::MAX`] variables.
+    /// We have a limit of [`u32::MAX`] variables.
     #[error("too many variables")]
     TooManyVariables(Span),
 }
@@ -433,7 +433,7 @@ impl Error<'_> {
             }
             Self::TooManyVariables(s) => {
                 msg!("{error}: {bold_red}too many variables{reset}. ")
-                    .label((s, cmt!("we only have 255 variable slots")))
+                    .label((s, cmt!("we only have 65536 variable slots")))
                     .note(cmt!("consider not using variables"));
             }
         };

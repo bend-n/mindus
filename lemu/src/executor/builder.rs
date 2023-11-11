@@ -10,7 +10,7 @@ use crate::{
     debug::info::DebugInfo,
     instructions::{DrawInstr, Instr},
     lexer::Token,
-    memory::LRegistry,
+    memory::{LRegistry, LVar},
 };
 
 /// for internal use by [parser](crate::parser) only
@@ -22,7 +22,7 @@ pub struct ExecutorBuilderInternal<'v, W: Wr> {
     cells: Vec<f64>,
     iteration_limit: Limit,
     instruction_limit: Limit,
-    pub(crate) mem: LRegistry<'v>,
+    pub(crate) mem: Vec<LVar<'v>>,
     pub(crate) debug_info: DebugInfo<'v>,
 }
 
@@ -39,7 +39,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             cells: vec![],
             iteration_limit: Limit::limited(1),
             instruction_limit: Limit::Unlimited,
-            mem: LRegistry::default(),
+            mem: Vec::with_capacity(64),
             debug_info: DebugInfo::default(),
         }
     }
@@ -143,7 +143,7 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
             inner: ExecutorContext {
                 cells: cst::<CELL_SIZE>(cells),
                 banks: cst::<BANK_SIZE>(banks),
-                memory: mem,
+                memory: LRegistry(mem.into()),
                 counter: 0,
                 iterations: 0,
                 display: Drawing {

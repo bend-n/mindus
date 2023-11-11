@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub struct DebugInfo<'s> {
-    variables: Box<[Option<VarInfo<'s>>; 65536]>,
+    pub variables: Box<[VarInfo<'s>]>,
     /// maps "start" to 0
     pub labels: Vec<(&'s str, Instruction)>,
 }
@@ -14,7 +14,7 @@ pub struct DebugInfo<'s> {
 impl<'s> Default for DebugInfo<'s> {
     fn default() -> Self {
         Self {
-            variables: vec![None; 65536].try_into().unwrap(),
+            variables: vec![].into(),
             labels: vec![],
         }
     }
@@ -30,31 +30,12 @@ impl<'s> std::ops::Index<LAddress> for DebugInfo<'s> {
     type Output = VarData<'s>;
 
     fn index(&self, index: LAddress) -> &Self::Output {
-        &self.variables[index.address as usize]
-            .as_ref()
-            .unwrap()
-            .data
-    }
-}
-
-impl<'s> DebugInfo<'s> {
-    pub fn set_var(&mut self, at: u16, name: &'s str, span: Range<usize>) {
-        self.variables[at as usize] = Some(VarInfo {
-            data: VarData::Variable(name),
-            span,
-        });
-    }
-
-    pub fn set_const(&mut self, at: u16, var: impl Into<LVar<'s>>, span: Range<usize>) {
-        self.variables[at as usize] = Some(VarInfo {
-            data: VarData::Constant(var.into()),
-            span,
-        });
+        &self.variables[index.address as usize].data
     }
 }
 
 #[derive(Clone, Debug)]
-struct VarInfo<'s> {
+pub struct VarInfo<'s> {
     pub data: VarData<'s>,
     #[allow(dead_code)]
     pub span: Range<usize>,
