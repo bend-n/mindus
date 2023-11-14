@@ -182,12 +182,6 @@ impl Default for DisplayState {
 }
 
 impl<'s, W: Write> ExecutorContext<'s, W> {
-    pub fn buffer(&mut self, instr: &DrawInstr) {
-        if let Some(i) = instr.freeze(&self.memory) {
-            self.display.buffer(i)
-        }
-    }
-
     pub fn flush(&mut self, to: Display) {
         let (ref mut img, ref mut state) = &mut self.display.displays[to.0];
         while let Some(d) = self.display.buffer.pop_front() {
@@ -271,7 +265,18 @@ impl<'s, W: Write> Executor<'s, W> {
                 i.run(&mut self.inner)
             }
             PInstr::Draw(i) => {
-                self.inner.buffer(i);
+                if let Some(i) = i.freeze(&self.inner.memory) {
+                    #[cfg(feature = "debug")]
+                    {
+                        let mut mem = String::new();
+                        self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
+                        comat::cprintln!(
+                            "{black}{:0<2} | {magenta}{i} {black}({mem}){reset}",
+                            self.inner.counter
+                        );
+                    }
+                    self.inner.display.buffer(i)
+                }
                 Flow::Continue
             }
             _ => Flow::Continue,
