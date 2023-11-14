@@ -47,6 +47,7 @@ instrs! {
     "set" => Set,
     "op" => Op,
     "end" => End,
+    "packcolor" => PackColor,
     "drawflush" => DrawFlush,
     "draw" => Draw,
     "print" => Print,

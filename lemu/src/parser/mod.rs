@@ -3,6 +3,15 @@ use std::io::Write as Wr;
 mod error;
 pub use error::Error;
 
+#[rustfmt::skip]
+macro_rules! three { ($a:expr) => { ($a, $a, $a) }; }
+#[rustfmt::skip]
+macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
+#[rustfmt::skip]
+macro_rules! five { ($a:expr) => { ($a, $a, $a, $a, $a) }; }
+#[rustfmt::skip]
+macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
+
 use super::{
     debug::info::{VarData, VarInfo},
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
@@ -12,7 +21,8 @@ use super::{
             SetStroke, Triangle,
         },
         io::{Print, Read, Write},
-        AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
+        AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, PackColor,
+        Set, Stop,
     },
     lexer::{Lexer, Token},
     memory::{LAddress, LVar},
@@ -22,6 +32,7 @@ macro_rules! tokstr {
     ($tok:expr) => {
         match $tok {
             Token::Ident(i) => Some(i),
+            Token::PackColor => Some("packcolor"),
             Token::Null => Some("null"),
             Token::Read => Some("read"),
             Token::Write => Some("write"),
@@ -373,14 +384,6 @@ pub fn parse<'source, W: Wr>(
                 let Token::Ident(instr) = dty else {
                     yeet!(ExpectedIdent(dty));
                 };
-                #[rustfmt::skip]
-                macro_rules! three { ($a:expr) => { ($a, $a, $a) }; }
-                #[rustfmt::skip]
-                macro_rules! four { ($a:expr) => { ($a, $a, $a, $a) }; }
-                #[rustfmt::skip]
-                macro_rules! five { ($a:expr) => { ($a, $a, $a, $a, $a) }; }
-                #[rustfmt::skip]
-                macro_rules! six { ($a:expr) => { ($a, $a, $a, $a, $a, $a) }; }
                 match instr {
                     "clear" => {
                         let (r, g, b) = three! { num_or_255!(tok!())? };
@@ -448,6 +451,11 @@ pub fn parse<'source, W: Wr>(
                     // image is WONTFIX
                     i => yeet!(UnsupportedImageOp(i)),
                 }
+            }
+            Token::PackColor => {
+                let out = take_numvar!(tok!()?)?;
+                let (r, g, b, a) = four! { take_numvar!(tok!()?)? };
+                executor.add(PackColor { out, r, g, b, a });
             }
             Token::DrawFlush => {
                 let t = tok!();

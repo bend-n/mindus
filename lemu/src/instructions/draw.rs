@@ -102,27 +102,29 @@ pub struct Clear {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ClearD(u8, u8, u8);
+pub struct ClearD((u8, u8, u8));
 
 impl Apply for ClearD {
     fn apply(self, mut image: Image<&mut [u8], 4>, _: &mut DisplayState) {
+        let (r, g, b) = self.0;
         for [r2, g2, b2, a2] in image.chunked_mut() {
-            (*r2, *b2, *g2, *a2) = (self.0, self.1, self.2, 255);
+            (*r2, *b2, *g2, *a2) = (r, g, b, 255);
         }
     }
 }
 
+macro_rules! u8 {
+    ($self:ident, $mem:expr, $($v:ident)+) => {
+        ($(match $mem.get($self.$v) {
+            LVar::Num(n) => n.round() as u8,
+            _ => return None,
+        },)+)
+    };
+}
+
 impl Frozen<ClearD> for Clear {
     fn freeze(&self, mem: &LRegistry<'_>) -> Option<ClearD> {
-        macro_rules! u8 {
-            ($v:ident) => {
-                match mem.get(self.$v) {
-                    LVar::Num(n) => n.round() as u8,
-                    _ => return None,
-                }
-            };
-        }
-        Some(ClearD(u8!(r), u8!(g), u8!(b)))
+        Some(ClearD(u8!(self, mem, r g b)))
     }
 }
 
@@ -138,7 +140,7 @@ impl Printable for Clear {
 
 impl Disp for ClearD {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "draw clear {} {} {}", self.0, self.1, self.2)
+        write!(f, "draw clear {} {} {}", self.0.0, self.0.1, self.0.2)
     }
 }
 
@@ -162,15 +164,7 @@ pub struct SetColor {
 
 impl Frozen<SetColorD> for SetColor {
     fn freeze(&self, mem: &LRegistry<'_>) -> Option<SetColorD> {
-        macro_rules! u8 {
-            ($v:ident) => {
-                match mem.get(self.$v) {
-                    LVar::Num(n) => n.round() as u8,
-                    _ => return None,
-                }
-            };
-        }
-        Some(SetColorD((u8!(r), u8!(g), u8!(b), u8!(a))))
+        Some(SetColorD(u8!(self, mem, r g b a)))
     }
 }
 
@@ -204,13 +198,8 @@ impl Printable for SetCol {
 
 impl Frozen<SetColorD> for SetCol {
     fn freeze(&self, mem: &LRegistry<'_>) -> Option<SetColorD> {
-        let col = mem.get(self.col).num()? as u32;
-        Some(SetColorD((
-            (col & 0xff00_0000 >> 24) as u8,
-            (col & 0x00ff_0000 >> 16) as u8,
-            (col & 0x0000_ff00 >> 8) as u8,
-            (col & 0x0000_00ff) as u8,
-        )))
+        let [r, g, b, a] = fimg::Pack::unpack(mem.get(self.col).num()? as u32);
+        Some(SetColorD((r, g, b, a)))
     }
 }
 

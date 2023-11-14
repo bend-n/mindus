@@ -9,6 +9,7 @@
 //! read
 //! write
 //! print
+//! packcolor
 //!
 //! draw {color, col, flush, line, rect, lineRect, triangle, stroke, clear}
 //! ```
@@ -104,6 +105,7 @@ pub enum Instr {
     DynJump(DynJump),
     Print(io::Print),
     Stop(Stop),
+    PackColor(PackColor),
     End(End),
 }
 
@@ -122,6 +124,7 @@ impl Printable for Instr {
             Self::Print(i) => i.print(info, f),
             Self::Stop(i) => i.print(info, f),
             Self::End(i) => i.print(info, f),
+            Self::PackColor(i) => i.print(info, f),
         }
     }
 }
@@ -401,5 +404,40 @@ impl LInstruction for Stop {
 impl Printable for Stop {
     fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(f, "stop")
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PackColor {
+    pub out: LAddress,
+    pub r: LAddress,
+    pub g: LAddress,
+    pub b: LAddress,
+    pub a: LAddress,
+}
+
+impl LInstruction for PackColor {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
+        macro_rules! num {
+            ($($n:ident)+) => {
+                ($(match exec.memory[self.$n] {
+                    LVar::Num(n) => (n.clamp(0.0, 1.0) * 255.0) as u8,
+                    _ => 255,
+                },)+)
+            };
+        }
+        let (r, g, b, a) = num!(r g b a);
+        exec.memory[self.out] = LVar::from(fimg::Pack::pack(&[r, g, b, a]) as f64);
+        Flow::Continue
+    }
+}
+
+impl Printable for PackColor {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "packcolor {} {} {} {} {}",
+            info[self.out], info[self.r], info[self.g], info[self.b], info[self.a]
+        )
     }
 }

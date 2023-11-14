@@ -12,7 +12,7 @@ keywords = ["mindustry", "logic", "emulator", "executor"]
 [dependencies]
 thiserror = "1.0"
 enum_dispatch = "0.3"
-fimg = { version = "0.4.16", default-features = false }
+fimg = { version = "0.4.26", default-features = false }
 logos = "0.13.0"
 rust-fuzzy-search = { version = "0.1.1", optional = true }
 beef = "0.5"

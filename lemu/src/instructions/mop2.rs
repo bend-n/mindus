@@ -66,7 +66,7 @@ num!(and | a, b | a != 0.0 && b != 0.0);
 op!(add +);
 op!(sub -);
 op!(mul *);
-bop!(idiv /);
+num!(idiv | a: f64 , b: f64 | (a / b).floor());
 op!(lt <);
 op!(le <=);
 op!(gt >);
