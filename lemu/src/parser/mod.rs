@@ -8,8 +8,8 @@ use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         draw::{
-            Clear, Flush, Line, LinePoly, Poly, RectBordered, RectFilled, SetColor, SetStroke,
-            Triangle,
+            Clear, Flush, Line, LinePoly, Poly, RectBordered, RectFilled, SetCol, SetColor,
+            SetStroke, Triangle,
         },
         io::{Print, Read, Write},
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, Set, Stop,
@@ -391,18 +391,8 @@ pub fn parse<'source, W: Wr>(
                         executor.draw(SetColor { r, g, b, a });
                     }
                     "col" => {
-                        let col = take_int!(tok!()?)?;
-                        let r = col & 0xff00_0000 >> 24;
-                        let g = col & 0x00ff_0000 >> 16;
-                        let b = col & 0x0000_ff00 >> 8;
-                        let a = col & 0x0000_00ff;
-                        let i = SetColor {
-                            r: push!(const r)?,
-                            g: push!(const g)?,
-                            b: push!(const b)?,
-                            a: push!(const a)?,
-                        };
-                        executor.draw(i);
+                        let col = take_numvar!(tok!()?)?;
+                        executor.draw(SetCol { col });
                     }
                     "stroke" => {
                         let size = take_numvar!(tok!()?)?;

@@ -62,6 +62,21 @@ macro_rules! dinstr {
         $(impl From<$x> for DrawInstr {
             fn from(v: $x) -> Self { Self::$x(v) }
         })+
+
+        impl Frozen<Drawn> for DrawInstr {
+            fn freeze(&self, mem: &LRegistry<'_>) -> Option<Drawn> {
+                Some(match self {
+                    $(Self::$x(i) => Drawn::from(i.freeze(mem)?),)+
+                })
+            }
+        }
+        impl Printable for DrawInstr {
+            fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+                match self {
+                    $(Self::$x(i) => i.print(info, f)),+
+                }
+            }
+        }
     }
 }
 
@@ -72,41 +87,10 @@ dinstr! {
     Triangle,
     Clear,
     SetColor,
+    SetCol,
     SetStroke,
     Poly,
     LinePoly
-}
-
-impl Frozen<Drawn> for DrawInstr {
-    fn freeze(&self, mem: &LRegistry<'_>) -> Option<Drawn> {
-        Some(match self {
-            Self::Line(i) => Drawn::from(i.freeze(mem)?),
-            Self::RectBordered(i) => Drawn::from(i.freeze(mem)?),
-            Self::RectFilled(i) => Drawn::from(i.freeze(mem)?),
-            Self::Triangle(i) => Drawn::from(i.freeze(mem)?),
-            Self::Clear(i) => Drawn::from(i.freeze(mem)?),
-            Self::SetColor(i) => Drawn::from(i.freeze(mem)?),
-            Self::SetStroke(i) => Drawn::from(i.freeze(mem)?),
-            Self::Poly(i) => Drawn::from(i.freeze(mem)?),
-            Self::LinePoly(i) => Drawn::from(i.freeze(mem)?),
-        })
-    }
-}
-
-impl Printable for DrawInstr {
-    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
-        match self {
-            Self::Line(i) => i.print(info, f),
-            Self::RectBordered(i) => i.print(info, f),
-            Self::RectFilled(i) => i.print(info, f),
-            Self::Triangle(i) => i.print(info, f),
-            Self::Clear(i) => i.print(info, f),
-            Self::SetColor(i) => i.print(info, f),
-            Self::SetStroke(i) => i.print(info, f),
-            Self::Poly(i) => i.print(info, f),
-            Self::LinePoly(i) => i.print(info, f),
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -197,6 +181,36 @@ impl Printable for SetColor {
             "draw color {} {} {} {}",
             info[self.r], info[self.g], info[self.b], info[self.a]
         )
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct SetCol {
+    pub col: LAddress,
+}
+
+impl Printable for SetCol {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "draw col ")?;
+        match &info[self.col] {
+            crate::debug::info::VarData::Variable(v) => write!(f, "{v}"),
+            crate::debug::info::VarData::Constant(c) => match c {
+                LVar::Num(n) => write!(f, "0x{:0<6x}", *n as u32),
+                LVar::String(s) => write!(f, r#""{s}""#),
+            },
+        }
+    }
+}
+
+impl Frozen<SetColorD> for SetCol {
+    fn freeze(&self, mem: &LRegistry<'_>) -> Option<SetColorD> {
+        let col = mem.get(self.col).num()? as u32;
+        Some(SetColorD((
+            (col & 0xff00_0000 >> 24) as u8,
+            (col & 0x00ff_0000 >> 16) as u8,
+            (col & 0x0000_ff00 >> 8) as u8,
+            (col & 0x0000_00ff) as u8,
+        )))
     }
 }
 
