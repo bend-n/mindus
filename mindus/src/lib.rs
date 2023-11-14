@@ -9,6 +9,7 @@
     clippy::dbg_macro,
     clippy::perf
 )]
+pub mod color_mapping;
 pub mod block;
 pub mod content;
 pub mod data;

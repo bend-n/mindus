@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 use fimg::DynImage;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write as _;
 use std::iter::Iterator;
@@ -34,6 +35,9 @@ fn main() {
     // let mut half = File::create(o.join("half.rs")).unwrap();
     let mut quar = File::create(o.join("quar.rs")).unwrap();
     let mut eigh = File::create(o.join("eigh.rs")).unwrap();
+
+    let mut to_colors = File::create(o.join("2.rs")).unwrap();
+    let mut from_colors = File::create(o.join("4.rs")).unwrap();
     let mut n = 22usize;
 
     wr!(full => "pub mod full {{");
@@ -48,6 +52,11 @@ fn main() {
     wr!(eigh => "pub mod eigh {{");
     wr!(eigh => "pub static EMPTY4: Image<&[u8], 4> = Image::make::<4, 4>();");
     wr!(eigh => "pub static EMPTY: Image<&[u8], 3> = Image::make::<4, 4>();");
+
+    wr!(to_colors => "phf::phf_map! {{");
+    wr!(from_colors => "phf::phf_map! {{");
+
+    let mut mapped = HashMap::with_capacity(68);
 
     for mut file in [&full, &quar, &eigh] {
         wr!(file => "use crate::utils::Image;");
@@ -114,6 +123,43 @@ fn main() {
                 continue;
             }
             println!("do {path}");
+
+            if rgb {
+                let [r, g, b] = match &*path {
+                    "HOTROCK" => [221u8, 123, 82],
+                    "YELLOW_STONE" => [255, 210, 128],
+                    "REGOLITH" => [146, 90, 70],
+                    "CRATER_STONE" => [92, 87, 87],
+                    "CHAR" => [86, 79, 79],
+                    "METAL_FLOOR_DAMAGED" => [134, 138, 154],
+                    "FERRIC_CRATERS" => [69, 69, 69],
+                    "RHYOLITE_CRATER" => [100, 60, 53],
+                    "ROUGH_RHYOLITE" => [99, 60, 53],
+                    "DARK_PANEL_1" => [93, 81, 79],
+                    "DARK_PANEL_2" => [91, 81, 85],
+                    "DARK_PANEL_3" => [91, 79, 77],
+                    "DARK_PANEL_4" => [103, 90, 88],
+                    "DENSE_RED_STONE" => [206, 116, 95],
+                    "SPORE_MOSS" => [124, 76, 128],
+                    "METAL_FLOOR" => [126, 113, 111],
+                    "METAL_FLOOR_2" => [117, 106, 104],
+                    "MAGMAROCK" => [104, 74, 53],
+                    "ICE_SNOW" => [130, 125, 233],
+                    _ => unsafe { p.pixel::<3>(p.width() / 2, p.height() / 2) },
+                };
+                match mapped.entry((r, g, b)) {
+                    std::collections::hash_map::Entry::Occupied(with) => panic!(
+                        "slot {path} occupied by {}, shared color {r}, {g}, {b}",
+                        with.get()
+                    ),
+                    std::collections::hash_map::Entry::Vacant(e) => {
+                        e.insert(path.clone());
+                    }
+                }
+                wr!(from_colors => "0x{:x}_u32 => &crate::block::{path},", fimg::Pack::pack(&[r,g,b]));
+                wr!(to_colors => r#""{f}" => ({r}, {g}, {b}),"#)
+            }
+
             macro_rules! writ {
                 ($ext:ident / $scale:literal) => {
                     let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
@@ -152,7 +198,7 @@ fn main() {
             n += 1;
         }
     }
-    for mut f in [full, eigh, quar] {
+    for mut f in [full, eigh, quar, to_colors, from_colors] {
         f.write_all(b"}").unwrap();
     }
 }
