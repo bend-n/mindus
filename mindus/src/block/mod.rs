@@ -1025,7 +1025,7 @@ make_register! {
     // sandbox only
     "beam-link" -> ConnectorBlock::new(3, true, &[], 12);
     "power-source" -> ConnectorBlock::new(1, true, &[], 100);
-    "power-void" -> GeneratorBlock::new(1, true, &[]);
+    "power-void" -> BasicBlock::new(1, true, &[]);
     "world-processor" -> BasicBlock::new(1, true, &[]);
     "world-message" -> MessageLogic::new(1, true, &[]);
     "world-cell" -> MemoryBlock::new(1, true, &[]);
