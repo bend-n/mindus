@@ -14,9 +14,9 @@ use crate::item::storage::ItemStorage;
 use crate::utils::array::Array2D;
 
 /// biggest schematic
-pub const MAX_DIMENSION: usize = 256;
+pub const MAX_DIMENSION: usize = 1024;
 /// most possible blocks
-pub const MAX_BLOCKS: u32 = 256 * 256;
+pub const MAX_BLOCKS: u32 = 1024 * 1024;
 
 /// a placement in a schematic
 #[derive(Clone)]
