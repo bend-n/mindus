@@ -98,17 +98,22 @@ impl Renderable for Schematic {
     /// let output /*: Image */ = s.render();
     /// ```
     fn render(&self) -> Image<Vec<u8>, 3> {
+        let scale = if self.width + self.height > 500 {
+            Scale::Quarter
+        } else {
+            Scale::Full
+        };
         // fill background
-        // SAFETY: metal-floor is 32x32, the output is a multiple of 32
+        // SAFETY: metal-floor is scalexscale, the output is a multiple of scale
         let mut bg = unsafe {
-            load!("metal-floor", Scale::Full).borrow().repeated(
-                ((self.width + 2) * 32) as u32,
-                ((self.height + 2) * 32) as u32,
+            load!("metal-floor", scale).borrow().repeated(
+                scale * (self.width + 2) as u32,
+                scale * (self.height + 2) as u32,
             )
         };
         let mut canvas = Image::alloc(
-            ((self.width + 2) * 32) as u32,
-            ((self.height + 2) * 32) as u32,
+            scale * (self.width + 2) as u32,
+            scale * (self.height + 2) as u32,
         );
         for (GridPos(x, y), tile) in self.block_iter() {
             let ctx = tile.block.wants_context().then(|| {
@@ -130,16 +135,21 @@ impl Renderable for Schematic {
                         .image(
                             ctx.as_ref(),
                             tile.get_rotation().unwrap_or(Rotation::Up),
-                            Scale::Full,
+                            scale,
                         )
                         .borrow(),
-                    (x + 1) * 32,
-                    (y + 1) * 32,
+                    scale * (x + 1),
+                    scale * (y + 1),
                 )
             };
         }
-        canvas.as_mut().shadow();
-        unsafe { bg.overlay_blended(&canvas) };
+
+        if matches!(scale, Scale::Full) {
+            canvas.as_mut().shadow();
+            unsafe { bg.overlay_blended(&canvas) };
+        } else {
+            unsafe { bg.overlay(&canvas) };
+        }
         bg
     }
 }
