@@ -821,7 +821,7 @@ make_register! {
     "surge-smelter" -> ProductionBlock::new(3, true, cost!(Lead: 80, Thorium: 70, Silicon: 80));
     "cryofluid-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 65, Thorium: 60, Silicon: 40));
     "pyratite-mixer" -> ProductionBlock::new(2, true, cost!(Copper: 50, Lead: 25));
-    "blast-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 30, Thorium: 20));
+    "blast-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 30, Titanium: 20));
     "melter" -> ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 35, Graphite: 45));
     "separator" -> SeparatorBlock::new(2, true, cost!(Copper: 30, Titanium: 25));
     "disassembler" -> SeparatorBlock::new(3, true, cost!(Titanium: 100, Thorium: 80, Silicon: 150, Plastanium: 40));

@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "5.0.14"
+version = "5.0.15"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [

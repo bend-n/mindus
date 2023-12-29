@@ -5,7 +5,7 @@ use std::slice;
 
 use crate::item;
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Eq)]
 /// stores data
 pub struct Storage<T> {
     base: Vec<u32>,
@@ -22,6 +22,12 @@ impl<T> Default for Storage<T> {
             total: 0,
             holds: PhantomData,
         }
+    }
+}
+
+impl<T: std::fmt::Debug + TryFrom<u16>> std::fmt::Debug for Storage<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter_nonzero()).finish()
     }
 }
 
