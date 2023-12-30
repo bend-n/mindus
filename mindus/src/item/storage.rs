@@ -31,6 +31,12 @@ impl<T: std::fmt::Debug + TryFrom<u16>> std::fmt::Debug for Storage<T> {
     }
 }
 
+impl<T: TryFrom<u16> + fmt::Debug> fmt::Display for Storage<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter_nonzero()).finish()
+    }
+}
+
 impl<T> Storage<T>
 where
     u16: From<T>,
@@ -374,19 +380,6 @@ impl<T> PartialEq for Storage<T> {
                 }
             }
         }
-    }
-}
-
-impl<T: TryFrom<u16> + fmt::Display> fmt::Display for Storage<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.iter_nonzero();
-        if let Some((ty, cnt)) = iter.next() {
-            write!(f, "{cnt} {ty}")?;
-            for (ty, cnt) in iter {
-                write!(f, ", {cnt} {ty}")?;
-            }
-        }
-        Ok(())
     }
 }
 

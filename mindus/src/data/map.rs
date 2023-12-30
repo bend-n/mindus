@@ -331,11 +331,13 @@ impl Build {
         if mask & 4 != 0 {
             read_liquids(buff, &mut self.liquids)?;
         }
-        // "efficiency"?
-        buff.skip(2)?;
+        // "efficiency"
+        _ = buff.read_u8()? as f64 / 255.;
+        _ = buff.read_u8()? as f64 / 255.;
+
         if version == 4 {
             // visible flags for fog
-            buff.skip(4)?;
+            _ = buff.read_u64()?;
         }
         // "overridden by subclasses"
         self.block.read(self, buff)?;
