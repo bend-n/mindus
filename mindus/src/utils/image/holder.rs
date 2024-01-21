@@ -61,6 +61,18 @@ impl OverlayAt<ImageHolder<4>> for ImageHolder<4> {
     }
 }
 
+impl OverlayAt<Image<&[u8], 3>> for ImageHolder<3> {
+    unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
+        make!(self.overlay_at(with, x, y))
+    }
+}
+
+impl Overlay<Image<&[u8], 4>> for ImageHolder<3> {
+    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
+        make!(self.overlay(with))
+    }
+}
+
 impl Overlay<ImageHolder<4>> for ImageHolder<3> {
     unsafe fn overlay(&mut self, with: &ImageHolder<4>) -> &mut Self {
         make!(self.overlay(&with.borrow()))

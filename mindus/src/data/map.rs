@@ -99,7 +99,7 @@ pub struct Tile {
 macro_rules! lo {
 	($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
 		match $v {
-			$(BlockEnum::[<$k:camel>] => load!($k, $scale),)+
+			$(BlockEnum::[<$k:camel>] => load!(raw $k, $scale),)+
 				n => unreachable!("{n:?}"),
 			}
 	} };
@@ -144,7 +144,7 @@ impl Tile {
     }
 
     #[inline]
-    pub(crate) fn floor(&self, s: Scale) -> ImageHolder<3> {
+    pub(crate) fn floor(&self, s: Scale) -> Image<&'static [u8], 3> {
         lo!(self.floor => [
 			| "darksand"
 			| "sand-floor"
@@ -185,7 +185,7 @@ impl Tile {
 
     #[must_use]
     #[inline]
-    pub(crate) fn ore(&self, s: Scale) -> ImageHolder<4> {
+    pub(crate) fn ore(&self, s: Scale) -> Image<&'static [u8], 4> {
         lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
     }
 
@@ -198,7 +198,7 @@ impl Tile {
     /// Draw the floor of this tile
     #[must_use]
     pub fn floor_image(&self, s: Scale) -> ImageHolder<3> {
-        let mut floor = self.floor(s);
+        let mut floor = ImageHolder::from(self.floor(s));
         if self.has_ore() {
             unsafe { floor.overlay(&self.ore(s)) };
         }

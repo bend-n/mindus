@@ -40,6 +40,13 @@ impl std::ops::Mul<u32> for Scale {
 
 #[macro_export]
 macro_rules! load {
+	(raw $name: literal, $scale:expr) => {
+		paste::paste! { match $scale {
+            $crate::data::renderer::Scale::Quarter => $crate::data::renderer::quar::[<$name:snake:upper>],
+            $crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$name:snake:upper>],
+            $crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$name:snake:upper>],
+        }
+    } };
     ($name:literal, $scale:expr) => { paste::paste! {
         $crate::utils::image::ImageHolder::from(match $scale {
             $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::[<$name:snake:upper>],
@@ -173,16 +180,13 @@ impl Renderable for Map {
                 let y = self.height - y - 1;
                 // println!("draw {tile:?} ({x}, {y})");
                 unsafe {
-                    img.as_mut().overlay_at(
-                        &tile.floor(scale).borrow(),
-                        scale * x as u32,
-                        scale * y as u32,
-                    )
+                    img.as_mut()
+                        .overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32)
                 };
                 if tile.has_ore() {
                     unsafe {
                         img.as_mut().overlay_at(
-                            &tile.ore(scale).borrow(),
+                            &tile.ore(scale),
                             scale * x as u32,
                             scale * y as u32,
                         )
