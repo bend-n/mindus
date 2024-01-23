@@ -38,16 +38,7 @@ macro_rules! make_read {
     ($name:ident, $type:ty) => {
         pub fn $name(&mut self) -> Result<$type, ReadError> {
             const LEN: usize = std::mem::size_of::<$type>();
-            if self.data.len() < LEN {
-                return Err(ReadError::Underflow {
-                    need: LEN,
-                    have: self.data.len(),
-                });
-            }
-            let mut output = [0u8; LEN];
-            output.copy_from_slice(&self.data[..LEN]);
-            self.data = &self.data[LEN..];
-            self.read += LEN;
+            let output = self.readN::<LEN>()?;
             Ok(<$type>::from_be_bytes(output))
         }
     };
@@ -75,47 +66,36 @@ impl<'d> DataRead<'d> {
     make_read!(read_f64, f64);
 
     pub fn read_utf(&mut self) -> Result<&'d str, ReadError> {
-        if self.data.len() < 2 {
-            return Err(ReadError::Underflow {
-                need: 2,
-                have: self.data.len(),
-            });
-        }
         let len = self.read_u16()?;
-        let end = len as usize;
-        if self.data.len() < end {
-            return Err(ReadError::Underflow {
-                need: end,
-                have: self.data.len(),
-            });
-        }
-        let result = std::str::from_utf8(&self.data[..end])?;
-        self.data = &self.data[end..];
-        self.read += end;
+        let result = std::str::from_utf8(&self.eat(len as usize)?)?;
         Ok(result)
     }
 
-    pub fn read_bytes(&mut self, dst: &mut [u8]) -> Result<(), ReadError> {
-        if self.data.len() < dst.len() {
-            return Err(ReadError::Underflow {
-                need: dst.len(),
+    pub fn eat(&mut self, n: usize) -> Result<&'d [u8], ReadError> {
+        self.data
+            .take(..n)
+            .ok_or(ReadError::Underflow {
+                need: n,
                 have: self.data.len(),
-            });
-        }
-        dst.copy_from_slice(&self.data[..dst.len()]);
-        self.data = &self.data[dst.len()..];
-        self.read += dst.len();
+            })
+            .inspect(|_| self.read += n)
+    }
+
+    #[allow(non_snake_case)]
+    pub fn readN<const N: usize>(&mut self) -> Result<[u8; N], ReadError> {
+        self.eat(N).map(|x| x.try_into().unwrap())
+    }
+
+    pub fn read_bytes(&mut self, dst: &mut [u8]) -> Result<(), ReadError> {
+        dst.copy_from_slice(self.eat(dst.len())?);
         Ok(())
     }
 
     pub fn skip(&mut self, n: usize) -> Result<(), ReadError> {
-        if self.data.len() < n {
-            return Err(ReadError::Underflow {
-                need: n,
-                have: self.data.len(),
-            });
-        }
-        self.data = &self.data[n..];
+        self.data = self.data.get(n..).ok_or(ReadError::Underflow {
+            need: n,
+            have: self.data.len(),
+        })?;
         self.read += n;
         Ok(())
     }
@@ -160,15 +140,7 @@ impl<'d> DataRead<'d> {
     }
 
     pub fn read_vec(&mut self, dst: &mut Vec<u8>, len: usize) -> Result<(), ReadError> {
-        if self.data.len() < len {
-            return Err(ReadError::Underflow {
-                need: len,
-                have: self.data.len(),
-            });
-        }
-        dst.extend_from_slice(&self.data[..len]);
-        self.data = &self.data[len..];
-        self.read += len;
+        dst.extend_from_slice(self.eat(len)?);
         Ok(())
     }
 

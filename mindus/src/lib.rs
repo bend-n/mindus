@@ -4,6 +4,7 @@
     const_trait_impl,
     const_option,
     derive_const,
+    slice_take,
     let_chains,
     effects
 )]
