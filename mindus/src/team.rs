@@ -2,7 +2,8 @@ use std::fmt;
 
 use crate::content::{Content, Type};
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Default)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialOrd, Default)]
+#[derive_const(PartialEq)]
 pub struct Team(u8);
 
 impl Team {

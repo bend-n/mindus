@@ -5,7 +5,7 @@ use super::GridPos;
 use crate::block::Rotation;
 pub(crate) use crate::utils::*;
 use crate::Map;
-use fimg::BlendingOverlay;
+use fimg::{uninit, BlendingOverlay};
 
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -169,8 +169,10 @@ impl Renderable for Map {
         } else {
             Scale::Eigth
         };
-        let mut img: Image<_, 3> =
-            Image::alloc(scale * self.width as u32, scale * self.height as u32);
+        let mut img = uninit::Image::<_, 3>::new(
+            (scale * self.width as u32).try_into().unwrap(),
+            (scale * self.height as u32).try_into().unwrap(),
+        );
         // loop1 draws the floor
         for y in 0..self.height {
             for x in 0..self.width {
@@ -179,21 +181,13 @@ impl Renderable for Map {
                 let tile = unsafe { self.tiles.get_unchecked(j) };
                 let y = self.height - y - 1;
                 // println!("draw {tile:?} ({x}, {y})");
-                unsafe {
-                    img.as_mut()
-                        .overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32)
-                };
+                unsafe { img.overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32) };
                 if tile.has_ore() {
-                    unsafe {
-                        img.as_mut().overlay_at(
-                            &tile.ore(scale),
-                            scale * x as u32,
-                            scale * y as u32,
-                        )
-                    };
+                    unsafe { img.overlay_at(&tile.ore(scale), scale * x as u32, scale * y as u32) };
                 }
             }
         }
+        let mut img = unsafe { img.assume_init() };
         // loop2 draws the buildings
         for y in 0..self.height {
             for x in 0..self.width {
