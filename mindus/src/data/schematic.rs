@@ -97,19 +97,13 @@ impl RotationState for Placement {
 
 impl BlockState for Option<Placement> {
     fn get_block(&self) -> Option<&'static Block> {
-        let Some(p) = self else {
-            return None;
-        };
-        Some(p.block)
+        Some(self.as_ref()?.block)
     }
 }
 
 impl RotationState for Option<Placement> {
     fn get_rotation(&self) -> Option<Rotation> {
-        let Some(p) = self else {
-            return None;
-        };
-        Some(p.rot)
+        Some(self.as_ref()?.rot)
     }
 }
 
@@ -365,12 +359,10 @@ impl Schematic {
 
     /// iterate over all the blocks
     pub fn block_iter(&self) -> impl Iterator<Item = (GridPos, &Placement)> {
-        self.blocks.iter().enumerate().filter_map(|(i, p)| {
-            let Some(p) = p else {
-                return None;
-            };
-            Some((GridPos(i / self.height, i % self.height), p))
-        })
+        self.blocks
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| Some((GridPos(i / self.height, i % self.height), p.as_ref()?)))
     }
 
     #[must_use]

@@ -1,9 +1,12 @@
 //! crate for dealing with mindustry
 #![feature(
+    iter_from_coroutine,
     generic_arg_infer,
     const_trait_impl,
+    coroutine_trait,
     const_option,
     derive_const,
+    coroutines,
     slice_take,
     let_chains,
     effects

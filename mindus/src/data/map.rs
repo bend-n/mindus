@@ -7,18 +7,19 @@
 //! key: `: T` and `x<T>` both mean read T, `iterate T` means iterate `read_T()` times
 //!
 //! ZLIB compressed stream contains:
-//! - header: 4b = `MSCH`
-//! - version: `u32` (should be 7)
-//! - tag section `<u32>`
+//! - header: 4b = `MSCH` [`MapReader::header`]
+//! - version: `u32` (should be 7) [`MapReader::version`]
+//! - tag section `<u32>` [`MapReader::tags`]
 //!     - 1 byte of idk (skip)
 //!     - string map (`u16` for map len, iterate each, read `utf`)
-//! - content header section `<u32>`:
+//! - content header section `<u32>`: [`MapReader::skip`]
 //!     - iterate `i8` (should = `8`)'
-//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13//!         - item count: `u16` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
+//!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13
+//!         - item count: `u16` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
 //!         - these types all have their own modules: [`item`], [`content`], [`fluid`], [`modifier`], [`mod@unit`], [`weather`], [`sector`], [`planet`]
 //!         - iterate `u16`
 //!             - name: `utf`
-//! - map section `<u32>`
+//! - map section `<u32>` [`MapReader::map`]
 //!     - width: `u16`, height: `u16`
 //!     - floor and tiles:
 //!         - for `i` in `w * h`
@@ -50,7 +51,7 @@
 //!                     - iterate `(i + 1)..(i + 1 + consecutives)`
 //!                         - same block
 //!                     - i += consecutives
-//! - entities section `<u32>`
+//! - entities section `<u32>` [`MapReader::entities`]
 //!     - entity mapping
 //!         - iterate `u16`
 //!             - id: `i16`, name: `utf`
@@ -70,7 +71,9 @@
 //!                 - id: `u32`
 //!                 - entity read
 use std::collections::HashMap;
-use std::ops::{Index, IndexMut};
+use std::ops::CoroutineState::*;
+use std::ops::{Coroutine, Index, IndexMut};
+use std::pin::Pin;
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
@@ -103,6 +106,51 @@ macro_rules! lo {
 				n => unreachable!("{n:?}"),
 			}
 	} };
+}
+
+#[inline]
+pub(crate) fn ore(ore: BlockEnum, s: Scale) -> Image<&'static [u8], 4> {
+    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
+}
+
+#[inline]
+pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
+    lo!(tile => [
+			| "darksand"
+			| "sand-floor"
+			| "dacite"
+			| "dirt"
+			| "arkycite-floor"
+			| "basalt"
+			| "moss"
+			| "mud"
+			| "grass"
+			| "ice-snow" | "snow" | "salt" | "ice"
+			| "hotrock" | "char" | "magmarock"
+			| "shale"
+			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
+			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
+			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
+			| "tar" | "pooled-cryofluid" | "molten-slag"
+			| "space"
+			| "stone"
+			| "bluemat"
+			| "ferric-craters"
+			| "beryllic-stone"
+			| "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
+			| "core-zone"
+			| "crater-stone"
+			| "redmat"
+			| "red-ice"
+			| "spore-moss"
+			| "regolith"
+			| "ferric-stone"
+			| "arkyic-stone" | "arkyic-vent"
+			| "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
+			| "red-stone" | "red-stone-vent" | "dense-red-stone"
+			| "carbon-stone" | "carbon-vent"
+			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
+			| "empty"], s)
 }
 
 impl Tile {
@@ -145,48 +193,13 @@ impl Tile {
 
     #[inline]
     pub(crate) fn floor(&self, s: Scale) -> Image<&'static [u8], 3> {
-        lo!(self.floor => [
-			| "darksand"
-			| "sand-floor"
-			| "dacite"
-			| "dirt"
-			| "arkycite-floor"
-			| "basalt"
-			| "moss"
-			| "mud"
-			| "grass"
-			| "ice-snow" | "snow" | "salt" | "ice"
-			| "hotrock" | "char" | "magmarock"
-			| "shale"
-			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
-			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
-			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
-			| "tar" | "pooled-cryofluid" | "molten-slag"
-			| "space"
-			| "stone"
-			| "bluemat"
-			| "ferric-craters"
-			| "beryllic-stone"
-			| "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
-			| "core-zone"
-			| "crater-stone"
-			| "redmat"
-			| "red-ice"
-			| "spore-moss"
-			| "regolith"
-			| "ferric-stone"
-			| "arkyic-stone" | "arkyic-vent"
-			| "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
-			| "red-stone" | "red-stone-vent" | "dense-red-stone"
-			| "carbon-stone" | "carbon-vent"
-			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
-			| "empty"], s)
+        floor(self.floor, s)
     }
 
     #[must_use]
     #[inline]
     pub(crate) fn ore(&self, s: Scale) -> Image<&'static [u8], 4> {
-        lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
+        ore(self.ore, s)
     }
 
     #[must_use]
@@ -341,9 +354,8 @@ impl Build {
         }
         // "overridden by subclasses"
         self.block.read(self, buff)?;
-        // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
-        Err(ReadError::Version(0x0))
-        // Ok(())
+
+        Ok(())
     }
 }
 
@@ -513,142 +525,416 @@ pub enum ReadError {
     ReadState(#[from] super::dynamic::ReadError),
 }
 
+/// Struct for granular map deserialization.
+pub struct MapReader {
+    #[allow(dead_code)]
+    backing: Vec<u8>,
+    // dataread references 'backing'
+    buff: DataRead<'static>,
+}
+
+#[derive(Debug)]
+pub enum ThinBloc {
+    None(u8),
+    Build(Rotation, &'static Block),
+    Many(&'static Block, u8),
+}
+
+#[derive(Debug)]
+pub enum ThinMapData {
+    Init { width: u16, height: u16 },
+    Bloc(ThinBloc),
+    Tile { floor: BlockEnum, ore: BlockEnum },
+}
+
+#[derive(Debug)]
+pub enum Bloc {
+    None(u8),
+    Build(Build, &'static Block),
+    Data(&'static Block, i8),
+    Many(&'static Block, u8),
+}
+
+#[derive(Debug)]
+pub enum MapData {
+    Init { width: u16, height: u16 },
+    Bloc(Bloc),
+    Tile { floor: BlockEnum, ore: BlockEnum },
+}
+
+#[derive(Debug)]
+pub enum EntityData {
+    Length(u32),
+    Data(Unit),
+}
+
+macro_rules! tiles {
+    ($count:ident, $me:ident, $w: ident) => {
+        let mut i = 0;
+        while i < $count {
+            let floor_id = $me.buff.read_u16()?;
+            let overlay_id = $me.buff.read_u16()?;
+            let floor = BlockEnum::try_from(floor_id).unwrap_or(BlockEnum::Stone);
+            let ore = BlockEnum::try_from(overlay_id).unwrap_or(BlockEnum::Air);
+            yield $w::Tile { floor, ore };
+            let consecutives = $me.buff.read_u8()? as usize;
+            for _ in 0..consecutives {
+                yield $w::Tile { floor, ore };
+            }
+            i += consecutives;
+            i += 1;
+        }
+    };
+}
+
+impl MapReader {
+    pub fn new(buff: &mut DataRead<'_>) -> Result<Self, ReadError> {
+        let backing = buff.deflate()?;
+        Ok(Self {
+            buff: DataRead::new(unsafe {
+                std::mem::transmute::<&'_ [u8], &'static [u8]>(&backing)
+            }),
+            backing,
+        })
+    }
+
+    pub fn header(&mut self) -> Result<[u8; 4], ReadError> {
+        let b = self.buff.readN::<4>()?;
+        (b == MAP_HEADER).then_some(b).ok_or(ReadError::Header(b))
+    }
+
+    pub fn version(&mut self) -> Result<u32, ReadError> {
+        // NOTE: will change to 8 soon
+        let x = self.buff.read_u32()?;
+        (x == 7)
+            .then_some(x)
+            .ok_or(ReadError::Version(x.try_into().unwrap_or(0)))
+    }
+
+    pub fn tags(&mut self) -> Result<HashMap<&str, &str>, ReadError> {
+        let mut tags = HashMap::new();
+        self.buff.skip(5)?;
+        for _ in 0..self.buff.read_u8()? {
+            let key = self.buff.read_utf()?;
+            let value = self.buff.read_utf()?;
+            tags.insert(key, value);
+        }
+        Ok(tags)
+    }
+
+    pub fn tags_alloc(&mut self) -> Result<HashMap<String, String>, ReadError> {
+        let mut tags = HashMap::new();
+        self.buff
+            .read_chunk(true, |buff| {
+                buff.skip(1)?;
+                for _ in 0..buff.read_u8()? {
+                    let key = buff.read_utf()?;
+                    let value = buff.read_utf()?;
+                    tags.insert(key.to_owned(), value.to_owned());
+                }
+                Ok::<(), ReadError>(())
+            })
+            .map(|_| tags)
+    }
+
+    pub fn skip(&mut self) -> Result<(), ReadError> {
+        let len = self.buff.read_u32()? as usize;
+        self.buff.skip(len)?;
+        Ok(())
+    }
+
+    pub fn thin_map(
+        &mut self,
+    ) -> Result<
+        impl Coroutine<(), Return = Result<(), ReadError>, Yield = ThinMapData> + '_,
+        ReadError,
+    > {
+        let len = self.buff.read_u32()? as usize;
+        let rb4 = self.buff.read;
+        let map = move || {
+            let w = self.buff.read_u16()?;
+            let h = self.buff.read_u16()?;
+            yield ThinMapData::Init {
+                width: w,
+                height: h,
+            };
+            let w = w as usize;
+            let h = h as usize;
+            let count = w * h;
+            tiles!(count, self, ThinMapData);
+
+            let mut i = 0;
+            while i < count {
+                let block_id = self.buff.read_u16()?;
+                let packed = self.buff.read_u8()?;
+                let entity = (packed & 1) != 0;
+                let data = (packed & 2) != 0;
+                let central = if entity {
+                    self.buff.read_bool()?
+                } else {
+                    false
+                };
+                let block = BlockEnum::try_from(block_id)
+                    .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
+                let block = block.to_block();
+                let Some(block) = block else {
+                    let consecutives = self.buff.read_u8()?;
+                    yield ThinMapData::Bloc(ThinBloc::None(consecutives));
+                    i += consecutives as usize;
+                    i += 1;
+                    continue;
+                };
+                yield if entity {
+                    if central {
+                        let len = self.buff.read_u16()? as usize;
+                        let rb4 = self.buff.read;
+
+                        #[cfg(debug_assertions)]
+                        println!("reading {block:?} ");
+                        let _ = self.buff.read_i8()?;
+                        let _ = self.buff.read_f32()?;
+                        let rot = self.buff.read_i8()?;
+                        let rot = Rotation::try_from((rot & 127) as u8).unwrap_or(Rotation::Up);
+                        let read = self.buff.read - rb4;
+                        let n = len - read;
+                        self.buff.skip(n)?;
+
+                        ThinMapData::Bloc(ThinBloc::Build(rot, block))
+                    } else {
+                        ThinMapData::Bloc(ThinBloc::None(0))
+                    }
+                } else if data {
+                    _ = self.buff.read_i8()?;
+                    ThinMapData::Bloc(ThinBloc::Many(block, 0))
+                } else {
+                    let consecutives = self.buff.read_u8()?;
+                    i += consecutives as usize;
+                    ThinMapData::Bloc(ThinBloc::Many(block, consecutives))
+                };
+
+                i += 1;
+            }
+            let read = self.buff.read - rb4;
+            debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
+            debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
+            Ok(())
+        };
+        Ok(map)
+    }
+
+    pub fn collect_map(&mut self, tags: HashMap<String, String>) -> Result<Map, ReadError> {
+        let mut co = self.map()?;
+        let (w, h) = match Pin::new(&mut co).resume(()) {
+            Yielded(MapData::Init { width, height }) => (width as usize, height as usize),
+            Complete(Err(x)) => return Err(x),
+            _ => unreachable!(),
+        };
+        let mut m = Map::new(w, h, tags);
+        for _ in 0..w * h {
+            match Pin::new(&mut co).resume(()) {
+                Yielded(MapData::Tile { floor, ore }) => m.push(Tile::new(floor, ore)),
+                Complete(Err(x)) => return Err(x),
+                _ => unreachable!(),
+            }
+        }
+        let mut i = 0;
+        while i < w * h {
+            match Pin::new(&mut co).resume(()) {
+                Yielded(MapData::Bloc(Bloc::None(n))) => i += n as usize,
+                Yielded(MapData::Bloc(Bloc::Build(x, y))) => {
+                    m[i].set_block(y);
+                    m[i].build = Some(x);
+                }
+                Yielded(MapData::Bloc(Bloc::Data(x, y))) => {
+                    m[i].set_block(x);
+                    m[i].build.as_mut().unwrap().data = y;
+                }
+                Yielded(MapData::Bloc(Bloc::Many(bloc, n))) => {
+                    for i in i..=i + n as usize {
+                        m[i].set_block(bloc);
+                    }
+                    i += n as usize;
+                }
+                Complete(Err(x)) => return Err(x),
+                _ => unreachable!(),
+            }
+            i += 1;
+        }
+        match Pin::new(&mut co).resume(()) {
+            Complete(Ok(())) => (),
+            _ => unreachable!(),
+        };
+        Ok(m)
+    }
+
+    pub fn map(
+        &mut self,
+    ) -> Result<impl Coroutine<(), Return = Result<(), ReadError>, Yield = MapData> + '_, ReadError>
+    {
+        let len = self.buff.read_u32()? as usize;
+        let rb4 = self.buff.read;
+        Ok(move || {
+            let w = self.buff.read_u16()?;
+            let h = self.buff.read_u16()?;
+            yield MapData::Init {
+                width: w,
+                height: h,
+            };
+            let w = w as usize;
+            let h = h as usize;
+            let count = w * h;
+            tiles!(count, self, MapData);
+
+            let mut i = 0;
+            while i < count {
+                let block_id = self.buff.read_u16()?;
+                let packed = self.buff.read_u8()?;
+                let entity = (packed & 1) != 0;
+                let data = (packed & 2) != 0;
+                let central = if entity {
+                    self.buff.read_bool()?
+                } else {
+                    false
+                };
+                let block = BlockEnum::try_from(block_id)
+                    .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
+                let block = block.to_block();
+                let Some(block) = block else {
+                    let consecutives = self.buff.read_u8()?;
+                    yield MapData::Bloc(Bloc::None(consecutives));
+                    i += consecutives as usize;
+                    i += 1;
+                    continue;
+                };
+                yield if entity {
+                    if central {
+                        let len = self.buff.read_u16()? as usize;
+                        let rb4 = self.buff.read;
+
+                        #[cfg(debug_assertions)]
+                        println!("reading {block:?} ");
+                        let _ = self.buff.read_i8()?;
+                        let mut b = Build::new(block);
+                        b.read(&mut self.buff)?;
+                        // implementation not complete, skip remaining bytes (TODO finish impl)
+                        let read = self.buff.read - rb4;
+
+                        // skip this chunk
+                        assert!(len >= read, "overread; supposed to read {len}; read {read}");
+                        let n = len - read;
+                        if n != 0 {
+                            #[cfg(debug_assertions)]
+                            println!(
+                                "({block:?}) supposed to read {len}; read {read} - skipping excess"
+                            );
+                            self.buff.skip(n)?;
+                        };
+
+                        MapData::Bloc(Bloc::Build(b, block))
+                    } else {
+                        MapData::Bloc(Bloc::None(0))
+                    }
+                } else if data {
+                    MapData::Bloc(Bloc::Data(block, self.buff.read_i8()?))
+                } else {
+                    let consecutives = self.buff.read_u8()?;
+                    i += consecutives as usize;
+                    MapData::Bloc(Bloc::Many(block, consecutives))
+                };
+
+                i += 1;
+            }
+            let read = self.buff.read - rb4;
+            debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
+            debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
+            Ok(())
+        })
+    }
+
+    pub fn entities(
+        &mut self,
+    ) -> Result<
+        impl Coroutine<(), Yield = EntityData, Return = Result<(), ReadError>> + '_,
+        ReadError,
+    > {
+        let len = self.buff.read_u32()? as usize;
+        let rb4 = self.buff.read;
+
+        Ok(move || {
+            for _ in 0..self.buff.read_u16()? {
+                self.buff.skip(2)?;
+                let _ = self.buff.read_utf()?;
+            }
+            // read team block plans (ghosts) (SaveVersion.java#389)
+            for _ in 0..self.buff.read_u32()? {
+                self.buff.skip(4)?;
+                for _ in 0..self.buff.read_u32()? {
+                    self.buff.skip(8usize)?;
+                    let _ = DynData::deserialize(&mut self.buff)?;
+                }
+            }
+            // read world entities (#412). eg units
+            let n = self.buff.read_u32()?;
+            yield EntityData::Length(n);
+            for _ in 0..n {
+                let len = self.buff.read_u16()? as usize;
+                let id = self.buff.read_u8()? as usize;
+                let Some(&Some(u)) = entity_mapping::ID.get(id) else {
+                    self.buff.skip(len - 1)?;
+                    continue;
+                };
+                self.buff.skip(4)?;
+                yield EntityData::Data(u.read(&mut self.buff)?);
+            }
+            let read = self.buff.read - rb4;
+            debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
+            debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
+            Ok(())
+        })
+    }
+
+    pub fn collect_entities(&mut self) -> Result<Vec<Unit>, ReadError> {
+        let mut co = self.entities()?;
+        let n = match Pin::new(&mut co).resume(()) {
+            Yielded(EntityData::Length(x)) => x,
+            Complete(Err(e)) => return Err(e),
+            _ => unreachable!(),
+        };
+        let mut o = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            match Pin::new(&mut co).resume(()) {
+                Yielded(EntityData::Data(x)) => o.push(x),
+                Complete(Err(e)) => return Err(e),
+                _ => unreachable!(),
+            }
+        }
+        match Pin::new(&mut co).resume(()) {
+            Complete(Ok(())) => (),
+            _ => unreachable!(),
+        };
+        Ok(o)
+    }
+}
+
 /// serde map
 impl Serializable for Map {
     type ReadError = ReadError;
     type WriteError = ();
     /// deserialize a map
     ///
-    /// notes:
-    /// - does not deserialize data
-    /// - does not deserialize entities
+    /// note: does not deserialize all data
     fn deserialize(buff: &mut DataRead<'_>) -> Result<Map, Self::ReadError> {
-        let buff = buff.deflate()?;
-        let mut buff = DataRead::new(&buff);
-        {
-            let mut b = [0; 4];
-            buff.read_bytes(&mut b)?;
-            if b != MAP_HEADER {
-                return Err(ReadError::Header(b));
-            }
-        }
-        let version = buff.read_u32()?;
-        if version != 7 {
-            return Err(ReadError::Version(version.try_into().unwrap_or(0)));
-        }
-        let mut tags = HashMap::new();
-        buff.read_chunk(true, |buff| {
-            buff.skip(1)?;
-            for _ in 0..buff.read_u8()? {
-                let key = buff.read_utf()?;
-                let value = buff.read_utf()?;
-                tags.insert(key.to_owned(), value.to_owned());
-            }
-            Ok::<(), super::ReadError>(())
-        })?;
-        // we skip the content header (just keep the respective modules updated)
-        buff.skip_chunk()?;
-        // map section
-        let mut w = 0;
-        let mut h = 0;
-        let mut map = buff.read_chunk(true, |buff| {
-            w = buff.read_u16()? as usize;
-            h = buff.read_u16()? as usize;
-            let mut map = Map::new(w, h, tags);
-            let count = w * h;
-            let mut i = 0;
-            while i < count {
-                let floor_id = buff.read_u16()?;
-                let overlay_id = buff.read_u16()?;
-                let floor = BlockEnum::try_from(floor_id).unwrap_or(BlockEnum::Stone);
-                let ore = BlockEnum::try_from(overlay_id).unwrap_or(BlockEnum::Air);
-                map.push(Tile::new(floor, ore));
-                let consecutives = buff.read_u8()? as usize;
-                if consecutives > 0 {
-                    for _ in 0..consecutives {
-                        map.push(Tile::new(floor, ore));
-                    }
-                    i += consecutives;
-                }
-                i += 1;
-            }
-            let mut i = 0usize;
-            while i < count {
-                let block_id = buff.read_u16()?;
-                let packed = buff.read_u8()?;
-                let entity = (packed & 1) != 0;
-                let data = (packed & 2) != 0;
-                let central = if entity { buff.read_bool()? } else { false };
-                let block = BlockEnum::try_from(block_id)
-                    .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
-                let block = block.to_block();
-                if central && let Some(block) = block {
-                    map[i].set_block(block);
-                }
-                if entity {
-                    if central {
-                        let mut output = [0u8; 2];
-                        output.copy_from_slice(&buff.data[..2]);
-                        let _ = buff.read_chunk(false, |buff| {
-                            #[cfg(debug_assertions)]
-                            println!("reading {:?}", map[i].build.as_ref().unwrap());
-                            let _ = buff.read_i8()?;
+        let mut buff = MapReader::new(buff)?;
+        buff.header()?;
+        buff.version()?;
+        let tags = buff.tags_alloc()?;
+        buff.skip()?;
+        let mut m = buff.collect_map(tags)?;
+        m.entities = buff.collect_entities()?;
 
-                            map[i].build.as_mut().unwrap().read(buff)?;
-                            Ok::<(), ReadError>(())
-                        });
-                    }
-                } else if data {
-                    if let Some(block) = block {
-                        map[i].set_block(block);
-                    }
-                    map[i].build.as_mut().unwrap().data = buff.read_i8()?;
-                } else {
-                    let consecutives = buff.read_u8()? as usize;
-                    for i in i..=i + consecutives {
-                        if let Some(block) = block {
-                            map.tiles[i].set_block(block);
-                        }
-                    }
-                    i += consecutives;
-                }
-                i += 1;
-            }
-            Ok::<_, ReadError>(map)
-        })?;
-        map.entities = buff.read_chunk(true, |buff| {
-            // read entity mapping (SaveVersion.java#436)
-            for _ in 0..buff.read_u16()? {
-                buff.skip(2)?;
-                let _ = buff.read_utf()?;
-            }
-            // read team block plans (ghosts) (SaveVersion.java#389)
-            for _ in 0..buff.read_u32()? {
-                buff.skip(4)?;
-                for _ in 0..buff.read_u32()? {
-                    buff.skip(8usize)?;
-                    let _ = DynData::deserialize(buff)?;
-                }
-            }
-            // read world entities (#412). eg units
-            let n = buff.read_u32()?;
-            let mut entities = Vec::with_capacity(n as usize);
-            for _ in 0..n {
-                let len = buff.read_u16()? as usize;
-                let id = buff.read_u8()? as usize;
-                let Some(&Some(u)) = entity_mapping::ID.get(id) else {
-                    buff.skip(len - 1)?;
-                    continue;
-                    // return Ok(());
-                };
-                buff.skip(4)?;
-                entities.push(u.read(buff)?);
-            }
-            Ok::<_, ReadError>(entities)
-        })?;
         // skip custom chunks
-        buff.skip_chunk()?;
-        Ok(map)
+        buff.skip()?;
+        Ok(m)
     }
 
     /// serialize a map (todo)

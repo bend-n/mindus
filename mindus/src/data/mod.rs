@@ -67,7 +67,7 @@ impl<'d> DataRead<'d> {
 
     pub fn read_utf(&mut self) -> Result<&'d str, ReadError> {
         let len = self.read_u16()?;
-        let result = std::str::from_utf8(&self.eat(len as usize)?)?;
+        let result = std::str::from_utf8(self.eat(len as usize)?)?;
         Ok(result)
     }
 
@@ -98,12 +98,6 @@ impl<'d> DataRead<'d> {
         })?;
         self.read += n;
         Ok(())
-    }
-
-    pub fn skip_chunk(&mut self) -> Result<usize, ReadError> {
-        let len = self.read_u32()? as usize;
-        self.skip(len)?;
-        Ok(len)
     }
 
     pub fn read_chunk<E: Error + From<ReadError>, T>(
