@@ -374,15 +374,15 @@ pub fn draw_map_single(
         (scale * h as u32).try_into().unwrap(),
     );
     // loop1 draws the floor
-    for y in 0..w {
-        for x in 0..h {
+    for y in 0..h {
+        for x in 0..w {
             let (floor, ore) = match Pin::new(&mut co).resume(()) {
                 Yielded(ThinMapData::Tile { floor, ore }) => (floor, ore),
                 Complete(Err(x)) => return Err(x),
                 _ => unreachable!(),
             };
             let y = h - y - 1;
-            // println!("draw {tile:?} ({x}, {y})");
+            // println!("draw tile {floor} {ore} @ {x} {y}");
             unsafe {
                 img.overlay_at(
                     &crate::data::map::floor(floor, scale),
