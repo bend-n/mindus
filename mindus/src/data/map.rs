@@ -905,13 +905,10 @@ impl MapReader {
             match Pin::new(&mut co).resume(()) {
                 Yielded(EntityData::Data(x)) => o.push(x),
                 Complete(Err(e)) => return Err(e),
+                Complete(Ok(())) => break,
                 _ => unreachable!(),
             }
         }
-        match Pin::new(&mut co).resume(()) {
-            Complete(Ok(())) => (),
-            _ => unreachable!(),
-        };
         Ok(o)
     }
 }
