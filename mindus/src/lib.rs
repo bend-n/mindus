@@ -1,5 +1,6 @@
 //! crate for dealing with mindustry
 #![feature(
+    stmt_expr_attributes,
     iter_from_coroutine,
     generic_arg_infer,
     const_trait_impl,

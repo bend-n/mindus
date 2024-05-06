@@ -651,7 +651,8 @@ impl MapReader {
     > {
         let len = self.buff.read_u32()? as usize;
         let rb4 = self.buff.read;
-        let map = move || {
+        let map = #[coroutine]
+        move || {
             let w = self.buff.read_u16()?;
             let h = self.buff.read_u16()?;
             yield ThinMapData::Init {
@@ -773,7 +774,9 @@ impl MapReader {
     {
         let len = self.buff.read_u32()? as usize;
         let rb4 = self.buff.read;
-        Ok(move || {
+
+        let c = #[coroutine]
+        move || {
             let w = self.buff.read_u16()?;
             let h = self.buff.read_u16()?;
             yield MapData::Init {
@@ -848,7 +851,8 @@ impl MapReader {
             debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
             debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
             Ok(())
-        })
+        };
+        Ok(c)
     }
 
     pub fn entities(
@@ -860,7 +864,8 @@ impl MapReader {
         let len = self.buff.read_u32()? as usize;
         let rb4 = self.buff.read;
 
-        Ok(move || {
+        let c = #[coroutine]
+        move || {
             for _ in 0..self.buff.read_u16()? {
                 self.buff.skip(2)?;
                 let _ = self.buff.read_utf()?;
@@ -890,7 +895,8 @@ impl MapReader {
             debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
             debug_assert!((len - read) == 0, "supposed to read {len}; read {read}");
             Ok(())
-        })
+        };
+        Ok(c)
     }
 
     pub fn collect_entities(&mut self) -> Result<Vec<Unit>, ReadError> {

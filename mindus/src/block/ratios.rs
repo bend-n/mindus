@@ -20,7 +20,7 @@ macro_rules! ratios {
     }}
 }
 pub use ratios;
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Resource {
     Item(crate::item::Type),
     Fluid(crate::fluid::Type),
@@ -38,10 +38,21 @@ impl const super::ConstFrom<crate::fluid::Type> for Resource {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Io {
     pub input: Cow<'static, [(Resource, f32)]>,
     pub output: Cow<'static, [(Resource, f32)]>,
+}
+
+impl PartialEq for Io {
+    fn eq(&self, other: &Self) -> bool {
+        let sort = |mut x: Vec<_>| {
+            x.sort_by_key(|(x, _)| *x);
+            x
+        };
+        sort(self.input.to_vec()) == sort(other.input.to_vec())
+            && sort(self.output.to_vec()) == sort(other.output.to_vec())
+    }
 }
 
 impl Io {

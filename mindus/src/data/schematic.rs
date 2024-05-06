@@ -169,6 +169,7 @@ impl Schematic {
 
     /// Ratios of this schematic.
     /// ```
+    /// # #![feature(const_trait_impl, effects)]
     /// # use mindus::Schematic;
     /// # use mindus::block::ratios::ratios;
     /// assert_eq!(Schematic::deserialize_base64("bXNjaAF4nEWMSw7CMAxEh9REVSqx5hKcCLFISxaR0o9Sg8rtSTpFePPkmWfDwTWQyY8B5z75VdE9wzrkuGicJwA2+T6kFeb+aNDtym2MW8i4LJ/sNWo4dje8ksa31zmXuyv+Y4BTgRD2iIi9M+xM7WrUgnoNhYpQESpCxfKLrUo9FsISLX6vKgwhhCVK+wX5/BtM").unwrap().ratios(),
@@ -185,7 +186,7 @@ impl Schematic {
     /// create a new schematic, erroring if too big
     /// ```
     /// # use mindus::Schematic;
-    /// assert!(Schematic::try_new(500, 500).is_err() == true);
+    /// assert!(Schematic::try_new(5000, 5000).is_err() == true);
     /// ```
     pub fn try_new(width: usize, height: usize) -> Result<Self, NewError> {
         if width > MAX_DIMENSION {
