@@ -375,7 +375,7 @@ impl BlockLogic for BridgeBlock {
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
-            None => Ok(DynData::Empty),
+            None => Ok(DynData::Point2(-1, -1)),
             Some((dx, dy)) => Ok(DynData::Point2(*dx, *dy)),
         }
     }
