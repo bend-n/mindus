@@ -819,7 +819,7 @@ make_register! {
     "plastanium-compressor" -> ProductionBlock::new(2, true, cost!(Lead: 115, Graphite: 60, Titanium: 80, Silicon: 80));
     "phase-weaver" -> ProductionBlock::new(2, true, cost!(Lead: 120, Thorium: 75, Silicon: 130));
     "surge-smelter" -> ProductionBlock::new(3, true, cost!(Lead: 80, Thorium: 70, Silicon: 80));
-    "cryofluid-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 65, Thorium: 60, Silicon: 40));
+    "cryofluid-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 65, Titanium: 60, Silicon: 40));
     "pyratite-mixer" -> ProductionBlock::new(2, true, cost!(Copper: 50, Lead: 25));
     "blast-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 30, Titanium: 20));
     "melter" -> ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 35, Graphite: 45));
