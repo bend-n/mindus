@@ -119,16 +119,19 @@ impl Renderable for Schematic {
         };
         // fill background
         // SAFETY: metal-floor is scalexscale, the output is a multiple of scale
+        let x_fac = cfg!(feature = "square") as u32
+            * self.height.checked_sub(self.width).unwrap_or(0) as u32
+            + 2;
+        let y_fac = cfg!(feature = "square") as u32
+            * self.width.checked_sub(self.height).unwrap_or(0) as u32
+            + 2;
         let mut bg = unsafe {
             load!("metal-floor", scale).borrow().repeated(
-                scale * (self.width + 2) as u32,
-                scale * (self.height + 2) as u32,
+                scale * (self.width + x_fac as usize) as u32,
+                scale * (self.height + y_fac as usize) as u32,
             )
         };
-        let mut canvas = Image::alloc(
-            scale * (self.width + 2) as u32,
-            scale * (self.height + 2) as u32,
-        );
+        let mut canvas = Image::alloc(bg.width(), bg.height());
         for (GridPos(x, y), tile) in self.block_iter() {
             let ctx = tile.block.wants_context().then(|| {
                 let pctx = PositionContext {
@@ -152,8 +155,8 @@ impl Renderable for Schematic {
                             scale,
                         )
                         .borrow(),
-                    scale * (x + 1),
-                    scale * (y + 1),
+                    scale * (x + x_fac / 2),
+                    scale * (y + y_fac / 2),
                 )
             };
         }
