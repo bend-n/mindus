@@ -206,6 +206,11 @@ impl BlockLogic for ItemBlock {
                 _ => "center",
             });
             unsafe { p.overlay(top.tint(item.color())) };
+            if name == "duct-unloader" {
+                unsafe {
+                    p.overlay(&load!("duct-unloader-arrows", s).rotate(rot.rotated(false).count()));
+                }
+            }
             return p;
         }
         if matches!(name, "duct-router" | "duct-unloader") {
