@@ -42,6 +42,20 @@ macro_rules! numeric_enum {
 
 pub(crate) use numeric_enum;
 
+macro_rules! count_exprs {
+    ($($e:expr)*) => {
+        $($crate::content::one!($e) +)* 0
+    }
+}
+
+macro_rules! one {
+    ($e:expr) => {
+        1
+    };
+}
+pub(crate) use count_exprs;
+pub(crate) use one;
+
 macro_rules! content_enum {
 	($vis:vis enum $tname:ident / $ctype:ident for u16 | $error:ident {$($val:literal),* $(,)?}) =>
 	{
@@ -49,6 +63,10 @@ macro_rules! content_enum {
 		$crate::content::numeric_enum!($vis enum $tname for u16 | $error* {
 			$([<$val:camel>]),*,
 		});
+
+		impl $tname {
+			pub const ALL: [Self; $crate::content::count_exprs!($($val)+)] = [$(Self::[<$val:camel>]),+];
+		}
 
 		impl $crate::content::Content for $tname {
 			fn get_type(&self) -> $crate::content::Type {
