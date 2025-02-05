@@ -184,10 +184,10 @@ fn main() {
                     let y = new.height();
                     if rgb {
                         buf.write_all(&new.to_rgb().bytes()).unwrap();
-                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 3> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!("{out_path}")) }};"#);
+                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 3> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!(r"{out_path}")) }};"#);
                     } else {
                         buf.write_all(&new.to_rgba().bytes()).unwrap();
-                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 4> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!("{out_path}")) }};"#);
+                        wr!($ext => r#"pub(crate) static {path}: Image<&[u8], 4> = unsafe {{ Image::new(std::num::NonZeroU32::new({x}).unwrap(), std::num::NonZeroU32::new({y}).unwrap(), include_bytes!(r"{out_path}")) }};"#);
                     }
                 };
             }
