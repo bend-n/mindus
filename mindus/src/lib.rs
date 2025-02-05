@@ -1,18 +1,17 @@
 //! crate for dealing with mindustry
 #![feature(
     stmt_expr_attributes,
+    generic_const_exprs,
     iter_from_coroutine,
     generic_arg_infer,
     const_trait_impl,
     coroutine_trait,
-    const_option,
     derive_const,
     coroutines,
     slice_take,
-    let_chains,
-    effects
+    let_chains
 )]
-#![allow(clippy::redundant_closure_call)]
+#![allow(clippy::redundant_closure_call, incomplete_features)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
