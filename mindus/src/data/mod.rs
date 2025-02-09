@@ -73,7 +73,7 @@ impl<'d> DataRead<'d> {
 
     pub fn eat(&mut self, n: usize) -> Result<&'d [u8], ReadError> {
         self.data
-            .take(..n)
+            .split_off(..n)
             .ok_or(ReadError::Underflow {
                 need: n,
                 have: self.data.len(),
