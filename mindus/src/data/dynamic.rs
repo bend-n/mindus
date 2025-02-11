@@ -353,7 +353,7 @@ pub enum WriteError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::team::{CRUX, DERELICT, SHARDED};
+    use crate::team::Team;
 
     macro_rules! _zero {
         ($tt:tt) => {
@@ -491,8 +491,8 @@ mod test {
     );
     make_dyn_test!(
         reparse_team,
-        DynData::Team(SHARDED),
-        DynData::Team(CRUX),
-        DynData::Team(DERELICT)
+        DynData::Team(Team::SHARDED),
+        DynData::Team(Team::CRUX),
+        DynData::Team(Team::DERELICT)
     );
 }

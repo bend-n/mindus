@@ -169,7 +169,7 @@ impl Schematic {
 
     /// Ratios of this schematic.
     /// ```
-    /// # #![feature(const_trait_impl, effects)]
+    /// # #![feature(const_trait_impl)]
     /// # use mindus::Schematic;
     /// # use mindus::block::ratios::ratios;
     /// assert_eq!(Schematic::deserialize_base64("bXNjaAF4nEWMSw7CMAxEh9REVSqx5hKcCLFISxaR0o9Sg8rtSTpFePPkmWfDwTWQyY8B5z75VdE9wzrkuGicJwA2+T6kFeb+aNDtym2MW8i4LJ/sNWo4dje8ksa31zmXuyv+Y4BTgRD2iIi9M+xM7WrUgnoNhYpQESpCxfKLrUo9FsISLX6vKgwhhCVK+wX5/BtM").unwrap().ratios(),

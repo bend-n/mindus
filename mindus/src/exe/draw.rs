@@ -1,5 +1,5 @@
 use mindus::data::DataRead;
-use mindus::{Renderable, Schematic, Serializable};
+use mindus::{Schematic, Serializable};
 use std::env::Args;
 
 use crate::print_err;
@@ -8,7 +8,7 @@ pub fn main(args: Args) {
     // process schematics from command line
     for curr in args {
         match if curr.ends_with(".msch") {
-            let Ok(v) = std::fs::read(curr) else {
+            let Ok(v) = std::fs::read(&curr) else {
                 panic!("no file found");
             };
             Schematic::deserialize(&mut DataRead::new(&v))
@@ -23,11 +23,12 @@ pub fn main(args: Args) {
             }
         } {
             Ok(s) => {
-                let i = s.render();
+                println!("{curr} {}", s.tags.get("name").unwrap());
+                // let i = s.render();
                 if let Ok(v) = std::env::var("SAVE")
                     && v == "1"
                 {
-                    i.save("x.png");
+                    // i.save("x.png");
                     continue;
                 }
             }

@@ -83,7 +83,7 @@ use crate::data::renderer::*;
 use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
 use crate::item::{storage::Storage, Type as Item};
-use crate::team::{self, Team};
+use crate::team::Team;
 use crate::unit::Unit;
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
@@ -170,7 +170,7 @@ impl Tile {
             items: Storage::new(),
             liquids: Storage::new(),
             rotation: Rotation::Up,
-            team: crate::team::SHARDED,
+            team: Team::SHARDED,
             data: 0,
         });
     }
@@ -302,7 +302,7 @@ impl Build {
             liquids: Storage::default(),
             state: None,
             rotation: Rotation::Up,
-            team: team::SHARDED,
+            team: Team::SHARDED,
             data: 0,
         }
     }
@@ -536,7 +536,7 @@ pub struct MapReader {
 #[derive(Debug)]
 pub enum ThinBloc {
     None(u8),
-    Build(Rotation, &'static Block),
+    Build(Rotation, &'static Block, Team),
     Many(&'static Block, u8),
 }
 
@@ -696,11 +696,12 @@ impl MapReader {
                         let _ = self.buff.read_f32()?;
                         let rot = self.buff.read_i8()?;
                         let rot = Rotation::try_from((rot & 127) as u8).unwrap_or(Rotation::Up);
+                        let team = Team::of(self.buff.read_u8()?);
                         let read = self.buff.read - rb4;
                         let n = len - read;
                         self.buff.skip(n)?;
 
-                        ThinMapData::Bloc(ThinBloc::Build(rot, block))
+                        ThinMapData::Bloc(ThinBloc::Build(rot, block, team))
                     } else {
                         ThinMapData::Bloc(ThinBloc::None(0))
                     }

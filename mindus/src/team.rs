@@ -1,5 +1,7 @@
 use std::fmt;
 
+use atools::Chunked;
+
 use crate::content::{Content, Type};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialOrd, Default, PartialEq)]
@@ -107,30 +109,16 @@ impl Content for Team {
 }
 
 impl Team {
-    pub const fn color(self) -> (u8, u8, u8) {
-        macro_rules! h {
-            ($x:literal) => {{
-                let v = color_hex::color_from_hex!($x);
-                (v[0], v[1], v[2])
-            }};
-        }
-        match self {
-            SHARDED => h!("ffd37f"),
-            DERELICT => h!("4d4e58"),
-            CRUX => h!("f25555"),
-            MALIS => h!("a27ce5"),
-            GREEN => h!("54d67d"),
-            BLUE => h!("6c87fd"),
-            NEOPLASTIC => h!("e05438"),
-            _ => h!("a9a9a9"),
-        }
+    pub const fn color(self) -> [u8; 3] {
+        static COLORS: [[u8; 3]; 256] = include_bytes!("colors").chunked::<3>();
+        COLORS[self.0 as usize]
     }
-}
 
-pub const DERELICT: Team = Team(0);
-pub const SHARDED: Team = Team(1);
-pub const CRUX: Team = Team(2);
-pub const MALIS: Team = Team(3);
-pub const GREEN: Team = Team(4);
-pub const BLUE: Team = Team(5);
-pub const NEOPLASTIC: Team = Team(6);
+    pub const DERELICT: Team = Team(0);
+    pub const SHARDED: Team = Team(1);
+    pub const CRUX: Team = Team(2);
+    pub const MALIS: Team = Team(3);
+    pub const GREEN: Team = Team(4);
+    pub const BLUE: Team = Team(5);
+    pub const NEOPLASTIC: Team = Team(6);
+}

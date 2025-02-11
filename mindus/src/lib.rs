@@ -1,5 +1,6 @@
 //! crate for dealing with mindustry
 #![feature(
+    maybe_uninit_write_slice,
     stmt_expr_attributes,
     generic_const_exprs,
     iter_from_coroutine,

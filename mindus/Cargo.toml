@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "5.0.28"
+version = "5.0.29"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -30,6 +30,7 @@ fimg = { version = "0.4.33", features = [
   "blur",
   "save",
 ], default-features = false }
+atools = "0.1.6"
 
 [features]
 bin = ["fimg/save"]
@@ -52,3 +53,6 @@ path = "src/exe/mod.rs"
 
 [dev-dependencies]
 diff = "0.1"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]

@@ -6,6 +6,8 @@ pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
 use super::GridPos;
 use crate::block::content::Type;
+use crate::color_mapping::BLOCK2COLOR;
+use crate::team::Team;
 pub(crate) use crate::utils::*;
 use crate::Map;
 use crate::{
@@ -455,12 +457,106 @@ pub fn draw_map_single(
             Yielded(ThinMapData::Bloc(ThinBloc::None(n))) => {
                 i += n as usize;
             }
-            Yielded(ThinMapData::Bloc(ThinBloc::Build(r, bloc))) => {
+            Yielded(ThinMapData::Bloc(ThinBloc::Build(r, bloc, _))) => {
                 draw(i, r, bloc);
             }
             Yielded(ThinMapData::Bloc(ThinBloc::Many(bloc, n))) => {
                 for i in i..=i + n as usize {
                     draw(i, Rotation::Up, bloc);
+                }
+                i += n as usize;
+            }
+            Complete(Err(x)) => return Err(x),
+            x => unreachable!("{x:?}"),
+        }
+        i += 1;
+    }
+    match Pin::new(&mut co).resume(()) {
+        Complete(Ok(())) => (),
+        f => unreachable!("{f:?}"),
+    };
+
+    Ok((img, (w, h)))
+}
+
+/// Draws a map in a single pass. Uses the silly team color thing that mindustry has.
+pub fn draw_map_simple(
+    map: &mut crate::data::map::MapReader,
+) -> Result<(Image<Box<[u8]>, 3>, (u16, u16)), super::map::ReadError> {
+    use std::ops::CoroutineState::*;
+    let mut co = map.thin_map()?;
+    let (w, h) = match Pin::new(&mut co).resume(()) {
+        Yielded(ThinMapData::Init { width, height }) => (width, height),
+        Complete(Err(x)) => return Err(x),
+        _ => unreachable!(),
+    };
+    let mut img = uninit::Image::<u8, 3>::new(
+        (w as u32).try_into().unwrap(),
+        (h as u32).try_into().unwrap(),
+    );
+    // loop1 draws the floor
+    for y in 0..h {
+        for x in 0..w {
+            let (floor, ore) = match Pin::new(&mut co).resume(()) {
+                Yielded(ThinMapData::Tile { floor, ore }) => (floor, ore),
+                Complete(Err(x)) => return Err(x),
+                _ => unreachable!(),
+            };
+            let t = (ore != Type::Air).then_some(ore).unwrap_or(floor);
+            let y = h - y - 1;
+            let i1 = img.at(x as u32, y as u32) as usize;
+            unsafe {
+                img.slice(i1..i1 + 3)
+                    .write_copy_of_slice(&BLOCK2COLOR[t as u16 as usize][..])
+            };
+        }
+    }
+    let mut img = unsafe { img.assume_init() }.boxed();
+    let mut i = 0;
+    while i < (w as usize * h as usize) {
+        let mut draw = |i, b: &'static crate::block::Block, team: Team| {
+            let x = i % w as usize;
+            let y = i / w as usize;
+            let y = h as usize - y - 1;
+            let s = b.get_size();
+            let x = x
+                - (match s {
+                    1 | 2 => 0,
+                    3 | 4 => 1,
+                    5 | 6 => 2,
+                    7 | 8 => 3,
+                    9 => 4,
+                    // SAFETY: no block too big
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                }) as usize;
+            let y = y
+                - (match s {
+                    1 => 0,
+                    2 | 3 => 1,
+                    4 | 5 => 2,
+                    6 | 7 => 3,
+                    8 | 9 => 4,
+                    // SAFETY: no block too big
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                }) as usize;
+            for x in x..(x as usize + s as usize).min(w as usize) {
+                for y in y..(y as usize + s as usize).min(h as usize) {
+                    unsafe {
+                        img.set_pixel(x as u32, y as u32, <[u8; 3]>::from(team.color()));
+                    }
+                }
+            }
+        };
+        match Pin::new(&mut co).resume(()) {
+            Yielded(ThinMapData::Bloc(ThinBloc::None(n))) => {
+                i += n as usize;
+            }
+            Yielded(ThinMapData::Bloc(ThinBloc::Build(_, bloc, t))) => {
+                draw(i, bloc, t);
+            }
+            Yielded(ThinMapData::Bloc(ThinBloc::Many(bloc, n))) => {
+                for i in i..=i + n as usize {
+                    draw(i, bloc, Team::DERELICT);
                 }
                 i += n as usize;
             }
