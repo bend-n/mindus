@@ -283,16 +283,16 @@ impl BlockLogic for SwitchLogic {
 
     fn draw(
         &self,
-        _: &str,
+        name: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
     ) -> ImageHolder<4> {
-        let mut base = load!("switch", s);
+        let mut base = load!(from name which is ["switch" | "world-switch"], s);
         if let Some(state) = state {
             if *Self::get_state(state) {
-                let on = load!("switch-on", s);
+                let on = load!(concat "on" => name which is ["switch" | "world-switch"], s);
                 unsafe { base.overlay(&on) };
                 return base;
             }

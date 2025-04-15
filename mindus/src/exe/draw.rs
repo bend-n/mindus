@@ -24,11 +24,11 @@ pub fn main(args: Args) {
         } {
             Ok(s) => {
                 println!("{curr} {}", s.tags.get("name").unwrap());
-                // let i = s.render();
+                let i = mindus::Renderable::render(&s);
                 if let Ok(v) = std::env::var("SAVE")
                     && v == "1"
                 {
-                    // i.save("x.png");
+                    i.save("x.png");
                     continue;
                 }
             }

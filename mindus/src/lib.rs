@@ -9,7 +9,6 @@
     coroutine_trait,
     derive_const,
     coroutines,
-    slice_take,
     let_chains
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]

@@ -837,6 +837,7 @@ make_register! {
     "slag-heater" => HeatCrafter::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
     "phase-heater" => HeatCrafter::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
     "heat-redirector" => HeatConduit::new(3, false, cost!(Tungsten: 10, Graphite: 10));
+    "small-heat-redirector" => HeatConduit::new(2, false, cost!(SurgeAlloy: 8, Graphite: 8));
     "heat-router" => HeatConduit::new(3, false, cost!(Tungsten: 15, Graphite: 10));
     "slag-incinerator" -> BasicBlock::new(1, true, cost!(Tungsten: 15));
     "carbide-crucible" -> ProductionBlock::new(3, true, cost!(Tungsten: 110, Thorium: 150, Oxide: 60));
@@ -937,6 +938,8 @@ make_register! {
     "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
     "unit-repair-tower" -> BasicBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
     "launch-pad" -> BasicBlock::new(3, true, cost!(Copper: 350, Lead: 200, Titanium: 150, Silicon: 140));
+    "landing-pad" -> BasicBlock::new(3, true, cost!(Copper: 200, Graphite: 100, Titanium: 100));
+    "advanced-launch-pad" -> BasicBlock::new(4, true, cost!(Copper: 350, Silicon: 250, Lead: 300, Titanium: 200));
     "interplanetary-accelerator" -> BasicBlock::new(7, true, cost!(Copper: 16000, Silicon: 11000, Thorium: 13000, Titanium: 12000, SurgeAlloy: 6000, PhaseFabric: 5000));
     "mechanical-drill" -> DrillBlock::new(2, true, cost!(Copper: 12));
     "pneumatic-drill" -> DrillBlock::new(2, true, cost!(Copper: 18, Graphite: 10));
@@ -946,6 +949,7 @@ make_register! {
     "oil-extractor" -> BasicBlock::new(3, true, cost!(Copper: 150, Lead: 115, Graphite: 175, Thorium: 115, Silicon: 75));
     "vent-condenser" -> ProductionBlock::new(3, true, cost!(Graphite: 20, Beryllium: 60));
     "cliff-crusher" => WallDrillBlock::new(2, false, cost!(Beryllium: 100, Graphite: 40));
+    "large-cliff-crusher" => WallDrillBlock::new(3, false, cost!(Silicon: 80, SurgeAlloy: 15, Beryllium: 100, Tungsten: 50));
     "plasma-bore" => DrillBlock::new(2, false, cost!(Beryllium: 40));
     "large-plasma-bore" => DrillBlock::new(3, false, cost!(Silicon: 100, Oxide: 25, Beryllium: 100, Tungsten: 70));
     "impact-drill" -> DrillBlock::new(4, true, cost!(Silicon: 70, Beryllium: 90, Graphite: 60));
@@ -1029,6 +1033,7 @@ make_register! {
     "world-processor" -> BasicBlock::new(1, true, &[]);
     "world-message" -> MessageLogic::new(1, true, &[]);
     "world-cell" -> MemoryBlock::new(1, true, &[]);
+    "world-switch" => SwitchLogic::new(1, true, &[]);
     "liquid-source" => FluidBlock::new(1, true, &[]);
     "liquid-void" -> BasicBlock::new(1, true, &[]);
     "shield-projector" -> ShieldBlock::new(3, true, &[]);

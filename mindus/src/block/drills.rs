@@ -14,9 +14,10 @@ make_simple!(
     },
     |_, buff: &mut DataRead| read_drill(buff)
 );
-make_simple!(WallDrillBlock, |_, _, _, _, rot: Rotation, scl| {
-    let mut base = load!("cliff-crusher", scl);
-    let mut top = load!("cliff-crusher-top", scl);
+make_simple!(WallDrillBlock, |_, name, _, _, rot: Rotation, scl| {
+    let mut base = load!(from name which is ["cliff-crusher" | "large-cliff-crusher"], scl);
+    let mut top =
+        load!(concat "top" => name which is ["cliff-crusher" | "large-cliff-crusher"], scl);
     unsafe { top.rotate(rot.rotated(false).count()) };
     unsafe { base.overlay(&top) };
     base

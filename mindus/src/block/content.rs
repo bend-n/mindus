@@ -416,5 +416,14 @@ content_enum! {
         "world-processor",
         "world-cell",
         "world-message",
+
+
+
+        // shouldn't really exist
+        "large-cliff-crusher",
+        "small-heat-redirector",
+        "advanced-launch-pad",
+        "landing-pad",
+        "world-switch",
     }
 }

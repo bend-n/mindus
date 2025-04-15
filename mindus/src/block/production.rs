@@ -63,13 +63,14 @@ make_simple!(
     }
 );
 make_simple!(HeatConduit, |_, n, _, _, r: Rotation, s| {
-    let mut base = load!(from n which is ["heat-router" | "heat-redirector"], s);
+    let mut base =
+        load!(from n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s);
     let mut top = match r {
         Rotation::Up | Rotation::Right => {
-            load!(concat "top1" => n which is ["heat-router" | "heat-redirector"], s)
+            load!(concat "top1" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
         }
         Rotation::Down | Rotation::Left => {
-            load!(concat "top2" => n which is ["heat-router" | "heat-redirector"], s)
+            load!(concat "top2" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
         }
     };
     unsafe { top.rotate(r.rotated(false).count()) };
