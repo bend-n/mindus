@@ -1,7 +1,7 @@
 //! schematic parsing
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::fmt::{self, Write};
+use std::fmt::{self, Display, Write};
 use thiserror::Error;
 
 use crate::block::ratios::{Io, IoBuilder};
@@ -508,10 +508,13 @@ impl Serializable for Schematic {
         let mut block_table = Vec::with_capacity(num_table as usize);
         for _ in 0..num_table {
             let name = buff.read_utf()?;
-            match BLOCK_REGISTRY.get(name) {
-                None => return Err(ReadError::NoSuchBlock(name.to_owned())),
-                Some(b) => block_table.push(b),
-            }
+            block_table.push(
+                BLOCK_REGISTRY
+                    .get(name)
+                    .copied()
+                    // wont get rendered
+                    .unwrap_or(&crate::block::METAL_FLOOR),
+            );
         }
         let num_blocks = buff.read_i32()?;
         if num_blocks < 0 || num_blocks as u32 > MAX_BLOCKS {

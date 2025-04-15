@@ -14,11 +14,10 @@ pub fn main(args: Args) {
             Schematic::deserialize(&mut DataRead::new(&v))
         } else {
             match Schematic::deserialize_base64(&curr) {
-                Err(mindus::data::schematic::R64Error::Base64(e)) => {
+                Err(e) => {
                     print_err!(e, "Could not read schematic");
                     continue;
                 }
-                Err(mindus::data::schematic::R64Error::Content(e)) => Err(e),
                 Ok(o) => Ok(o),
             }
         } {
@@ -29,6 +28,7 @@ pub fn main(args: Args) {
                     && v == "1"
                 {
                     i.save("x.png");
+                    println!("drawn");
                     continue;
                 }
             }
