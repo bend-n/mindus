@@ -938,7 +938,7 @@ make_register! {
     "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
     "unit-repair-tower" -> BasicBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
     "launch-pad" -> BasicBlock::new(3, true, cost!(Copper: 350, Lead: 200, Titanium: 150, Silicon: 140));
-    "landing-pad" -> BasicBlock::new(3, true, cost!(Copper: 200, Graphite: 100, Titanium: 100));
+    "landing-pad" -> BasicBlock::new(4, true, cost!(Copper: 200, Graphite: 100, Titanium: 100));
     "advanced-launch-pad" -> BasicBlock::new(4, true, cost!(Copper: 350, Silicon: 250, Lead: 300, Titanium: 200));
     "interplanetary-accelerator" -> BasicBlock::new(7, true, cost!(Copper: 16000, Silicon: 11000, Thorium: 13000, Titanium: 12000, SurgeAlloy: 6000, PhaseFabric: 5000));
     "mechanical-drill" -> DrillBlock::new(2, true, cost!(Copper: 12));

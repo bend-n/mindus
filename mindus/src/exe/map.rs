@@ -14,6 +14,7 @@ pub fn main(args: Args) {
             m.header()?;
             m.version()?;
             let t = m.tags()?;
+            dbg!(&t);
             println!("rendering {}", t.get("name").unwrap_or(&"<unknown>"));
             m.skip()?;
             let (mut img, sz) = mindus::data::renderer::draw_map_single(&mut m)?;
