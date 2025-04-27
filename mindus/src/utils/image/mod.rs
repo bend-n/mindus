@@ -11,6 +11,13 @@ pub trait ImageUtils {
     ///
     /// UB if image is not square
     unsafe fn rotate(&mut self, times: u8) -> &mut Self;
+    unsafe fn rotated(mut self, times: u8) -> Self
+    where
+        Self: Sized,
+    {
+        unsafe { self.rotate(times) };
+        self
+    }
     /// shadow
     fn shadow(&mut self) -> &mut Self;
 }
@@ -55,4 +62,11 @@ impl ImageUtils for Image<&mut [u8], 4> {
         }
         self
     }
+}
+
+#[test]
+fn x() {
+    let mut x = Image::<_, 4>::open("/home/os/pod.png");
+    x.as_mut().shadow();
+    x.save("/home/os/shadowpod.png");
 }

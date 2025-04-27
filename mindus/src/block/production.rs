@@ -65,15 +65,34 @@ make_simple!(
 make_simple!(HeatConduit, |_, n, _, _, r: Rotation, s| {
     let mut base =
         load!(from n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s);
-    let mut top = match r {
-        Rotation::Up | Rotation::Right => {
-            load!(concat "top1" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
+    if n == "heat-router" {
+        let t1 = load!("heat-router-top1", s);
+        let t2 = load!("heat-router-top2", s);
+        let x = |n| unsafe {
+            match n {
+                Rotation::Up => t1.clone().rotated(3),
+                Rotation::Right => t1.clone(),
+                Rotation::Down => t2.clone().rotated(1),
+                Rotation::Left => t2.clone().rotated(2),
+            }
+        };
+        unsafe {
+            base.overlay(&x(r.rotated(false)));
+            base.overlay(&x(r));
+            base.overlay(&x(r.rotated(true)));
         }
-        Rotation::Down | Rotation::Left => {
-            load!(concat "top2" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
-        }
-    };
-    unsafe { top.rotate(r.rotated(false).count()) };
-    unsafe { base.overlay(&top) };
-    base
+        base
+    } else {
+        let mut top = match r {
+            Rotation::Up | Rotation::Right => {
+                load!(concat "top1" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
+            }
+            Rotation::Down | Rotation::Left => {
+                load!(concat "top2" => n which is ["heat-router" | "heat-redirector" | "small-heat-redirector"], s)
+            }
+        };
+        unsafe { top.rotate(r.rotated(false).count()) };
+        unsafe { base.overlay(&top) };
+        base
+    }
 });
