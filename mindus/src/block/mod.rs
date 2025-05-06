@@ -964,6 +964,7 @@ make_register! {
     "memory-bank" -> MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
     "logic-display" -> BasicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
     "large-logic-display" -> BasicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
+    "tile-logic-display" -> BasicBlock::new(1, false, &[]);
     "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
     "illuminator" -> LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
     "power-node" -> ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);

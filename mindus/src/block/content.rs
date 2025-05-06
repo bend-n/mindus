@@ -425,5 +425,6 @@ content_enum! {
         "advanced-launch-pad",
         "landing-pad",
         "world-switch",
+        "tile-logic-display",
     }
 }
