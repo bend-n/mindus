@@ -47,10 +47,12 @@ pub(crate) use define;
 pub(crate) use dir;
 
 pub type Cross = [Option<(&'static Block, Rotation)>; 4];
+pub type Corners = [Option<(&'static Block, Rotation)>; 4];
 /// holds the 4 bordering blocks
 #[derive(Copy, Clone)]
 pub struct RenderingContext {
     pub cross: Cross,
+    pub corners: Corners,
     pub position: PositionContext,
 }
 
@@ -244,7 +246,7 @@ fn test_cross() {
                     width: s.width,
                     height: s.height,
                 };
-                c.push(s.cross(&pctx));
+                c.push(s.cross(&pctx).0);
             }
             let n = s.tags.get("name").map_or("<unknown>", |x| &x);
             let cc: Vec<Cross> = vec![
@@ -356,6 +358,7 @@ fn test_mask() {
                         width: 10,
                         height: 10,
                     },
+                    corners: Default::default(),
                     cross: $cross,
                 },
                 dir!($rot),

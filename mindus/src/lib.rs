@@ -7,6 +7,7 @@
     generic_arg_infer,
     const_trait_impl,
     coroutine_trait,
+    portable_simd,
     derive_const,
     coroutines,
     let_chains

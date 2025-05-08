@@ -262,3 +262,4 @@ rats!(UnitCargoLoader { "unit-cargo-loader": [Nitrogen: 10] => [] });
 rats!(AssemblerBlock { none });
 rats!(RepairTurret { none });
 rats!(AssemblerModule { none });
+rats!(TileableDisplay { none });

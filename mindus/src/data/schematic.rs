@@ -142,7 +142,7 @@ impl Schematic {
     }
 
     /// the area around a point
-    pub(crate) fn cross(&self, c: &PositionContext) -> Cross {
+    pub(crate) fn cross(&self, c: &PositionContext) -> (Cross, Corners) {
         let get = |x, y| {
             let b = self.get(x?, y?).ok()??;
             Some((b.get_block()?, b.get_rotation()?))
@@ -159,12 +159,20 @@ impl Schematic {
                 }
             };
         }
-        [
-            get(s!(c.position.0), s!(c.position.1 + 1)),
-            get(s!(c.position.0 + 1), s!(c.position.1)),
-            get(s!(c.position.0), s!(c.position.1 => 1)),
-            get(s!(c.position.0 => 1), s!(c.position.1)),
-        ]
+        (
+            [
+                get(s!(c.position.0), s!(c.position.1 + 1)),
+                get(s!(c.position.0 + 1), s!(c.position.1)),
+                get(s!(c.position.0), s!(c.position.1 => 1)),
+                get(s!(c.position.0 => 1), s!(c.position.1)),
+            ],
+            [
+                get(s!(c.position.0 => 1), s!(c.position.1 => 1)),
+                get(s!(c.position.0 => 1), s!(c.position.1 + 1)),
+                get(s!(c.position.0 + 1), s!(c.position.1 => 1)),
+                get(s!(c.position.0 + 1), s!(c.position.1 + 1)),
+            ],
+        )
     }
 
     /// Ratios of this schematic.

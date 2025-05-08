@@ -586,3 +586,29 @@ pub enum CreateError {
     #[error("link {name} already points to ({x}, {y})")]
     DuplicatePos { name: String, x: i16, y: i16 },
 }
+#[rustfmt::skip]
+static BITMASKS: [[Image<&[u8], 4>;3]; 256] = include!("x.rs");
+make_simple!(TileableDisplay, |_,
+                               _,
+                               _,
+                               ctx: Option<&RenderingContext>,
+                               _,
+                               s| {
+    let c = ctx.unwrap();
+    let [f, d, h, b] = c.corners;
+    let [c, a, g, e] = c.cross;
+    let swizzled = [a, b, c, d, e, f, g, h];
+    use std::simd::prelude::*;
+    let mut b = load!("tile-logic-display", s);
+    unsafe {
+        b.overlay(&ImageHolder::from(
+            BITMASKS[u8x8::from_array(
+                swizzled.map(|x| x.is_some_and(|x| x.0.name() == "tile-logic-display") as u8),
+            )
+            .simd_eq(u8x8::splat(1))
+            .to_bitmask() as usize][s as usize]
+                .copy(),
+        ))
+    };
+    b
+});

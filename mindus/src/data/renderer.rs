@@ -141,8 +141,10 @@ impl Renderable for Schematic {
                     width: self.width,
                     height: self.height,
                 };
+                let (cross, corners) = self.cross(&pctx);
                 RenderingContext {
-                    cross: self.cross(&pctx),
+                    cross,
+                    corners,
                     position: pctx,
                 }
             });
@@ -236,6 +238,7 @@ impl Renderable for Map {
                         };
                         RenderingContext {
                             cross: self.cross(j, &pctx),
+                            corners: Default::default(),
                             position: pctx,
                         }
                     });
@@ -289,6 +292,7 @@ fn all_blocks() {
         let _ = t.image(
             None,
             Some(&RenderingContext {
+                corners: [None; 4],
                 cross: [None; 4],
                 position: PositionContext {
                     position: GridPos(0, 0),
@@ -441,6 +445,7 @@ pub fn draw_map_single(
                     height: h as usize,
                 };
                 RenderingContext {
+                    corners: [None; 4],
                     cross: [None; 4], // woe
                     position: pctx,
                 }
