@@ -128,6 +128,12 @@ impl BlockLogic for ConstructorBlock {
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
+            DynData::Content(crate::content::Type::UnitCommand, n) => {
+                Ok(Some(Self::create_state(Some(
+                    UnitCommand::try_from(n as u8)
+                        .map_err(|x| DeserializeError::Custom(Box::new(x)))?,
+                ))))
+            }
             DynData::UnitCommand(u) => Ok(Some(Self::create_state(Some(u)))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),

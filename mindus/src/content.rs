@@ -146,6 +146,8 @@ numeric_enum! {
         Planet = 13,
         // Ammo = 14,
         Team = 15,
+        UnitCommand = 16,
+        UnitStance = 17,
     }
 }
 
