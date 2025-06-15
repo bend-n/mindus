@@ -7,6 +7,7 @@ use super::schematic::Schematic;
 use super::GridPos;
 use crate::block::content::Type;
 use crate::color_mapping::BLOCK2COLOR;
+use crate::data::map::Registrar;
 use crate::team::Team;
 pub(crate) use crate::utils::*;
 use crate::Map;
@@ -365,9 +366,10 @@ pub fn draw_units(
 /// Will walk through the map section. use [`draw_units`] after, if you like.
 pub fn draw_map_single(
     map: &mut crate::data::map::MapReader,
+    r: Registrar,
 ) -> Result<(Image<Box<[u8]>, 3>, (u16, u16)), super::map::ReadError> {
     use std::ops::CoroutineState::*;
-    let mut co = map.thin_map()?;
+    let mut co = map.thin_map(r)?;
     let (w, h) = match Pin::new(&mut co).resume(()) {
         Yielded(ThinMapData::Init { width, height }) => (width, height),
         Complete(Err(x)) => return Err(x),
@@ -485,11 +487,13 @@ pub fn draw_map_single(
 }
 
 /// Draws a map in a single pass. Uses the silly team color thing that mindustry has.
+/// probably broken- if you want to use this ask me to update the block2color
 pub fn draw_map_simple(
     map: &mut crate::data::map::MapReader,
+    r: Registrar,
 ) -> Result<(Image<Box<[u8]>, 3>, (u16, u16)), super::map::ReadError> {
     use std::ops::CoroutineState::*;
-    let mut co = map.thin_map()?;
+    let mut co = map.thin_map(r)?;
     let (w, h) = match Pin::new(&mut co).resume(()) {
         Yielded(ThinMapData::Init { width, height }) => (width, height),
         Complete(Err(x)) => return Err(x),

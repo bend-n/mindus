@@ -153,7 +153,7 @@ impl Controller {
         Ok(match buff.read_u8()? {
             0 => Controller::Player(buff.read_i32()?),
             3 => Controller::Logic(buff.read_i32()?),
-            6 => {
+            t @ (4 | 6 | 7 | 8) => {
                 let has_attack = buff.read_bool()?;
                 let pos = if buff.read_bool()? {
                     Some((buff.read_f32()?, buff.read_f32()?))
@@ -174,12 +174,31 @@ impl Controller {
                 } else {
                     None
                 };
+                if let 7 | 8 = t {
+                    for _ in 0..buff.read_u8()? {
+                        match buff.read_u8()? {
+                            0 | 1 => {
+                                buff.read_u32()?;
+                            }
+                            2 => {
+                                buff.read_f32()?;
+                                buff.read_f32()?;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                if t == 8 {
+                    // stance
+                    buff.read_u8()?;
+                }
                 Controller::Command {
                     target,
                     pos,
                     command,
                 }
             }
+            5 => Controller::Assembler,
             _ => Controller::Assembler,
         })
     }
@@ -193,7 +212,7 @@ pub struct Unit {
 
 impl UnitClass {
     pub fn read(self, buff: &mut DataRead) -> Result<Unit, ReadError> {
-        buff.skip(2)?;
+        let _rev = buff.read_u16()?;
         let mut state = UnitState::default();
         read_abilities(buff)?;
         state.ammo = buff.read_f32()?;

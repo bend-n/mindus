@@ -66,6 +66,17 @@ macro_rules! content_enum {
 
 		impl $tname {
 			pub const ALL: [Self; $crate::content::count_exprs!($($val)+)] = [$(Self::[<$val:camel>]),+];
+
+			pub (crate) fn by_name(name:&str)-> Option<Self> {
+				static MAPPER: std::sync::LazyLock<std::collections::HashMap<&str, $tname>> = std::sync::LazyLock::new(
+					|| std::collections::HashMap::from_iter(
+						[
+							$(($val, $tname::[<$val:camel>]),)+
+						]
+					)
+				);
+				MAPPER.get(name).copied()
+			}
 		}
 
 		impl $crate::content::Content for $tname {

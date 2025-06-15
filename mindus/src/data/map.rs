@@ -8,14 +8,14 @@
 //!
 //! ZLIB compressed stream contains:
 //! - header: 4b = `MSCH` [`MapReader::header`]
-//! - version: `u32` (should be 7) [`MapReader::version`]
+//! - version: `u32` (should be 7+) [`MapReader::version`]
 //! - tag section `<u32>` [`MapReader::tags`]
 //!     - 1 byte of idk (skip)
 //!     - string map (`u16` for map len, iterate each, read `utf`)
-//! - content header section `<u32>`: [`MapReader::skip`]
-//!     - iterate `i8` (should = `8`)'
+//! - content header section `<u32>`: [`MapReader::content`] (note: if map v8, will use [`BlockEnum`] and skip reading this)
+//!     - iterate `i8` (should = `10`)'
 //!         - the type: `i8` (0: item, block: 1, liquid: 4, status: 5, unit: 6, weather: 7, sector: 9, planet: 13
-//!         - item count: `u16` (item: 22, block: 412, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
+//!         - item count: `u16` (item: 22, block: 422, liquid: 11, status: 21, unit: 66, weather: 6, sector: 35, planet: 7)
 //!         - these types all have their own modules: [`item`], [`content`], [`fluid`], [`modifier`], [`mod@unit`], [`weather`], [`sector`], [`planet`]
 //!         - iterate `u16`
 //!             - name: `utf`
@@ -70,6 +70,7 @@
 //!                     - continue
 //!                 - id: `u32`
 //!                 - entity read
+//! - markers section (v8)
 use std::collections::HashMap;
 use std::ops::CoroutineState::*;
 use std::ops::{Coroutine, Index, IndexMut};
@@ -520,7 +521,7 @@ pub enum ReadError {
     #[error("unsupported version ({0})")]
     Version(u8),
     #[error("unknown block {0:?}")]
-    NoSuchBlock(String),
+    NoSuchBlock(u16),
     #[error("failed to read block data")]
     ReadState(#[from] super::dynamic::ReadError),
 }
@@ -569,13 +570,13 @@ pub enum EntityData {
 }
 
 macro_rules! tiles {
-    ($count:ident, $me:ident, $w: ident) => {
+    ($count:ident, $me:ident, $w: ident,$r:ident) => {
         let mut i = 0;
         while i < $count {
             let floor_id = $me.buff.read_u16()?;
             let overlay_id = $me.buff.read_u16()?;
-            let floor = BlockEnum::try_from(floor_id).unwrap_or(BlockEnum::Stone);
-            let ore = BlockEnum::try_from(overlay_id).unwrap_or(BlockEnum::Air);
+            let &floor = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
+            let &ore = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
             yield $w::Tile { floor, ore };
             let consecutives = $me.buff.read_u8()? as usize;
             for _ in 0..consecutives {
@@ -587,6 +588,7 @@ macro_rules! tiles {
     };
 }
 
+pub type Registrar = [BlockEnum; BlockEnum::ALL.len()];
 impl MapReader {
     pub fn new(buff: &mut DataRead<'_>) -> Result<Self, ReadError> {
         let backing = buff.deflate()?;
@@ -604,9 +606,8 @@ impl MapReader {
     }
 
     pub fn version(&mut self) -> Result<u32, ReadError> {
-        // NOTE: will change to 8 soon
         let x = self.buff.read_u32()?;
-        (x == 7)
+        (x == 7 || x == 8)
             .then_some(x)
             .ok_or(ReadError::Version(x.try_into().unwrap_or(0)))
     }
@@ -620,6 +621,31 @@ impl MapReader {
             tags.insert(key, value);
         }
         Ok(tags)
+    }
+
+    pub fn content(&mut self, version: u32) -> Result<Registrar, ReadError> {
+        let mut registrar = BlockEnum::ALL;
+        let n = self.buff.read_u32()?;
+        if version < 8 {
+            for _ in 0..self.buff.read_i8()? {
+                let ty = self.buff.read_u8()?;
+                for index in 0..self.buff.read_u16()? as usize {
+                    if ty == 1 {
+                        let name = self.buff.read_utf()?;
+                        registrar
+                            .get_mut(index)
+                            .map(|x| *x = BlockEnum::by_name(name).unwrap_or(BlockEnum::Air));
+                    } else {
+                        let n = self.buff.read_u16()?;
+                        self.buff.skip(n as usize)?;
+                    }
+                }
+            }
+            dbg!(registrar);
+        } else {
+            self.buff.skip(n as _)?;
+        }
+        Ok(registrar)
     }
 
     pub fn tags_alloc(&mut self) -> Result<HashMap<String, String>, ReadError> {
@@ -645,6 +671,7 @@ impl MapReader {
 
     pub fn thin_map(
         &mut self,
+        r: Registrar,
     ) -> Result<
         impl Coroutine<(), Return = Result<(), ReadError>, Yield = ThinMapData> + '_,
         ReadError,
@@ -662,7 +689,7 @@ impl MapReader {
             let w = w as usize;
             let h = h as usize;
             let count = w * h;
-            tiles!(count, self, ThinMapData);
+            tiles!(count, self, ThinMapData, r);
 
             let mut i = 0;
             while i < count {
@@ -675,8 +702,9 @@ impl MapReader {
                 } else {
                     false
                 };
-                let block = BlockEnum::try_from(block_id)
-                    .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
+                let block = *r
+                    .get(block_id as usize)
+                    .ok_or(ReadError::NoSuchBlock(block_id))?;
                 let block = block.to_block();
                 let Some(block) = block else {
                     let consecutives = self.buff.read_u8()?;
@@ -724,8 +752,12 @@ impl MapReader {
         Ok(map)
     }
 
-    pub fn collect_map(&mut self, tags: HashMap<String, String>) -> Result<Map, ReadError> {
-        let mut co = self.map()?;
+    pub fn collect_map(
+        &mut self,
+        tags: HashMap<String, String>,
+        r: Registrar,
+    ) -> Result<Map, ReadError> {
+        let mut co = self.map(r)?;
         let (w, h) = match Pin::new(&mut co).resume(()) {
             Yielded(MapData::Init { width, height }) => (width as usize, height as usize),
             Complete(Err(x)) => return Err(x),
@@ -771,6 +803,7 @@ impl MapReader {
 
     pub fn map(
         &mut self,
+        r: Registrar,
     ) -> Result<impl Coroutine<(), Return = Result<(), ReadError>, Yield = MapData> + '_, ReadError>
     {
         let len = self.buff.read_u32()? as usize;
@@ -787,7 +820,7 @@ impl MapReader {
             let w = w as usize;
             let h = h as usize;
             let count = w * h;
-            tiles!(count, self, MapData);
+            tiles!(count, self, MapData, r);
 
             let mut i = 0;
             while i < count {
@@ -800,8 +833,9 @@ impl MapReader {
                 } else {
                     false
                 };
-                let block = BlockEnum::try_from(block_id)
-                    .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
+                let block = r
+                    .get(block_id as usize)
+                    .ok_or(ReadError::NoSuchBlock(block_id))?;
                 let block = block.to_block();
                 let Some(block) = block else {
                     let consecutives = self.buff.read_u8()?;
@@ -930,11 +964,16 @@ impl Serializable for Map {
     fn deserialize(buff: &mut DataRead<'_>) -> Result<Map, Self::ReadError> {
         let mut buff = MapReader::new(buff)?;
         buff.header()?;
-        buff.version()?;
+        let v = buff.version()?;
         let tags = buff.tags_alloc()?;
-        buff.skip()?;
-        let mut m = buff.collect_map(tags)?;
+        let r = buff.content(v)?;
+
+        let mut m = buff.collect_map(tags, r)?;
         m.entities = buff.collect_entities()?;
+        if v == 8 {
+            // skip marker region
+            buff.skip()?;
+        }
 
         // skip custom chunks
         buff.skip()?;
