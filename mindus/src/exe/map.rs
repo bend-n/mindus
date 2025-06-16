@@ -12,11 +12,11 @@ pub fn main(args: Args) {
         match (|| {
             let mut m = MapReader::new(&mut DataRead::new(&s))?;
             m.header()?;
-            let v = m.version()?;
+            m.version()?;
             let t = m.tags()?;
             dbg!(&t);
             println!("rendering {}", t.get("name").unwrap_or(&"<unknown>"));
-            let r = m.content(v)?;
+            let r = m.content()?;
             let (mut img, sz) = mindus::data::renderer::draw_map_single(&mut m, r)?;
             mindus::data::renderer::draw_units(&mut m, img.as_mut(), sz)?;
             Ok::<_, mindus::data::map::ReadError>(img)

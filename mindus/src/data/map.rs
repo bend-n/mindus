@@ -623,27 +623,22 @@ impl MapReader {
         Ok(tags)
     }
 
-    pub fn content(&mut self, version: u32) -> Result<Registrar, ReadError> {
+    pub fn content(&mut self) -> Result<Registrar, ReadError> {
         let mut registrar = BlockEnum::ALL;
-        let n = self.buff.read_u32()?;
-        if version < 8 {
-            for _ in 0..self.buff.read_i8()? {
-                let ty = self.buff.read_u8()?;
-                for index in 0..self.buff.read_u16()? as usize {
-                    if ty == 1 {
-                        let name = self.buff.read_utf()?;
-                        registrar
-                            .get_mut(index)
-                            .map(|x| *x = BlockEnum::by_name(name).unwrap_or(BlockEnum::Air));
-                    } else {
-                        let n = self.buff.read_u16()?;
-                        self.buff.skip(n as usize)?;
-                    }
+        _ = self.buff.read_u32()?;
+        for _ in 0..self.buff.read_i8()? {
+            let ty = self.buff.read_u8()?;
+            for index in 0..self.buff.read_u16()? as usize {
+                if ty == 1 {
+                    let name = self.buff.read_utf()?;
+                    registrar
+                        .get_mut(index)
+                        .map(|x| *x = BlockEnum::by_name(name).unwrap_or(BlockEnum::Air));
+                } else {
+                    let n = self.buff.read_u16()?;
+                    self.buff.skip(n as usize)?;
                 }
             }
-            dbg!(registrar);
-        } else {
-            self.buff.skip(n as _)?;
         }
         Ok(registrar)
     }
@@ -966,7 +961,7 @@ impl Serializable for Map {
         buff.header()?;
         let v = buff.version()?;
         let tags = buff.tags_alloc()?;
-        let r = buff.content(v)?;
+        let r = buff.content()?;
 
         let mut m = buff.collect_map(tags, r)?;
         m.entities = buff.collect_entities()?;
