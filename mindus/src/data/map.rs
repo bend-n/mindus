@@ -122,7 +122,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
 			| "dacite"
 			| "dirt"
 			| "arkycite-floor"
-			| "basalt"
+			| "basalt" | "basalt-vent"
 			| "moss"
 			| "mud"
 			| "grass"
