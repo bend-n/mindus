@@ -1,11 +1,9 @@
 //! crate for dealing with mindustry
 #![feature(
-    inherent_associated_types,
     maybe_uninit_write_slice,
     stmt_expr_attributes,
     generic_const_exprs,
     iter_from_coroutine,
-    generic_arg_infer,
     const_trait_impl,
     coroutine_trait,
     portable_simd,
