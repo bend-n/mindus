@@ -16,6 +16,19 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
 }
 
 impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
+    pub fn swap_wh(self) -> Self {
+        match self {
+            ImageHolder::Borrow(image) => {
+                ImageHolder::Borrow(Image::build(image.height(), image.width()).buf(image.buffer()))
+            }
+            ImageHolder::Own(image) => ImageHolder::Own(
+                Image::build(image.height(), image.width()).buf(image.take_buffer()),
+            ),
+        }
+    }
+}
+
+impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     #[must_use]
     #[inline]
     pub fn borrow(&self) -> Image<&[u8], CHANNELS> {

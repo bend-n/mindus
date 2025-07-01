@@ -1,11 +1,13 @@
 //! schematic drawing
-use std::ops::Coroutine;
+use std::iter::successors;
+use std::ops::{Coroutine, Range};
 use std::pin::Pin;
 
 pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
 use super::GridPos;
 use crate::block::content::Type;
+use crate::block::{State, DUCT_BRIDGE};
 use crate::color_mapping::BLOCK2COLOR;
 use crate::data::map::Registrar;
 use crate::team::Team;
@@ -15,7 +17,8 @@ use crate::{
     block::Rotation,
     data::map::{ThinBloc, ThinMapData},
 };
-use fimg::{uninit, BlendingOverlay};
+use either::Either;
+use fimg::{uninit, BlendingOverlay, BlendingOverlayAt};
 
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -164,6 +167,120 @@ impl Renderable for Schematic {
                     scale * (y + y_fac / 2),
                 )
             };
+        }
+        for (p, b) in self.block_iter() {
+            let Some(State::Point(mut relative)) = b.get_state() else {
+                continue;
+            };
+            let directional = matches!(b.block.name(), "duct-bridge" | "reinforced-bridge-conduit");
+            if directional {
+                let offset = match b.rot {
+                    Rotation::Right => (1, 0),
+                    Rotation::Down => (0, -1),
+                    Rotation::Left => (-1, 0),
+                    Rotation::Up => (0, 1),
+                };
+                relative = successors(Some(offset), |&(x, y)| Some((x + offset.0, y + offset.1)))
+                    .take(4)
+                    .find(|x| {
+                        self.get((p.0 as i32 + x.0) as _, (p.1 as i32 + x.1) as _)
+                            .ok()
+                            .flatten()
+                            .is_some_and(|x| x.block == b.block)
+                    });
+            }
+            if let Some(relative) = relative
+                && let n @ ("bridge-conveyor"
+                | "bridge-conduit"
+                | "phase-conveyor"
+                | "phase-conduit"
+                | "duct-bridge"
+                | "reinforced-bridge-conduit") = b.block.name()
+            {
+                let mut bridge = load!(concat "bridge" => n which is ["bridge-conveyor" | "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
+                let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
+                if relative.1 != 0 {
+                    // continue;
+                    bridge = bridge.swap_wh();
+                }
+
+                for index in if relative.0 > 0 {
+                    Either::Right(
+                        scale.px() as i32 * 2..scale.px() as i32 * relative.0 + scale.px() as i32,
+                    )
+                } else {
+                    Either::Left(
+                        relative.0 * scale.px() as i32 + scale.px() as i32 * 2..scale.px() as i32,
+                    )
+                } {
+                    unsafe {
+                        canvas.overlay_blended_at(
+                            &bridge.borrow(),
+                            (p.0 as i32 * scale.px() as i32 + index) as u32,
+                            scale * (self.height as u32 - p.1 as u32 - 1 + y_fac / 2),
+                        )
+                    };
+                }
+
+                for index in if relative.1 > 0 {
+                    Either::Right(
+                        -(scale.px() as i32) - scale.px() as i32 * (relative.1 - 1)
+                            ..-(scale.px() as i32),
+                    )
+                } else {
+                    Either::Left(0..(-relative.1 - 1) * scale.px() as i32)
+                } {
+                    let y =
+                        ((self.height as i32 - p.1 as i32 + 1) * scale.px() as i32 + index) as u32;
+
+                    unsafe {
+                        canvas.overlay_blended_at(
+                            &bridge.borrow(),
+                            scale * (p.0 as u32 + x_fac / 2),
+                            y,
+                        )
+                    };
+                }
+                if relative.0 != 0 {
+                    unsafe {
+                        canvas.overlay_blended_at(
+                            &arrow
+                                .rotated(if directional {
+                                    b.rot.rotated(false).count()
+                                } else if relative.0 < 0 {
+                                    2
+                                } else {
+                                    0
+                                })
+                                .borrow(),
+                            scale.px() as u32
+                                + ((scale * p.0 as u32).cast_signed()
+                                    + (scale.px() as i32 * relative.0 / 2))
+                                    as u32,
+                            (y_fac / 2 + scale * (self.height as u32 - p.1 as u32)) - 1,
+                        )
+                    };
+                } else {
+                    unsafe {
+                        canvas.overlay_blended_at(
+                            &arrow
+                                .rotated(if directional {
+                                    b.rot.rotated(false).count()
+                                } else if relative.0 < 1 {
+                                    3
+                                } else {
+                                    1
+                                })
+                                .borrow(),
+                            (scale * p.0 as u32) + (x_fac / 2 + scale.px() as u32) - 1,
+                            scale.px() as u32
+                                + ((scale * (self.height as u32 - p.1 as u32 - 1)).cast_signed()
+                                    + (scale.px() as i32 * -relative.1 / 2))
+                                    as u32,
+                        );
+                    }
+                }
+            }
         }
 
         if matches!(scale, Scale::Full) {
