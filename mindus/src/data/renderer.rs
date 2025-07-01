@@ -173,7 +173,7 @@ impl Renderable for Schematic {
                 continue;
             };
             let directional = matches!(b.block.name(), "duct-bridge" | "reinforced-bridge-conduit");
-            if directional {
+            if false {
                 let offset = match b.rot {
                     Rotation::Right => (1, 0),
                     Rotation::Down => (0, -1),
@@ -190,12 +190,8 @@ impl Renderable for Schematic {
                     });
             }
             if let Some(relative) = relative
-                && let n @ ("bridge-conveyor"
-                | "bridge-conduit"
-                | "phase-conveyor"
-                | "phase-conduit"
-                | "duct-bridge"
-                | "reinforced-bridge-conduit") = b.block.name()
+                && let n @ ("bridge-conveyor" | "bridge-conduit" | "phase-conveyor"
+                | "phase-conduit") = b.block.name()
             {
                 let mut bridge = load!(concat "bridge" => n which is ["bridge-conveyor" | "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
                 let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
