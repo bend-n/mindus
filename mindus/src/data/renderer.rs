@@ -190,8 +190,14 @@ impl Renderable for Schematic {
                     });
             }
             if let Some(relative) = relative
+                && relative != (0, 0)
                 && let n @ ("bridge-conveyor" | "bridge-conduit" | "phase-conveyor"
                 | "phase-conduit") = b.block.name()
+                && let Ok(Some(x)) = self.get(
+                    (p.0 as i32 + relative.0) as _,
+                    (p.1 as i32 + relative.1) as _,
+                )
+                && x.block.name() == n
             {
                 let mut bridge = load!(concat "bridge" => n which is ["bridge-conveyor" | "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
                 let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
@@ -262,10 +268,10 @@ impl Renderable for Schematic {
                             &arrow
                                 .rotated(if directional {
                                     b.rot.rotated(false).count()
-                                } else if relative.0 < 1 {
-                                    3
-                                } else {
+                                } else if relative.1 < 0 {
                                     1
+                                } else {
+                                    3
                                 })
                                 .borrow(),
                             (scale * p.0 as u32) + (x_fac / 2 + scale.px() as u32) - 1,
