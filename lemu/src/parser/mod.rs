@@ -16,13 +16,13 @@ use super::{
     debug::info::{VarData, VarInfo},
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
+        AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, PackColor,
+        Set, Stop,
         draw::{
             Clear, Flush, Line, LinePoly, Poly, RectBordered, RectFilled, SetCol, SetColor,
             SetStroke, Triangle,
         },
         io::{Print, Read, Write},
-        AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, PackColor,
-        Set, Stop,
     },
     lexer::{Lexer, Token},
     memory::{LAddress, LVar},
@@ -111,6 +111,19 @@ pub fn parse<'source, W: Wr>(
     let mut dbg_info: Vec<VarInfo> = Vec::with_capacity(64);
     macro_rules! push {
         // push a ident
+        (const $var:expr) => {{
+            let v = $var;
+            dbg_info.push(VarInfo {
+                data: VarData::Constant(v.clone().into()),
+                span: tokens.span(),
+            });
+            executor.mem.push(LVar::from(v));
+            mem.push(None);
+            used = used
+                .checked_add(1)
+                .ok_or(Error::TooManyVariables(tokens.span()))?;
+            unsafe { Ok(LAddress::addr(used - 1)) }
+        }};
         ($var:expr) => {{
             let v = $var;
             dbg_info.push(VarInfo {
@@ -125,19 +138,6 @@ pub fn parse<'source, W: Wr>(
             // SAFETY: just initialized executor.mem
             unsafe { Ok(LAddress::addr(used - 1)) }
         }};
-        (const $var:expr) => {{
-            let v = $var;
-            dbg_info.push(VarInfo {
-                data: VarData::Constant(v.clone().into()),
-                span: tokens.span(),
-            });
-            executor.mem.push(LVar::from(v));
-            mem.push(None);
-            used = used
-                .checked_add(1)
-                .ok_or(Error::TooManyVariables(tokens.span()))?;
-            unsafe { Ok(LAddress::addr(used - 1)) }
-        }};
     }
     macro_rules! addr {
         ($val:expr) => {{
@@ -145,7 +145,7 @@ pub fn parse<'source, W: Wr>(
             match mem
                 .iter()
                 .zip(0..used)
-                .find(|(&v, _)| v == Some(val))
+                .find(|&(&v, _)| v == Some(val))
                 .map(|(_, i)| i)
             {
                 Some(n) => unsafe { Ok(LAddress::addr(n)) },

@@ -183,7 +183,7 @@ impl Default for DisplayState {
 
 impl<'s, W: Write> ExecutorContext<'s, W> {
     pub fn flush(&mut self, to: Display) {
-        let (ref mut img, ref mut state) = &mut self.display.displays[to.0];
+        let (img, state) = &mut self.display.displays[to.0];
         while let Some(d) = self.display.buffer.pop_front() {
             use crate::instructions::draw::Apply;
             #[cfg(feature = "debug")]
