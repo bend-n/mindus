@@ -1,24 +1,24 @@
 //! schematic drawing
 use std::iter::successors;
-use std::ops::{Coroutine, Range};
+use std::ops::Coroutine;
 use std::pin::Pin;
 
+use super::GridPos;
 pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
-use super::GridPos;
+use crate::Map;
+use crate::block::State;
 use crate::block::content::Type;
-use crate::block::{State, DUCT_BRIDGE};
 use crate::color_mapping::BLOCK2COLOR;
 use crate::data::map::Registrar;
 use crate::team::Team;
 pub(crate) use crate::utils::*;
-use crate::Map;
 use crate::{
     block::Rotation,
     data::map::{ThinBloc, ThinMapData},
 };
 use either::Either;
-use fimg::{uninit, BlendingOverlay, BlendingOverlayAt};
+use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
 
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -169,7 +169,7 @@ impl Renderable for Schematic {
             };
         }
         for (p, b) in self.block_iter() {
-            let Some(State::Point(mut relative)) = b.get_state() else {
+            let Some(&State::Point(mut relative)) = b.get_state() else {
                 continue;
             };
             let directional = matches!(b.block.name(), "duct-bridge" | "reinforced-bridge-conduit");
@@ -200,11 +200,30 @@ impl Renderable for Schematic {
                 && x.block.name() == n
             {
                 let mut bridge = load!(concat "bridge" => n which is ["bridge-conveyor" | "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
-                let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
+
+                /*
+                let mut bridge = bridge.own();
+                bridge.chunked_mut().for_each(|x| match &mut x[3] {
+                    0 => (),
+                    y => *y = (*y as f32 * 0.20) as u8,
+                });
+                bridge.save(format!("{n}-bridge.png"));
+                let mut bridge = ImageHolder::from(bridge);
+                */
                 if relative.1 != 0 {
                     // continue;
                     bridge = bridge.swap_wh();
                 }
+                let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
+                /*
+                let mut arrow = arrow.own();
+                arrow.chunked_mut().for_each(|x| match &mut x[3] {
+                    0 => (),
+                    y => *y = (*y as f32 * 0.20) as u8,
+                });
+                arrow.save(format!("{n}-arrow.png"));
+                let mut arrow = ImageHolder::from(arrow);
+                */
 
                 for index in if relative.0 > 0 {
                     Either::Right(
