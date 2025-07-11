@@ -134,7 +134,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
 			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
 			| "tar" | "pooled-cryofluid" | "molten-slag"
 			| "space"
-			| "stone"
+			| "stone" | "stone-vent"
 			| "bluemat"
 			| "ferric-craters"
 			| "beryllic-stone"
