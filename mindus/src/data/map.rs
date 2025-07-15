@@ -515,8 +515,10 @@ pub enum ReadError {
     Header([u8; 4]),
     #[error("unsupported version ({0})")]
     Version(u8),
-    #[error("unknown block {0:?}")]
+    #[error("unknown block at index {0:?}")]
     NoSuchBlock(u16),
+    #[error("no block {0}")]
+    NoBlockFound(String),
     #[error("failed to read block data")]
     ReadState(#[from] super::dynamic::ReadError),
 }
@@ -630,9 +632,9 @@ impl MapReader {
             for index in 0..self.buff.read_u16()? as usize {
                 if ty == 1 {
                     let name = self.buff.read_utf()?;
-                    registrar
-                        .get_mut(index)
-                        .map(|x| *x = BlockEnum::by_name(name).unwrap_or(BlockEnum::Air));
+                    let block = BlockEnum::by_name(name)
+                        .ok_or_else(|| ReadError::NoBlockFound(name.to_string()))?;
+                    registrar.get_mut(index).map(|x| *x = block);
                 } else {
                     let n = self.buff.read_u16()?;
                     self.buff.skip(n as usize)?;
