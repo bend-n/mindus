@@ -79,17 +79,17 @@ use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
 use crate::block::{Block, Rotation, State};
+use crate::data::DataRead;
 use crate::data::dynamic::DynData;
 use crate::data::renderer::*;
-use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
-use crate::item::{storage::Storage, Type as Item};
+use crate::item::{Type as Item, storage::Storage};
 use crate::team::Team;
 use crate::unit::Unit;
 #[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
-use super::{entity_mapping, Serializable};
+use super::{Serializable, entity_mapping};
 use crate::content::Content;
 
 /// a tile in a map
@@ -111,7 +111,7 @@ macro_rules! lo {
 
 #[inline]
 pub(crate) fn ore(ore: BlockEnum, s: Scale) -> Image<&'static [u8], 4> {
-    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
+    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium" | "molten-slag" | "grass"], s)
 }
 
 #[inline]
@@ -125,14 +125,13 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
 			| "basalt" | "basalt-vent"
 			| "moss"
 			| "mud"
-			| "grass"
 			| "ice-snow" | "snow" | "salt" | "ice"
 			| "hotrock" | "char" | "magmarock"
 			| "shale"
 			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
 			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
 			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
-			| "tar" | "pooled-cryofluid" | "molten-slag"
+			| "tar" | "pooled-cryofluid"
 			| "space"
 			| "stone" | "stone-vent"
 			| "bluemat"
@@ -451,11 +450,7 @@ pub struct Map {
 
 macro_rules! cond {
     ($cond: expr, $do: expr) => {
-        if $cond {
-            None
-        } else {
-            $do
-        }
+        if $cond { None } else { $do }
     };
 }
 
@@ -575,8 +570,12 @@ macro_rules! tiles {
         while i < $count {
             let floor_id = $me.buff.read_u16()?;
             let overlay_id = $me.buff.read_u16()?;
-            let &floor = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
-            let &ore = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
+            let &(mut floor) = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
+            let &(mut ore) = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
+            if let BlockEnum::MoltenSlag | BlockEnum::Grass = floor {
+                ore = floor;
+                floor = BlockEnum::Stone;
+            }
             yield $w::Tile { floor, ore };
             let consecutives = $me.buff.read_u8()? as usize;
             for _ in 0..consecutives {
