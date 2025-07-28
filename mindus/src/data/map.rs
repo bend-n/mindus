@@ -455,19 +455,16 @@ macro_rules! cond {
 }
 
 impl Crossable for Map {
-    fn cross(&self, j: usize, c: &PositionContext) -> Cross {
+    fn cross(&self, j: usize, _: &PositionContext) -> Cross {
         let get = |i| {
-            let b = &self[i];
+            let b: &Tile = self.tiles.get(i)?;
             Some((b.get_block()?, b.get_rotation()?))
         };
         [
-            cond![
-                c.position.1 == 0 || c.position.1 >= c.height,
-                get(j + self.height)
-            ],
-            cond![c.position.0 >= (c.height - 1), get(j + 1)],
-            cond![c.position.1 >= (c.height - 1), get(j - self.width)],
-            cond![j < c.height, get(j - 1)],
+            get(j + self.height),
+            get(j + 1),
+            get(j - self.width),
+            get(j - 1),
         ]
     }
 }
