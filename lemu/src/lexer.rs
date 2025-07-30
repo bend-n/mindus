@@ -7,6 +7,7 @@ macro_rules! instrs {
         #[logos(skip r"[ \t]+")]
         pub enum Token<'strings> {
             #[token("\n")]
+            #[token(";")]
             Newline,
             #[regex("#[^\n]+", priority = 8)]
             Comment(&'strings str),
@@ -50,6 +51,7 @@ instrs! {
     "packcolor" => PackColor,
     "drawflush" => DrawFlush,
     "draw" => Draw,
+    "select" => Select,
     "print" => Print,
     "jump" => Jump,
     "stop" => Stop,
@@ -97,7 +99,7 @@ instrs! {
     "atan" => ATan,
 }
 
-pub fn lex(s: &str) -> Lexer {
+pub fn lex(s: &str) -> Lexer<'_> {
     Lexer {
         inner: Token::lexer(s),
     }

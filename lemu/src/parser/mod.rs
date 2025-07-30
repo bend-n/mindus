@@ -17,7 +17,7 @@ use super::{
     executor::{ExecutorBuilderInternal, Instruction, UPInstr},
     instructions::{
         AlwaysJump, ConditionOp, DynJump, End, Instr, Jump, MathOp1, MathOp2, Op1, Op2, PackColor,
-        Set, Stop,
+        Select, Set, Stop,
         draw::{
             Clear, Flush, Line, LinePoly, Poly, RectBordered, RectFilled, SetCol, SetColor,
             SetStroke, Triangle,
@@ -493,6 +493,26 @@ pub fn parse<'source, W: Wr>(
             Token::End => {
                 executor.add(End {});
             }
+            Token::Select => {
+                let to = addr!(take_ident!(tok!()?)?)?; // =
+                // if
+                let op: ConditionOp = tok!()?.try_into().map_err(|op| err!(ExpectedOp(op)))?;
+
+                let x = take_var!(tok!()?)?;
+                let y = take_var!(tok!()?)?;
+
+                let a = take_var!(tok!()?)?; // then
+                let b = take_var!(tok!()?)?; // else
+
+                executor.add(Select {
+                    op: op.get_fn(),
+                    to,
+                    x,
+                    y,
+                    a,
+                    b,
+                })
+            }
             // starting newline, simply skip. continue, so as not to to trigger the nextline!()
             Token::Newline => continue,
             // unknown instruction
@@ -623,6 +643,7 @@ pub fn parse<'source, W: Wr>(
                     }};
                 }
                 match i {
+                    "noop" => {}
                     "printflush" => instr! {
                         (1) => |b| {
                             let t = tok!()?;

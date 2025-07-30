@@ -106,6 +106,7 @@ pub enum Instr {
     Print(io::Print),
     Stop(Stop),
     PackColor(PackColor),
+    Select(Select),
     End(End),
 }
 
@@ -125,6 +126,7 @@ impl Printable for Instr {
             Self::Stop(i) => i.print(info, f),
             Self::End(i) => i.print(info, f),
             Self::PackColor(i) => i.print(info, f),
+            Self::Select(i) => i.print(info, f),
         }
     }
 }
@@ -438,6 +440,44 @@ impl Printable for PackColor {
             f,
             "packcolor {} {} {} {} {}",
             info[self.out], info[self.r], info[self.g], info[self.b], info[self.a]
+        )
+    }
+}
+#[derive(Debug, Copy, Clone)]
+pub struct Select {
+    pub op: for<'v> fn(&LVar<'v>, &LVar<'v>) -> bool,
+    pub(crate) to: LAddress,
+
+    pub x: LAddress,
+    pub y: LAddress,
+
+    pub a: LAddress,
+    pub b: LAddress,
+}
+
+impl LInstruction for Select {
+    fn run<W: Write>(&self, exec: &mut ExecutorContext<'_, W>) -> Flow {
+        *exec.get_mut(self.to) = if (self.op)(exec.get(self.x), exec.get(self.y)) {
+            exec.get(self.a)
+        } else {
+            exec.get(self.b)
+        }
+        .clone();
+        Flow::Continue
+    }
+}
+
+impl Printable for Select {
+    fn print(&self, info: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(
+            f,
+            "select {} {} {} {} {} {}",
+            info[self.to],
+            ConditionOp::try_from(self.op).unwrap(),
+            info[self.x],
+            info[self.y],
+            info[self.a],
+            info[self.b]
         )
     }
 }

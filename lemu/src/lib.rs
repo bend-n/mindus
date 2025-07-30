@@ -1,5 +1,4 @@
 //! crate for [MLOG](https://mindustrygame.github.io/wiki/logic/0-introduction/#what-is-mindustry-logic) emulation.
-#![feature(let_chains)]
 #![allow(clippy::redundant_closure_call)]
 // yeah so like well you see i kinda well kinda have to yes but sorta
 #![allow(clippy::fn_address_comparisons)]
