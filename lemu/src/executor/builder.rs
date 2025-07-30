@@ -2,8 +2,8 @@ use fimg::Image;
 use std::{collections::VecDeque, io::Write as Wr};
 
 use super::{
-    Display, DisplayState, Drawing, Executor, ExecutorContext, Instruction, Limit, Memory, PInstr,
-    UPInstr, BANK_SIZE, CELL_SIZE,
+    BANK_SIZE, CELL_SIZE, Display, DisplayState, Drawing, Executor, ExecutorContext, Instruction,
+    Limit, Memory, PInstr, UPInstr,
 };
 use crate::{
     code::Code,
@@ -144,7 +144,6 @@ impl<'s, W: Wr> ExecutorBuilderInternal<'s, W> {
                 cells: cst::<CELL_SIZE>(cells),
                 banks: cst::<BANK_SIZE>(banks),
                 memory: LRegistry(mem.into()),
-                counter: 0,
                 iterations: 0,
                 display: Drawing {
                     displays,

@@ -1,5 +1,5 @@
 mod builder;
-
+const COUNTER: LAddress = unsafe { LAddress::addr(0) };
 use crate::{
     debug::{info::DebugInfo, printable::Printable},
     instructions::draw::Drawn,
@@ -150,7 +150,6 @@ pub struct ExecutorContext<'strings, W: Write> {
     // maximum of 127 elements, so can use ~500KB
     pub banks: Box<[[f64; BANK_SIZE]]>,
     pub memory: LRegistry<'strings>,
-    pub counter: usize,
     pub display: Drawing,
     pub output: Option<W>,
     /// Counter for the number of iterations we have run so far.
@@ -208,7 +207,17 @@ impl<'s, W: Write> ExecutorContext<'s, W> {
     }
 
     pub fn jump(&mut self, Instruction(n): Instruction) {
-        self.counter = n;
+        *self.counter() = n as f64;
+    }
+
+    pub fn counter(&mut self) -> &mut f64 {
+        unsafe {
+            self.memory
+                .0
+                .get_unchecked_mut(0)
+                .num_mut()
+                .unwrap_unchecked()
+        }
     }
 
     pub fn get<'a>(&'a self, a: LAddress) -> &LVar<'s> {
@@ -248,7 +257,10 @@ impl<'s, W: Write> Executor<'s, W> {
     /// `counter` *must* be in bounds.
     unsafe fn run_current(&mut self) -> Flow {
         // SAFETY: yee
-        match unsafe { self.program.get_unchecked(self.inner.counter) } {
+        let c = self.inner.counter();
+        let i = unsafe { self.program.get_unchecked(*c as usize) };
+        *c += 1.0;
+        match i {
             PInstr::Instr(i) => {
                 #[cfg(feature = "debug")]
                 {
@@ -258,7 +270,7 @@ impl<'s, W: Write> Executor<'s, W> {
                     self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
                     comat::cprintln!(
                         "{black}{:0<2} | {green}{instr} {black}({mem}){reset}",
-                        self.inner.counter
+                        self.inner.counter(),
                     );
                 }
 
@@ -272,7 +284,7 @@ impl<'s, W: Write> Executor<'s, W> {
                         self.inner.memory.print(&self.debug_info, &mut mem).unwrap();
                         comat::cprintln!(
                             "{black}{:0<2} | {magenta}{i} {black}({mem}){reset}",
-                            self.inner.counter
+                            self.inner.counter()
                         );
                     }
                     self.inner.display.buffer(i)
@@ -298,9 +310,9 @@ impl<'s, W: Write> Executor<'s, W> {
                 }
             };
             self.instructions_ran += 1;
-            self.inner.counter += 1;
-            if self.inner.counter >= self.program.len() {
-                self.inner.counter = 0;
+            let c = self.inner.counter();
+            if *c as usize >= self.program.len() {
+                *c = 0.0;
                 self.inner.iterations += 1;
             }
         }

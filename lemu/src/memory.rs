@@ -35,6 +35,13 @@ impl LVar<'_> {
             Self::String(_) => None,
         }
     }
+
+    pub const fn num_mut(&mut self) -> Option<&mut f64> {
+        match self {
+            LVar::Num(x) => Some(x),
+            LVar::String(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

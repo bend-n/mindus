@@ -107,6 +107,7 @@ pub enum Instr {
     Stop(Stop),
     PackColor(PackColor),
     Select(Select),
+    Noop(Noop),
     End(End),
 }
 
@@ -127,6 +128,7 @@ impl Printable for Instr {
             Self::End(i) => i.print(info, f),
             Self::PackColor(i) => i.print(info, f),
             Self::Select(i) => i.print(info, f),
+            Self::Noop(i) => i.print(info, f),
         }
     }
 }
@@ -303,6 +305,21 @@ impl LInstruction for End {
 impl Printable for End {
     fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
         write!(f, "end")
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Noop {}
+
+impl LInstruction for Noop {
+    fn run<W: Write>(&self, _: &mut ExecutorContext<'_, W>) -> Flow {
+        Flow::Continue
+    }
+}
+
+impl Printable for Noop {
+    fn print(&self, _: &DebugInfo<'_>, f: &mut impl fmt::Write) -> fmt::Result {
+        write!(f, "noop")
     }
 }
 

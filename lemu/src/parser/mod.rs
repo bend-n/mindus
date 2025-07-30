@@ -44,7 +44,6 @@ macro_rules! tokstr {
             Token::Print => Some("print"),
             Token::Jump => Some("jump"),
             Token::Stop => Some("stop"),
-            Token::Counter => Some("@counter"),
             Token::Equal => Some("equal"),
             Token::NotEqual => Some("notEqual"),
             Token::LessThan => Some("lessThan"),
@@ -139,6 +138,7 @@ pub fn parse<'source, W: Wr>(
             unsafe { Ok(LAddress::addr(used - 1)) }
         }};
     }
+    push!("@counter")?;
     macro_rules! addr {
         ($val:expr) => {{
             let val = $val;
@@ -279,14 +279,9 @@ pub fn parse<'source, W: Wr>(
             // set x 4
             Token::Set => {
                 let from = tok!()?;
-                if from == Token::Counter {
-                    let to = take_numvar!(tok!()?)?;
-                    executor.add(DynJump { to, proglen: 0 });
-                } else {
-                    let from = addr!(take_ident!(from)?)?;
-                    let to = take_var!(tok!()?)?;
-                    executor.add(Set { from, to });
-                }
+                let from = addr!(take_ident!(from)?)?;
+                let to = take_var!(tok!()?)?;
+                executor.add(Set { from, to });
             }
             // stop
             Token::Stop => {
@@ -643,7 +638,10 @@ pub fn parse<'source, W: Wr>(
                     }};
                 }
                 match i {
-                    "noop" => {}
+                    "noop" => {
+                        // executor.program.push(UPInstr::Comment("a"));
+                        executor.add(crate::instructions::Noop {});
+                    }
                     "printflush" => instr! {
                         (1) => |b| {
                             let t = tok!()?;

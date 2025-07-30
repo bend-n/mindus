@@ -33,7 +33,7 @@ macro_rules! instrs {
             #[regex(r#"@[^ "\n]*"#, |lex| Cow::from(lex.slice()))]
             #[regex(r#""[^"]*""#, callback = |lex| Cow::from(lex.slice()[1..lex.slice().len()-1].replace(r"\n", "\n")), priority = 8)]
             String(Cow<'strings, str>),
-            #[regex("[^@%0-9- \t\n][^ \t\n]*", priority = 7)]
+            #[regex("[^%0-9- \t\n][^ \t\n]*", priority = 7)]
             Ident(&'strings str),
 
             $(#[token($z, priority = 8)] $v,)+
@@ -67,7 +67,6 @@ instrs! {
     "print" => Print,
     "jump" => Jump,
     "stop" => Stop,
-    "@counter" => Counter,
     "equal" => Equal,
     "notEqual" => NotEqual,
     "lessThan" => LessThan,
