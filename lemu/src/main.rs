@@ -20,6 +20,7 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
+        println!("{lex}");
         lex.run();
         dbg!(lex.instructions_ran);
         let Output { displays, .. } = lex.output();

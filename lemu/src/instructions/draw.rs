@@ -1,4 +1,4 @@
-use super::{get_num, Flow, LInstruction};
+use super::{Flow, LInstruction, get_num};
 use crate::{
     debug::{info::DebugInfo, printable::Printable},
     executor::{Display, DisplayState, ExecutorContext},

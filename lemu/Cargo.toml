@@ -19,6 +19,9 @@ beef = "0.5"
 lerr = { version = "0.1.5", optional = true }
 comat = { version = "0.1.2", optional = true }
 vecto = "0.1.1"
+phf = { version = "0.12.1", features = ["macros"] }
+atools = "0.1.7"
+car = "0.1.2"
 
 [features]
 debug = ["comat"]

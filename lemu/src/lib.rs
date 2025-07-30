@@ -2,6 +2,7 @@
 #![allow(clippy::redundant_closure_call)]
 // yeah so like well you see i kinda well kinda have to yes but sorta
 #![allow(clippy::fn_address_comparisons)]
+#![feature(generic_const_exprs, iter_array_chunks)]
 #![warn(
     clippy::multiple_unsafe_ops_per_block,
     clippy::missing_const_for_fn,
