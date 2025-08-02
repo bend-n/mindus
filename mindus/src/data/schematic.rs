@@ -1,11 +1,11 @@
 //! schematic parsing
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::fmt::{self, Display, Write};
+use std::collections::hash_map::Entry;
+use std::fmt::{self, Write};
 use thiserror::Error;
 
 use crate::block::ratios::{Io, IoBuilder};
-use crate::block::{self, Block, Rotation, State, BLOCK_REGISTRY};
+use crate::block::{self, BLOCK_REGISTRY, Block, Rotation, State};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData};
 use crate::data::renderer::*;
@@ -127,20 +127,6 @@ impl PartialEq for Schematic {
 }
 
 impl Schematic {
-    #[must_use]
-    /// create a new schematic, panicking if too big
-    /// ```
-    /// # use mindus::Schematic;
-    /// let s = Schematic::new(5, 5);
-    /// ```
-    pub fn new(width: usize, height: usize) -> Self {
-        match Self::try_new(width, height) {
-            Ok(s) => s,
-            Err(NewError::Width(w)) => panic!("invalid schematic width ({w})"),
-            Err(NewError::Height(h)) => panic!("invalid schematic height ({h})"),
-        }
-    }
-
     /// the area around a point
     pub(crate) fn cross(&self, c: &PositionContext) -> (Cross, Corners) {
         let get = |x, y| {
@@ -152,11 +138,7 @@ impl Schematic {
                 Some($x)
             };
             ($a:expr => $b:expr) => {
-                if $a < $b {
-                    None
-                } else {
-                    Some($a - $b)
-                }
+                if $a < $b { None } else { Some($a - $b) }
             };
         }
         (
@@ -191,28 +173,22 @@ impl Schematic {
         io.into()
     }
 
-    /// create a new schematic, erroring if too big
+    /// create a new schematic
     /// ```
     /// # use mindus::Schematic;
-    /// assert!(Schematic::try_new(5000, 5000).is_err() == true);
+    /// let s = Schematic::new(5, 5);
     /// ```
-    pub fn try_new(width: usize, height: usize) -> Result<Self, NewError> {
-        if width > MAX_DIMENSION {
-            return Err(NewError::Width(width));
-        }
-        if height > MAX_DIMENSION {
-            return Err(NewError::Height(height));
-        }
+    pub fn new(width: usize, height: usize) -> Self {
         let mut tags = HashMap::<String, String>::new();
         tags.insert("name".to_string(), String::new());
         tags.insert("description".to_string(), String::new());
         tags.insert("labels".to_string(), "[]".to_string());
-        Ok(Self {
+        Self {
             width,
             height,
             tags,
             blocks: Array2D::new(None, width, height),
-        })
+        }
     }
 
     // #[must_use]
