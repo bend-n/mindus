@@ -18,6 +18,7 @@ use crate::{
     block::Rotation,
     data::map::{ThinBloc, ThinMapData},
 };
+use atools::ArrayTools;
 use either::Either;
 use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
 
@@ -339,6 +340,7 @@ impl Renderable for Map {
                 let tile = unsafe { self.tiles.get_unchecked(j) };
                 let y = self.height - y - 1;
                 // println!("draw {tile:?} ({x}, {y})");
+
                 if [
                     Type::ColoredFloor,
                     Type::MetalTiles1,
@@ -367,7 +369,9 @@ impl Renderable for Map {
                         let mut i = i.boxed();
                         unsafe {
                             img.overlay_at(
-                                &i.as_mut().tint(tile.color.into()).as_ref(),
+                                &i.as_mut()
+                                    .tint(tile.nd.skip::<3>().take::<3>().into())
+                                    .as_ref(),
                                 scale * x as u32,
                                 scale * y as u32,
                             )
@@ -381,7 +385,30 @@ impl Renderable for Map {
                     };
                 }
                 if tile.has_ore() {
-                    unsafe { img.overlay_at(&tile.ore(scale), scale * x as u32, scale * y as u32) };
+                    if tile.ore == Type::CharacterOverlay || tile.ore == Type::CharacterOverlayWhite
+                    {
+                        macro_rules! f {
+                            ($($x: literal)+) => { paste::paste!{
+                                [$(load!([<character _ overlay $x>] ),)+]
+                            }};
+                        }
+                        const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
+                        unsafe {
+                            img.overlay_at(
+                                &ImageHolder::from(
+                                    LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize],
+                                )
+                                .rotate(tile.nd[2] & 0x3)
+                                .borrow(),
+                                scale * x as u32,
+                                scale * y as u32,
+                            )
+                        };
+                    } else {
+                        unsafe {
+                            img.overlay_at(&tile.ore(scale), scale * x as u32, scale * y as u32)
+                        };
+                    }
                 }
             }
         }
@@ -429,7 +456,9 @@ impl Renderable for Map {
                             .boxed();
                         unsafe {
                             img.overlay_at(
-                                &i.as_mut().tint(tile.color.into()).as_ref(),
+                                &i.as_mut()
+                                    .tint(tile.nd.skip::<3>().take::<3>().into())
+                                    .as_ref(),
                                 scale * x as u32,
                                 scale * y as u32,
                             )

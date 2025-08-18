@@ -105,7 +105,7 @@ pub struct Tile {
     pub floor: BlockEnum,
     pub ore: BlockEnum,
     build: Option<Build>,
-    pub color: [u8; 3],
+    pub nd: [u8; 7],
 }
 
 macro_rules! lo {
@@ -177,7 +177,7 @@ impl Tile {
             floor,
             ore,
             build: None,
-            color: [0; 3],
+            nd: [0; 7],
         }
     }
 
@@ -801,7 +801,7 @@ impl MapReader {
                 }
                 Yielded(MapData::Bloc(Bloc::Nd(b, d))) => {
                     b.map(|b| m[i].set_block(b));
-                    m[i].color = d.skip::<3>().take()
+                    m[i].nd = d
                 }
                 Complete(Err(x)) => return Err(x),
                 _ => unreachable!(),
