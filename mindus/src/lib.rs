@@ -6,10 +6,10 @@
     iter_from_coroutine,
     const_trait_impl,
     coroutine_trait,
+    likely_unlikely,
     portable_simd,
     derive_const,
-    coroutines,
-    let_chains
+    coroutines
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]
 #![warn(
@@ -31,4 +31,4 @@ mod team;
 pub mod unit;
 mod utils;
 #[doc(inline)]
-pub use data::{map::Map, renderer::Renderable, schematic::Schematic, Serializable};
+pub use data::{Serializable, map::Map, renderer::Renderable, schematic::Schematic};

@@ -321,7 +321,7 @@ impl<'d> DataWrite<'d> {
                     Status::Ok | Status::BufError => {
                         return Err(CompressError::CompressEof(
                             raw.len() - comp.total_in() as usize,
-                        ))
+                        ));
                     }
                     Status::StreamEnd => (),
                 }
@@ -427,7 +427,7 @@ where
     fn serialize(&self, buff: &mut DataWrite<'_>) -> Result<(), Self::WriteError>;
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, Default)]
 pub struct GridPos(pub usize, pub usize);
 
 impl From<u32> for GridPos {

@@ -7,7 +7,7 @@ use std::fmt;
 
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::Build;
-use crate::data::{self, renderer::*, CompressError};
+use crate::data::{self, CompressError, renderer::*};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
 
@@ -634,6 +634,20 @@ macro_rules! make_register {
 }
 // pub(self) use make_register;
 make_register! {
+    "metal-tiles-1" > 1;
+    "metal-tiles-2" > 1;
+    "metal-tiles-3" > 1;
+    "metal-tiles-4" > 1;
+    "metal-tiles-5" > 1;
+    "metal-tiles-6" > 1;
+    "metal-tiles-7" > 1;
+    "metal-tiles-8" > 1;
+    "metal-tiles-9" > 1;
+    "metal-tiles-10" > 1;
+    "metal-tiles-11" > 1;
+    "metal-tiles-12" > 1;
+    "colored-floor" > 1;
+    "colored-wall" > 1;
     "darksand" > 1;
     "sand-floor" > 1;
     "yellow-stone" > 1;

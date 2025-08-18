@@ -36,6 +36,7 @@
 //!             - packed?: `i8`
 //!             - entity = `(packed & 1) not 0`
 //!             - data = `(packed & 2) not 0`
+//!             - newdata = `(packed & 3) not 0`
 //!             - if entity: central: `bool`
 //!             - if entity:
 //!                 - if central:
@@ -46,6 +47,11 @@
 //!                     - else skip `chunk len`
 //!                 - or data
 //!                     - data: `i8`
+//!                 - or new data
+//!                     - data: `i8`
+//!                     - floor: `i8`
+//!                     - overlay: `i8`
+//!                     - extra: `i32`
 //!                 - else
 //!                     - consecutives: `u8`
 //!                     - iterate `(i + 1)..(i + 1 + consecutives)`
@@ -71,6 +77,7 @@
 //!                 - id: `u32`
 //!                 - entity read
 //! - markers section (v8)
+use atools::ArrayTools;
 use std::collections::HashMap;
 use std::ops::CoroutineState::*;
 use std::ops::{Coroutine, Index, IndexMut};
@@ -98,6 +105,7 @@ pub struct Tile {
     pub floor: BlockEnum,
     pub ore: BlockEnum,
     build: Option<Build>,
+    pub color: [u8; 3],
 }
 
 macro_rules! lo {
@@ -116,6 +124,15 @@ pub(crate) fn ore(ore: BlockEnum, s: Scale) -> Image<&'static [u8], 4> {
 
 #[inline]
 pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
+    macro_rules! x {
+        ($($x:literal)+) => { paste::paste! {
+            match tile {
+                $(BlockEnum::[<$x:camel>] => return load!(raw $x, s),)+
+                _ => {}
+            }
+        }};
+    }
+    x!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12");
     lo!(tile => [
 			| "darksand"
 			| "sand-floor"
@@ -160,6 +177,7 @@ impl Tile {
             floor,
             ore,
             build: None,
+            color: [0; 3],
         }
     }
 
@@ -448,28 +466,26 @@ pub struct Map {
     pub tiles: Vec<Tile>,
 }
 
-macro_rules! cond {
-    ($cond: expr, $do: expr) => {
-        if $cond { None } else { $do }
-    };
-}
-
-impl Crossable for Map {
-    fn cross(&self, j: usize, _: &PositionContext) -> Cross {
-        let get = |i| {
-            let b: &Tile = self.tiles.get(i)?;
-            Some((b.get_block()?, b.get_rotation()?))
-        };
+impl Map {
+    #[lower::apply(wrapping)]
+    pub(crate) fn cross(&self, j: usize) -> [Option<&Tile>; 4] {
         [
-            get(j + self.height),
-            get(j + 1),
-            get(j - self.width),
-            get(j - 1),
+            self.tiles.get(j + self.width),
+            self.tiles.get(j + 1),
+            self.tiles.get(j - self.width),
+            self.tiles.get(j - 1),
         ]
     }
-}
+    #[lower::apply(wrapping)]
+    pub(crate) fn corners(&self, j: usize) -> [Option<&Tile>; 4] {
+        [
+            self.tiles.get(j - self.width - 1),
+            self.tiles.get(j - self.width + 1),
+            self.tiles.get(j + self.width - 1),
+            self.tiles.get(j + self.width + 1),
+        ]
+    }
 
-impl Map {
     #[must_use]
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
@@ -518,6 +534,8 @@ pub enum ReadError {
     NoBlockFound(String),
     #[error("failed to read block data")]
     ReadState(#[from] super::dynamic::ReadError),
+    #[error("no block, but data")]
+    NoBlockWithData,
 }
 
 /// Struct for granular map deserialization.
@@ -530,9 +548,8 @@ pub struct MapReader {
 
 #[derive(Debug)]
 pub enum ThinBloc {
-    None(u8),
     Build(Rotation, &'static Block, Team),
-    Many(&'static Block, u8),
+    Many(Option<&'static Block>, u8),
 }
 
 #[derive(Debug)]
@@ -544,10 +561,10 @@ pub enum ThinMapData {
 
 #[derive(Debug)]
 pub enum Bloc {
-    None(u8),
     Build(Build, &'static Block),
     Data(&'static Block, i8),
-    Many(&'static Block, u8),
+    Nd(Option<&'static Block>, [u8; 7]),
+    Many(Option<&'static Block>, u8),
 }
 
 #[derive(Debug)]
@@ -605,7 +622,8 @@ impl MapReader {
 
     pub fn version(&mut self) -> Result<u32, ReadError> {
         let x = self.buff.read_u32()?;
-        (x == 7 || x == 8)
+        (7..=9)
+            .contains(&x)
             .then_some(x)
             .ok_or(ReadError::Version(x.try_into().unwrap_or(0)))
     }
@@ -690,6 +708,10 @@ impl MapReader {
                 let packed = self.buff.read_u8()?;
                 let entity = (packed & 1) != 0;
                 let data = (packed & 2) != 0;
+                let newdata = (packed & 4) != 0;
+                if newdata {
+                    self.buff.skip(7)?;
+                }
                 let central = if entity {
                     self.buff.read_bool()?
                 } else {
@@ -699,13 +721,6 @@ impl MapReader {
                     .get(block_id as usize)
                     .ok_or(ReadError::NoSuchBlock(block_id))?;
                 let block = block.to_block();
-                let Some(block) = block else {
-                    let consecutives = self.buff.read_u8()?;
-                    yield ThinMapData::Bloc(ThinBloc::None(consecutives));
-                    i += consecutives as usize;
-                    i += 1;
-                    continue;
-                };
                 yield if entity {
                     if central {
                         let len = self.buff.read_u16()? as usize;
@@ -722,12 +737,14 @@ impl MapReader {
                         let n = len - read;
                         self.buff.skip(n)?;
 
-                        ThinMapData::Bloc(ThinBloc::Build(rot, block, team))
+                        ThinMapData::Bloc(ThinBloc::Build(rot, block.unwrap(), team))
                     } else {
-                        ThinMapData::Bloc(ThinBloc::None(0))
+                        ThinMapData::Bloc(ThinBloc::Many(None, 0))
                     }
                 } else if data {
                     _ = self.buff.read_i8()?;
+                    ThinMapData::Bloc(ThinBloc::Many(block, 0))
+                } else if newdata {
                     ThinMapData::Bloc(ThinBloc::Many(block, 0))
                 } else {
                     let consecutives = self.buff.read_u8()?;
@@ -767,7 +784,7 @@ impl MapReader {
         let mut i = 0;
         while i < w * h {
             match Pin::new(&mut co).resume(()) {
-                Yielded(MapData::Bloc(Bloc::None(n))) => i += n as usize,
+                Yielded(MapData::Bloc(Bloc::Many(None, n))) => i += n as usize,
                 Yielded(MapData::Bloc(Bloc::Build(x, y))) => {
                     m[i].set_block(y);
                     m[i].build = Some(x);
@@ -776,11 +793,15 @@ impl MapReader {
                     m[i].set_block(x);
                     m[i].build.as_mut().unwrap().data = y;
                 }
-                Yielded(MapData::Bloc(Bloc::Many(bloc, n))) => {
+                Yielded(MapData::Bloc(Bloc::Many(Some(bloc), n))) => {
                     for i in i..=i + n as usize {
                         m[i].set_block(bloc);
                     }
                     i += n as usize;
+                }
+                Yielded(MapData::Bloc(Bloc::Nd(b, d))) => {
+                    b.map(|b| m[i].set_block(b));
+                    m[i].color = d.skip::<3>().take()
                 }
                 Complete(Err(x)) => return Err(x),
                 _ => unreachable!(),
@@ -821,6 +842,9 @@ impl MapReader {
                 let packed = self.buff.read_u8()?;
                 let entity = (packed & 1) != 0;
                 let data = (packed & 2) != 0;
+                let newdata = (packed & 4) != 0;
+                let newdata = newdata.then(|| self.buff.readN::<7>()).transpose()?;
+                assert!(!data);
                 let central = if entity {
                     self.buff.read_bool()?
                 } else {
@@ -830,15 +854,9 @@ impl MapReader {
                     .get(block_id as usize)
                     .ok_or(ReadError::NoSuchBlock(block_id))?;
                 let block = block.to_block();
-                let Some(block) = block else {
-                    let consecutives = self.buff.read_u8()?;
-                    yield MapData::Bloc(Bloc::None(consecutives));
-                    i += consecutives as usize;
-                    i += 1;
-                    continue;
-                };
                 yield if entity {
                     if central {
+                        let block = block.ok_or(ReadError::NoBlockWithData)?;
                         let len = self.buff.read_u16()? as usize;
                         let rb4 = self.buff.read;
 
@@ -863,10 +881,15 @@ impl MapReader {
 
                         MapData::Bloc(Bloc::Build(b, block))
                     } else {
-                        MapData::Bloc(Bloc::None(0))
+                        MapData::Bloc(Bloc::Many(None, 0))
                     }
                 } else if data {
-                    MapData::Bloc(Bloc::Data(block, self.buff.read_i8()?))
+                    MapData::Bloc(Bloc::Data(
+                        block.ok_or(ReadError::NoBlockWithData)?,
+                        self.buff.read_i8()?,
+                    ))
+                } else if let Some(nd) = newdata {
+                    MapData::Bloc(Bloc::Nd(block, nd))
                 } else {
                     let consecutives = self.buff.read_u8()?;
                     i += consecutives as usize;

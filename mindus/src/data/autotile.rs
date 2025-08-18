@@ -1,6 +1,6 @@
-use super::renderer::*;
 use super::GridPos;
-use crate::block::{Block, Rotation};
+use super::renderer::*;
+use crate::block::{Block, Rotation, content::Type};
 use bobbin_bits::U4;
 
 #[cfg(test)]
@@ -57,7 +57,7 @@ pub struct RenderingContext {
 }
 
 /// holds positions
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub struct PositionContext {
     pub position: GridPos,
     pub width: usize,
@@ -223,14 +223,55 @@ pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {
     U4::from(x)
 }
 
+pub fn nbors(corners: [Option<Type>; 4], cross: [Option<Type>; 4], t: Type) -> u8 {
+    let x = [
+        cross[1], corners[3], cross[0], corners[2], cross[3], corners[0], cross[2], corners[1],
+    ];
+
+    use std::simd::prelude::*;
+    u8x8::from_array(x.map(|x| (x == Some(t)) as u8))
+        .simd_eq(u8x8::splat(1))
+        .to_bitmask() as u8
+}
+
+macro_rules! g {
+    ($name:literal, $($i:literal,)+) => { paste::paste! { [
+        $(load!([<$name _ $i>]),)+
+    ] }};
+}
+
+pub fn select(n: &str, mask: u8) -> [Image<&'static [u8], 4>; 3] {
+    #[rustfmt::skip]
+macro_rules! autotiled {
+    ($($name:literal)+) => {{ paste::paste! { $(const [<$name:snake:upper>]: [[Image<&[u8], 4>; 3]; 256] = g![$name,
+39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24,
+38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25,
+39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24,
+38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25,
+ 3,  4,  3,  4, 15, 40, 15, 20,  3,  4,  3,  4, 15, 40, 15, 20,
+ 5, 28,  5, 28, 29, 10, 29, 23,  5, 28,  5, 28, 31, 11, 31, 32,
+ 3,  4,  3,  4, 15, 40, 15, 20,  3,  4,  3,  4, 15, 40, 15, 20,
+ 2, 30,  2, 30,  9, 46,  9, 22,  2, 30,  2, 30, 14, 44, 14,  6,
+39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24,
+38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25,
+39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24,
+38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25,
+ 3,  0,  3,  0, 15, 42, 15, 12,  3,  0,  3,  0, 15, 42, 15, 12,
+ 5,  8,  5,  8, 29, 35, 29, 33,  5,  8,  5,  8, 31, 34, 31,  7,
+ 3,  0,  3,  0, 15, 42, 15, 12,  3,  0,  3,  0, 15, 42, 15, 12,
+ 2,  1,  2,  1,  9, 45,  9, 19,  2,  1,  2,  1, 14, 18, 14, 13,];)+ match n {
+    $($name => { [<$name:snake:upper>][mask as usize] },)+
+    x => unreachable!("{x}")
+ }}}};
+}
+    autotiled!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12")
+}
+
 pub trait RotationState {
     fn get_rotation(&self) -> Option<Rotation>;
 }
 pub trait BlockState {
     fn get_block(&self) -> Option<&'static Block>;
-}
-pub trait Crossable {
-    fn cross(&self, j: usize, c: &PositionContext) -> Cross;
 }
 
 #[test]

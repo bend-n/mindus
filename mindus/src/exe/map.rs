@@ -1,8 +1,9 @@
-use mindus::data::map::MapReader;
 use mindus::data::DataRead;
+use mindus::{Map, Renderable, Serializable};
 use std::env::Args;
 
 use super::print_err;
+
 pub fn main(args: Args) {
     // process schematics from command line
     for curr in args {
@@ -10,16 +11,12 @@ pub fn main(args: Args) {
             continue;
         };
         match (|| {
-            let mut m = MapReader::new(&mut DataRead::new(&s))?;
-            m.header()?;
-            m.version()?;
-            let t = m.tags()?;
-            dbg!(&t);
-            println!("rendering {}", t.get("name").unwrap_or(&"<unknown>"));
-            let r = m.content()?;
-            let (mut img, sz) = mindus::data::renderer::draw_map_single(&mut m, r)?;
-            mindus::data::renderer::draw_units(&mut m, img.as_mut(), sz)?;
-            Ok::<_, mindus::data::map::ReadError>(img)
+            let m = Map::deserialize(&mut DataRead::new(&s))?;
+            println!(
+                "rendering {}",
+                m.tags.get("name").map_or("<unknown>", |v| v)
+            );
+            Ok::<_, mindus::data::map::ReadError>(m.render())
         })() {
             Err(e) => print_err!(e, "fail"),
             Ok(m) => {

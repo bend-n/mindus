@@ -21,7 +21,9 @@ fn main() -> ExitCode {
             }
         };
         println!("{lex}");
+        let now = std::time::Instant::now();
         lex.run();
+        dbg!(now.elapsed());
         dbg!(lex.instructions_ran);
         let Output { displays, .. } = lex.output();
         for ((d, _), i) in displays.iter().zip(1..=displays.len()) {

@@ -1,4 +1,5 @@
 //! schematic drawing
+use std::hint::unlikely;
 use std::iter::successors;
 use std::ops::Coroutine;
 use std::pin::Pin;
@@ -6,13 +7,13 @@ use std::pin::Pin;
 use super::GridPos;
 pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
-use crate::Map;
-use crate::block::State;
 use crate::block::content::Type;
+use crate::block::{COLORED_WALL, State};
 use crate::color_mapping::BLOCK2COLOR;
 use crate::data::map::Registrar;
 use crate::team::Team;
 pub(crate) use crate::utils::*;
+use crate::{Map, content::Content};
 use crate::{
     block::Rotation,
     data::map::{ThinBloc, ThinMapData},
@@ -66,6 +67,9 @@ macro_rules! load {
             $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::[<$name:snake:upper>],
         }.copy())
+    } };
+    ($name: ident) => { paste::paste! {
+        [$crate::data::renderer::full::[<$name:snake:upper>].copy(), $crate::data::renderer::quar::[<$name:snake:upper>].copy(), $crate::data::renderer::eigh::[<$name:snake:upper>].copy()]
     } };
     ($name: literal) => { paste::paste! {
         [$crate::data::renderer::full::[<$name:snake:upper>].copy(), $crate::data::renderer::quar::[<$name:snake:upper>].copy(), $crate::data::renderer::eigh::[<$name:snake:upper>].copy()]
@@ -316,6 +320,7 @@ impl Renderable for Schematic {
 
 impl Renderable for Map {
     /// Draws a map
+    #[implicit_fn::implicit_fn]
     fn render(&self) -> Image<Vec<u8>, 3> {
         let scale = if self.width + self.height < 2000 {
             Scale::Quarter
@@ -334,7 +339,47 @@ impl Renderable for Map {
                 let tile = unsafe { self.tiles.get_unchecked(j) };
                 let y = self.height - y - 1;
                 // println!("draw {tile:?} ({x}, {y})");
-                unsafe { img.overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32) };
+                if [
+                    Type::ColoredFloor,
+                    Type::MetalTiles1,
+                    Type::MetalTiles2,
+                    Type::MetalTiles3,
+                    Type::MetalTiles4,
+                    Type::MetalTiles5,
+                    Type::MetalTiles6,
+                    Type::MetalTiles7,
+                    Type::MetalTiles8,
+                    Type::MetalTiles9,
+                    Type::MetalTiles10,
+                    Type::MetalTiles11,
+                    Type::MetalTiles12,
+                ]
+                .contains(&tile.floor)
+                {
+                    let mask = crate::data::autotile::nbors(
+                        self.corners(j).map(_.map(_.floor)),
+                        self.cross(j).map(_.map(_.floor)),
+                        tile.floor,
+                    );
+                    let i =
+                        &crate::data::autotile::select(tile.floor.get_name(), mask)[scale as usize];
+                    if tile.floor == Type::ColoredFloor {
+                        let mut i = i.boxed();
+                        unsafe {
+                            img.overlay_at(
+                                &i.as_mut().tint(tile.color.into()).as_ref(),
+                                scale * x as u32,
+                                scale * y as u32,
+                            )
+                        };
+                    } else {
+                        unsafe { img.overlay_at(i, scale * x as u32, scale * y as u32) };
+                    }
+                } else {
+                    unsafe {
+                        img.overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32)
+                    };
+                }
                 if tile.has_ore() {
                     unsafe { img.overlay_at(&tile.ore(scale), scale * x as u32, scale * y as u32) };
                 }
@@ -369,6 +414,28 @@ impl Renderable for Map {
                             // SAFETY: no block too big
                             _ => unsafe { std::hint::unreachable_unchecked() },
                         }) as usize;
+                    if unlikely(build.block == &COLORED_WALL) {
+                        let mask = crate::data::autotile::nbors(
+                            self.corners(j).map(|x| {
+                                x.and_then(|x| x.build().and_then(|b| Type::by_name(b.name())))
+                            }),
+                            self.cross(j).map(|x| {
+                                x.and_then(|x| x.build().and_then(|b| Type::by_name(b.name())))
+                            }),
+                            Type::ColoredWall,
+                        );
+                        let mut i = crate::data::autotile::select("colored-wall", mask)
+                            [scale as usize]
+                            .boxed();
+                        unsafe {
+                            img.overlay_at(
+                                &i.as_mut().tint(tile.color.into()).as_ref(),
+                                scale * x as u32,
+                                scale * y as u32,
+                            )
+                        };
+                        continue;
+                    }
                     let ctx = build.block.wants_context().then(|| {
                         let pctx = PositionContext {
                             position: GridPos(x, y),
@@ -376,7 +443,9 @@ impl Renderable for Map {
                             height: self.height,
                         };
                         RenderingContext {
-                            cross: self.cross(j, &pctx),
+                            cross: self
+                                .cross(j)
+                                .map(|b| b.and_then(|b| Some((b.get_block()?, b.get_rotation()?)))),
                             corners: Default::default(),
                             position: pctx,
                         }
@@ -599,13 +668,13 @@ pub fn draw_map_single(
             };
         };
         match Pin::new(&mut co).resume(()) {
-            Yielded(ThinMapData::Bloc(ThinBloc::None(n))) => {
+            Yielded(ThinMapData::Bloc(ThinBloc::Many(None, n))) => {
                 i += n as usize;
             }
             Yielded(ThinMapData::Bloc(ThinBloc::Build(r, bloc, _))) => {
                 draw(i, r, bloc);
             }
-            Yielded(ThinMapData::Bloc(ThinBloc::Many(bloc, n))) => {
+            Yielded(ThinMapData::Bloc(ThinBloc::Many(Some(bloc), n))) => {
                 for i in i..=i + n as usize {
                     draw(i, Rotation::Up, bloc);
                 }
@@ -695,13 +764,13 @@ pub fn draw_map_simple(
             }
         };
         match Pin::new(&mut co).resume(()) {
-            Yielded(ThinMapData::Bloc(ThinBloc::None(n))) => {
+            Yielded(ThinMapData::Bloc(ThinBloc::Many(None, n))) => {
                 i += n as usize;
             }
             Yielded(ThinMapData::Bloc(ThinBloc::Build(_, bloc, t))) => {
                 draw(i, bloc, t);
             }
-            Yielded(ThinMapData::Bloc(ThinBloc::Many(bloc, n))) => {
+            Yielded(ThinMapData::Bloc(ThinBloc::Many(Some(bloc), n))) => {
                 for i in i..=i + n as usize {
                     draw(i, bloc, Team::DERELICT);
                 }
