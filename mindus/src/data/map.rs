@@ -77,7 +77,7 @@
 //!                 - id: `u32`
 //!                 - entity read
 //! - markers section (v8)
-use atools::ArrayTools;
+use fimg::DynImage;
 use std::collections::HashMap;
 use std::ops::CoroutineState::*;
 use std::ops::{Coroutine, Index, IndexMut};
@@ -111,23 +111,23 @@ pub struct Tile {
 macro_rules! lo {
 	($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
 		match $v {
-			$(BlockEnum::[<$k:camel>] => load!(raw $k, $scale),)+
-				n => unreachable!("{n:?}"),
+			$(BlockEnum::[<$k:camel>] => Some(load!(raw $k, $scale)),)+
+				_ => None,
 			}
 	} };
 }
 
 #[inline]
-pub(crate) fn ore(ore: BlockEnum, s: Scale) -> Image<&'static [u8], 4> {
-    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium" | "molten-slag" | "grass"], s)
+pub(crate) fn ore(ore: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
+    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium" | "molten-slag"], s).map(DynImage::Rgba).unwrap_or_else(|| floor(ore, s))
 }
 
 #[inline]
-pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
+pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
     macro_rules! x {
         ($($x:literal)+) => { paste::paste! {
             match tile {
-                $(BlockEnum::[<$x:camel>] => return load!(raw $x, s),)+
+                $(BlockEnum::[<$x:camel>] => return DynImage::Rgb(load!(raw $x, s)),)+
                 _ => {}
             }
         }};
@@ -167,7 +167,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> Image<&'static [u8], 3> {
 			| "red-stone" | "red-stone-vent" | "dense-red-stone"
 			| "carbon-stone" | "carbon-vent"
 			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
-			| "empty"], s)
+			| "empty"], s).map(DynImage::Rgb).unwrap_or_else(|| ore(tile, s))
 }
 
 impl Tile {
@@ -210,13 +210,13 @@ impl Tile {
     }
 
     #[inline]
-    pub(crate) fn floor(&self, s: Scale) -> Image<&'static [u8], 3> {
+    pub(crate) fn floor(&self, s: Scale) -> DynImage<&'static [u8]> {
         floor(self.floor, s)
     }
 
     #[must_use]
     #[inline]
-    pub(crate) fn ore(&self, s: Scale) -> Image<&'static [u8], 4> {
+    pub(crate) fn ore(&self, s: Scale) -> DynImage<&'static [u8]> {
         ore(self.ore, s)
     }
 
@@ -224,16 +224,6 @@ impl Tile {
     #[inline]
     pub fn has_ore(&self) -> bool {
         self.ore != BlockEnum::Air
-    }
-
-    /// Draw the floor of this tile
-    #[must_use]
-    pub fn floor_image(&self, s: Scale) -> ImageHolder<3> {
-        let mut floor = ImageHolder::from(self.floor(s));
-        if self.has_ore() {
-            unsafe { floor.overlay(&self.ore(s)) };
-        }
-        floor
     }
 
     /// Draw this tiles build.
@@ -588,10 +578,6 @@ macro_rules! tiles {
             let overlay_id = $me.buff.read_u16()?;
             let &(mut floor) = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
             let &(mut ore) = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
-            if let BlockEnum::MoltenSlag | BlockEnum::Grass = floor {
-                ore = floor;
-                floor = BlockEnum::Stone;
-            }
             yield $w::Tile { floor, ore };
             let consecutives = $me.buff.read_u8()? as usize;
             for _ in 0..consecutives {

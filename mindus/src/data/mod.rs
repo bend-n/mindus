@@ -311,11 +311,8 @@ impl<'d> DataWrite<'d> {
         };
         let mut comp = Compress::new(Compression::default(), true);
         // compress the immediate buffer into a temp buffer to copy it to buff? no thanks
-        match to.data {
-            WriteBuff::Ref {
-                raw: ref mut dst,
-                ref mut pos,
-            } => {
+        match &mut to.data {
+            WriteBuff::Ref { raw: dst, pos } => {
                 match comp.compress(&raw, &mut dst[*pos..], FlushCompress::Finish)? {
                     // there's no more input (and the flush mode says so), but we can't resize the output
                     Status::Ok | Status::BufError => {
@@ -326,7 +323,7 @@ impl<'d> DataWrite<'d> {
                     Status::StreamEnd => (),
                 }
             }
-            WriteBuff::Vec(ref mut dst) => {
+            WriteBuff::Vec(dst) => {
                 let mut input = raw.as_ref();
                 dst.reserve(1024);
                 loop {

@@ -20,7 +20,7 @@ use crate::{
 };
 use atools::ArrayTools;
 use either::Either;
-use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
+use fimg::{BlendingOverlay, BlendingOverlayAt, DynImage, uninit};
 
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -380,9 +380,15 @@ impl Renderable for Map {
                         unsafe { img.overlay_at(i, scale * x as u32, scale * y as u32) };
                     }
                 } else {
-                    unsafe {
-                        img.overlay_at(&tile.floor(scale), scale * x as u32, scale * y as u32)
-                    };
+                    match tile.floor(scale) {
+                        DynImage::Rgba(i) => unsafe {
+                            img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                        },
+                        DynImage::Rgb(i) => unsafe {
+                            img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                        },
+                        _ => unreachable!(),
+                    }
                 }
                 if tile.has_ore() {
                     if tile.ore == Type::CharacterOverlay || tile.ore == Type::CharacterOverlayWhite
@@ -405,9 +411,15 @@ impl Renderable for Map {
                             )
                         };
                     } else {
-                        unsafe {
-                            img.overlay_at(&tile.ore(scale), scale * x as u32, scale * y as u32)
-                        };
+                        match tile.ore(scale) {
+                            DynImage::Rgba(i) => unsafe {
+                                img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                            },
+                            DynImage::Rgb(i) => unsafe {
+                                img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                            },
+                            _ => unreachable!(),
+                        }
                     }
                 }
             }
@@ -630,21 +642,25 @@ pub fn draw_map_single(
             };
             let y = h - y - 1;
             // println!("draw tile {floor} {ore} @ {x} {y}");
-            unsafe {
-                img.overlay_at(
-                    &crate::data::map::floor(floor, scale),
-                    scale * x as u32,
-                    scale * y as u32,
-                )
-            };
+            match crate::data::map::floor(floor, scale) {
+                DynImage::Rgba(i) => unsafe {
+                    img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                },
+                DynImage::Rgb(i) => unsafe {
+                    img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                },
+                _ => unreachable!(),
+            }
             if ore != Type::Air {
-                unsafe {
-                    img.overlay_at(
-                        &crate::data::map::ore(ore, scale),
-                        scale * x as u32,
-                        scale * y as u32,
-                    )
-                };
+                match crate::data::map::ore(ore, scale) {
+                    DynImage::Rgba(i) => unsafe {
+                        img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                    },
+                    DynImage::Rgb(i) => unsafe {
+                        img.overlay_at(&i, scale * x as u32, scale * y as u32);
+                    },
+                    _ => unreachable!(),
+                }
             }
         }
     }
