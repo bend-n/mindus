@@ -119,7 +119,7 @@ macro_rules! lo {
 
 #[inline]
 pub(crate) fn ore(ore: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
-    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium" | "molten-slag"], s).map(DynImage::Rgba).unwrap_or_else(|| floor(ore, s))
+    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s).map(DynImage::Rgba).unwrap_or_else(|| floor(ore, s))
 }
 
 #[inline]
@@ -143,7 +143,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
 			| "moss"
 			| "mud"
 			| "ice-snow" | "snow" | "salt" | "ice"
-			| "hotrock" | "char" | "magmarock"
+			| "hotrock" | "char" | "magmarock" | "molten-slag"
 			| "shale"
 			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
 			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
@@ -154,6 +154,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
 			| "bluemat"
 			| "ferric-craters"
 			| "beryllic-stone"
+            | "grass"
 			| "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
 			| "core-zone"
 			| "crater-stone"
