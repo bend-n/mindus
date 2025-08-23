@@ -319,6 +319,7 @@ impl Renderable for Map {
         } else {
             Scale::Eigth
         };
+        let table = &crate::data::map::FLOOR_TABLE[scale as usize];
         let mut img = uninit::Image::<_, 3>::new(
             (scale * self.width as u32).try_into().unwrap(),
             (scale * self.height as u32).try_into().unwrap(),
@@ -371,16 +372,15 @@ impl Renderable for Map {
                         unsafe { img.overlay_at(i, scale * x as u32, scale * y as u32) };
                     }
                 } else {
-                    match tile.floor(scale) {
-                        DynImage::Rgba(i) => unsafe {
-                            img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                        },
-                        DynImage::Rgb(i) => unsafe {
-                            img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                        },
-                        _ => unreachable!(),
+                    unsafe {
+                        img.overlay_at(
+                            &table[tile.floor as usize],
+                            scale * x as u32,
+                            scale * y as u32,
+                        );
                     }
                 }
+
                 if tile.has_ore() {
                     if tile.ore == Type::CharacterOverlay || tile.ore == Type::CharacterOverlayWhite
                     {
@@ -400,7 +400,7 @@ impl Renderable for Map {
                             )
                         };
                     } else {
-                        match tile.ore(scale) {
+                        match table[tile.ore as usize] {
                             DynImage::Rgba(i) => unsafe {
                                 img.overlay_at(&i, scale * x as u32, scale * y as u32);
                             },
@@ -621,6 +621,7 @@ pub fn draw_map_single(
         (scale * w as u32).try_into().unwrap(),
         (scale * h as u32).try_into().unwrap(),
     );
+    let table = crate::data::map::FLOOR_TABLE[scale as usize];
     // loop1 draws the floor
     for y in 0..h {
         for x in 0..w {
@@ -631,17 +632,9 @@ pub fn draw_map_single(
             };
             let y = h - y - 1;
             // println!("draw tile {floor} {ore} @ {x} {y}");
-            match crate::data::map::floor(floor, scale) {
-                DynImage::Rgba(i) => unsafe {
-                    img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                },
-                DynImage::Rgb(i) => unsafe {
-                    img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                },
-                _ => unreachable!(),
-            }
+            unsafe { img.overlay_at(&table[floor as usize], scale * x as u32, scale * y as u32) };
             if ore != Type::Air {
-                match crate::data::map::ore(ore, scale) {
+                match table[floor as usize] {
                     DynImage::Rgba(i) => unsafe {
                         img.overlay_at(&i, scale * x as u32, scale * y as u32);
                     },

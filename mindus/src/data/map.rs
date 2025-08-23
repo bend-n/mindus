@@ -108,68 +108,57 @@ pub struct Tile {
     pub nd: [u8; 7],
 }
 
-macro_rules! lo {
-	($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
-		match $v {
-			$(BlockEnum::[<$k:camel>] => Some(DynImage::from(load!(raw $k, $scale))),)+
-				_ => None,
-			}
-	} };
-}
-
-#[inline]
-pub(crate) fn ore(ore: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
-    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s).unwrap_or_else(|| floor(ore, s))
-}
-
-#[inline]
-pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
-    macro_rules! x {
-        ($($x:literal)+) => { paste::paste! {
-            match tile {
-                $(BlockEnum::[<$x:camel>] => return DynImage::from(load!(raw $x, s)),)+
-                _ => {}
-            }
-        }};
+pub static FLOOR_TABLE: [[DynImage<&'static [u8]>; BlockEnum::ALL.len()]; 3] = {
+    let mut table_f = [DynImage::from(load!(raw "empty", Scale::Full)); BlockEnum::ALL.len()];
+    let mut table_q = [DynImage::from(load!(raw "empty", Scale::Quarter)); BlockEnum::ALL.len()];
+    let mut table_e = [DynImage::from(load!(raw "empty", Scale::Eigth)); BlockEnum::ALL.len()];
+    macro_rules! image {
+        (| $($x:literal $(|)?)+) => { paste::paste! {
+            $(table_f[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Full));)+
+            $(table_q[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Quarter));)+
+            $(table_e[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Eigth));)+
+        } }
     }
-    x!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12");
-    lo!(tile => [
-			| "darksand"
-			| "sand-floor"
-			| "dacite"
-			| "dirt"
-			| "arkycite-floor"
-			| "basalt" | "basalt-vent"
-			| "moss"
-			| "mud"
-			| "ice-snow" | "snow" | "salt" | "ice"
-			| "hotrock" | "char" | "magmarock" | "molten-slag"
-			| "shale"
-			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
-			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
-			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
-			| "tar" | "pooled-cryofluid"
-			| "space"
-			| "stone" | "stone-vent"
-			| "bluemat"
-			| "ferric-craters"
-			| "beryllic-stone"
-            | "grass"
-			| "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
-			| "core-zone"
-			| "crater-stone"
-			| "redmat"
-			| "red-ice"
-			| "spore-moss"
-			| "regolith"
-			| "ferric-stone"
-			| "arkyic-stone" | "arkyic-vent"
-			| "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
-			| "red-stone" | "red-stone-vent" | "dense-red-stone"
-			| "carbon-stone" | "carbon-vent"
-			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
-			| "empty"], s).unwrap_or_else(|| ore(tile, s))
-}
+    image! {
+        | "ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"
+        | "colored-floor" | "colored-wall" | "metal-tiles-1" | "metal-tiles-2" | "metal-tiles-3" | "metal-tiles-4" | "metal-tiles-5" | "metal-tiles-6" | "metal-tiles-7" | "metal-tiles-8" | "metal-tiles-9" | "metal-tiles-10" | "metal-tiles-11" | "metal-tiles-12"
+        | "darksand"
+        | "sand-floor"
+        | "dacite"
+        | "dirt"
+        | "arkycite-floor"
+        | "basalt" | "basalt-vent"
+        | "moss"
+        | "mud"
+        | "ice-snow" | "snow" | "salt" | "ice"
+        | "hotrock" | "char" | "magmarock" | "molten-slag"
+        | "shale"
+        | "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
+        | "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
+        | "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
+        | "tar" | "pooled-cryofluid"
+        | "space"
+        | "stone" | "stone-vent"
+        | "bluemat"
+        | "ferric-craters"
+        | "beryllic-stone"
+        | "grass"
+        | "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
+        | "core-zone"
+        | "crater-stone"
+        | "redmat"
+        | "red-ice"
+        | "spore-moss"
+        | "regolith"
+        | "ferric-stone"
+        | "arkyic-stone" | "arkyic-vent"
+        | "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
+        | "red-stone" | "red-stone-vent" | "dense-red-stone"
+        | "carbon-stone" | "carbon-vent"
+        | "crystal-floor" | "crystalline-stone" | "crystalline-vent"
+    };
+    [table_f, table_q, table_e]
+};
 
 impl Tile {
     #[must_use]
@@ -208,17 +197,6 @@ impl Tile {
     #[inline]
     pub fn size(&self) -> u8 {
         self.build.as_ref().map_or(1, |v| v.block.get_size())
-    }
-
-    #[inline]
-    pub(crate) fn floor(&self, s: Scale) -> DynImage<&'static [u8]> {
-        floor(self.floor, s)
-    }
-
-    #[must_use]
-    #[inline]
-    pub(crate) fn ore(&self, s: Scale) -> DynImage<&'static [u8]> {
-        ore(self.ore, s)
     }
 
     #[must_use]
