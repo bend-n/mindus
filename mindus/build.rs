@@ -1,4 +1,3 @@
-#![feature(let_chains)]
 use fimg::DynImage;
 use std::fs::File;
 use std::io::Write as _;
@@ -81,7 +80,7 @@ fn main() {
             {
                 continue;
             }
-            let rgb = path.components().any(|c| c.as_os_str() == "floors");
+            // let rgb = path.components().any(|c| c.as_os_str() == "floors");
             let env = path.components().any(|c| c.as_os_str() == "environment");
             let path = kebab2bigsnek(
                 path.with_extension("")
@@ -136,6 +135,7 @@ fn main() {
                     } else {
                         p.scale::<fimg::scale::Nearest>(mx / $scale, my / $scale)
                     };
+                    let rgb = env && matches!(p, DynImage::Rgb(_));
                     let x = new.width();
                     let y = new.height();
                     if rgb {

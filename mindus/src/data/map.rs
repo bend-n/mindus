@@ -111,7 +111,7 @@ pub struct Tile {
 macro_rules! lo {
 	($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
 		match $v {
-			$(BlockEnum::[<$k:camel>] => Some(load!(raw $k, $scale)),)+
+			$(BlockEnum::[<$k:camel>] => Some(DynImage::from(load!(raw $k, $scale))),)+
 				_ => None,
 			}
 	} };
@@ -119,7 +119,7 @@ macro_rules! lo {
 
 #[inline]
 pub(crate) fn ore(ore: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
-    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s).map(DynImage::Rgba).unwrap_or_else(|| floor(ore, s))
+    lo!(ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s).unwrap_or_else(|| floor(ore, s))
 }
 
 #[inline]
@@ -127,7 +127,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
     macro_rules! x {
         ($($x:literal)+) => { paste::paste! {
             match tile {
-                $(BlockEnum::[<$x:camel>] => return DynImage::Rgb(load!(raw $x, s)),)+
+                $(BlockEnum::[<$x:camel>] => return DynImage::from(load!(raw $x, s)),)+
                 _ => {}
             }
         }};
@@ -168,7 +168,7 @@ pub(crate) fn floor(tile: BlockEnum, s: Scale) -> DynImage<&'static [u8]> {
 			| "red-stone" | "red-stone-vent" | "dense-red-stone"
 			| "carbon-stone" | "carbon-vent"
 			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
-			| "empty"], s).map(DynImage::Rgb).unwrap_or_else(|| ore(tile, s))
+			| "empty"], s).unwrap_or_else(|| ore(tile, s))
 }
 
 impl Tile {
@@ -230,7 +230,11 @@ impl Tile {
     /// Draw this tiles build.
     #[must_use]
     #[inline]
-    pub fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder<4> {
+    pub fn build_image(
+        &self,
+        context: Option<&RenderingContext>,
+        s: Scale,
+    ) -> DynImage<image::Cow> {
         // building covers floore
         let Some(b) = &self.build else {
             unreachable!();
@@ -316,7 +320,7 @@ impl Build {
         }
     }
 
-    fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder<4> {
+    fn image(&self, context: Option<&RenderingContext>, s: Scale) -> DynImage<image::Cow> {
         self.block
             .image(self.state.as_ref(), context, self.rotation, s)
     }
@@ -577,8 +581,8 @@ macro_rules! tiles {
         while i < $count {
             let floor_id = $me.buff.read_u16()?;
             let overlay_id = $me.buff.read_u16()?;
-            let &(mut floor) = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
-            let &(mut ore) = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
+            let &floor = $r.get(floor_id as usize).unwrap_or(&BlockEnum::Stone);
+            let &ore = $r.get(overlay_id as usize).unwrap_or(&BlockEnum::Air);
             yield $w::Tile { floor, ore };
             let consecutives = $me.buff.read_u8()? as usize;
             for _ in 0..consecutives {

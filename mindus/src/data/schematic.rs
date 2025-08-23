@@ -1,4 +1,5 @@
 //! schematic parsing
+use fimg::DynImage;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Write};
@@ -12,6 +13,7 @@ use crate::data::renderer::*;
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializable};
 use crate::item::storage::ItemStorage;
 use crate::utils::array::Array2D;
+use crate::utils::Cow;
 
 /// biggest schematic
 pub const MAX_DIMENSION: usize = 1024;
@@ -67,7 +69,7 @@ impl Placement {
         context: Option<&RenderingContext>,
         rot: Rotation,
         s: Scale,
-    ) -> ImageHolder<4> {
+    ) -> DynImage<Cow> {
         self.block.image(self.get_state(), context, rot, s)
     }
 

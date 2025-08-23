@@ -4,7 +4,7 @@ use std::string::FromUtf8Error;
 
 use crate::block::simple::*;
 use crate::data::dynamic::DynType;
-use crate::{block::*, Serializable};
+use crate::{Serializable, block::*};
 
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
@@ -143,7 +143,7 @@ impl BlockLogic for CanvasBlock {
                 (s * self.size as u32) - offset * 2,
             );
             let mut borders = load!("canvas", s);
-            unsafe { borders.overlay_at(&ImageHolder::from(img), offset, offset) };
+            unsafe { borders.overlay_at(&img, offset, offset) };
             return borders;
         }
 
@@ -153,7 +153,7 @@ impl BlockLogic for CanvasBlock {
             (*r, *g, *b) = PALETTE[0];
             *a = 255;
         }
-        ImageHolder::from(def)
+        unsafe { def.mapped(crate::utils::Cow::Own) }
     }
 
     /// format:
@@ -601,14 +601,13 @@ make_simple!(TileableDisplay, |_,
     use std::simd::prelude::*;
     let mut b = load!("tile-logic-display", s);
     unsafe {
-        b.overlay(&ImageHolder::from(
-            BITMASKS[u8x8::from_array(
+        b.overlay(
+            &BITMASKS[u8x8::from_array(
                 swizzled.map(|x| x.is_some_and(|x| x.0.name() == "tile-logic-display") as u8),
             )
             .simd_eq(u8x8::splat(1))
-            .to_bitmask() as usize][s as usize]
-                .copy(),
-        ))
+            .to_bitmask() as usize][s as usize],
+        )
     };
     b
 });

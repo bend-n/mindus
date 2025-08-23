@@ -1,7 +1,7 @@
 pub use fimg::*;
 
 mod holder;
-pub use holder::ImageHolder;
+pub use holder::*;
 
 pub trait ImageUtils {
     /// Tint this image with the color
@@ -22,7 +22,7 @@ pub trait ImageUtils {
     fn shadow(&mut self) -> &mut Self;
 }
 
-impl ImageUtils for Image<&mut [u8], 4> {
+impl<T: AsMut<[u8]> + AsRef<[u8]>> ImageUtils for Image<T, 4> {
     unsafe fn rotate(&mut self, times: u8) -> &mut Self {
         match times {
             2 => self.rot_180(),
@@ -44,7 +44,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
     }
 
     fn shadow(&mut self) -> &mut Self {
-        let mut shadow = self.to_owned().boxed();
+        let mut shadow = self.as_ref().boxed();
         for [r, g, b, a] in shadow.chunked_mut() {
             if *a < 128 {
                 *r /= 10;

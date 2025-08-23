@@ -2,6 +2,7 @@
 //!
 //! different block types are organized into modules
 use bobbin_bits::U4::{self, B0000, B0001, B0010, B0100, B1000};
+use fimg::DynImage;
 use std::error::Error;
 use std::fmt;
 
@@ -10,6 +11,7 @@ use crate::data::map::Build;
 use crate::data::{self, CompressError, renderer::*};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
+use crate::utils::Cow;
 
 macro_rules! mods {
     ($($mod:ident)*) => {
@@ -304,7 +306,7 @@ impl SerializeError {
 
 /// a block. put it in stuff!
 pub struct Block {
-    image: Option<[Image<&'static [u8], 4>; 3]>,
+    image: Option<[DynImage<&'static [u8]>; 3]>,
     name: &'static str,
     logic: BlockLogicEnum,
 }
@@ -322,7 +324,7 @@ impl Block {
     pub(crate) const fn new(
         name: &'static str,
         logic: BlockLogicEnum,
-        image: Option<[Image<&'static [u8], 4>; 3]>,
+        image: Option<[DynImage<&'static [u8]>; 3]>,
     ) -> Self {
         Self { image, name, logic }
     }
@@ -365,11 +367,11 @@ impl Block {
         context: Option<&RenderingContext>,
         rot: Rotation,
         scale: Scale,
-    ) -> ImageHolder<4> {
+    ) -> DynImage<Cow> {
         if let Some(imgs) = &self.image {
-            return ImageHolder::from((imgs[scale as usize]).copy());
+            return unsafe { imgs[scale as usize].mapped(Cow::Ref) };
         }
-        self.logic.draw(self.name, state, context, rot, scale)
+        DynImage::Rgba(self.logic.draw(self.name, state, context, rot, scale))
     }
 
     /// size.
@@ -617,18 +619,18 @@ macro_rules! make_register {
     };
     (impl $field: literal -> $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), Some(crate::data::renderer::load!($field))
+            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), Some(car::map!(crate::data::renderer::load!($field), DynImage::from))
         ); }
     };
     (impl $field: literal : $size: literal) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(crate::data::renderer::load!($field))
+            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(car::map!(crate::data::renderer::load!($field), DynImage::from))
         ); }
     };
     // floors
     (impl $field: literal > $size: literal) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(crate::data::renderer::load!("empty4"))
+            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(car::map!(crate::data::renderer::load!("empty4"), DynImage::from))
         ); }
     };
 }

@@ -9,6 +9,7 @@
     likely_unlikely,
     portable_simd,
     derive_const,
+    const_from,
     coroutines
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]

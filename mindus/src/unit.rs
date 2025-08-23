@@ -1,6 +1,7 @@
 //! units
 //!
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
+use crate::Serializable;
 use crate::block::payload::read_payload;
 use crate::content::content_enum;
 use crate::data::command::UnitCommand;
@@ -11,7 +12,6 @@ use crate::item::Type as Item;
 use crate::modifier::Type as Status;
 use crate::team::Team;
 use crate::utils::ImageHolder;
-use crate::Serializable;
 
 macro_rules! units {
     ($($unit:literal,)+ $(,)?) => { paste::paste! {

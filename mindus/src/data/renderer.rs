@@ -63,11 +63,11 @@ macro_rules! load {
         }
     } };
     ($name:literal, $scale:expr) => { paste::paste! {
-        $crate::utils::image::ImageHolder::from(match $scale {
+        #[allow(unused_unsafe)] unsafe { match $scale {
             $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::[<$name:snake:upper>],
-        }.copy())
+        }.mapped($crate::utils::Cow::Ref) }
     } };
     ($name: ident) => { paste::paste! {
         [$crate::data::renderer::full::[<$name:snake:upper>].copy(), $crate::data::renderer::quar::[<$name:snake:upper>].copy(), $crate::data::renderer::eigh::[<$name:snake:upper>].copy()]
@@ -91,11 +91,11 @@ macro_rules! load {
     (concat $x:literal => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
         match $v {
             $($k =>
-                ImageHolder::from(match $scale {
+                #[allow(unused_unsafe)] unsafe { (match $scale {
                     $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::[<$k:snake:upper _ $x:snake:upper>],
                     $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::[<$k:snake:upper _ $x:snake:upper>],
                     $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::[<$k:snake:upper _ $x:snake:upper>],
-                }.copy()),
+                }.mapped($crate::utils::Cow::Ref)) },
             )+
             #[allow(unreachable_patterns)]
             n => unreachable!("{n:?}"),
@@ -137,7 +137,7 @@ impl Renderable for Schematic {
             * self.width.checked_sub(self.height).unwrap_or(0) as u32
             + 2;
         let mut bg = unsafe {
-            load!("metal-floor", scale).borrow().repeated(
+            load!("metal-floor", scale).repeated(
                 scale * (self.width + x_fac as usize) as u32,
                 scale * (self.height + y_fac as usize) as u32,
             )
@@ -161,13 +161,11 @@ impl Renderable for Schematic {
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
             unsafe {
                 canvas.as_mut().overlay_at(
-                    &tile
-                        .image(
-                            ctx.as_ref(),
-                            tile.get_rotation().unwrap_or(Rotation::Up),
-                            scale,
-                        )
-                        .borrow(),
+                    &tile.image(
+                        ctx.as_ref(),
+                        tile.get_rotation().unwrap_or(Rotation::Up),
+                        scale,
+                    ),
                     scale * (x + x_fac / 2),
                     scale * (y + y_fac / 2),
                 )
@@ -217,7 +215,8 @@ impl Renderable for Schematic {
                 */
                 if relative.1 != 0 {
                     // continue;
-                    bridge = bridge.swap_wh();
+                    bridge =
+                        Image::build(bridge.height(), bridge.width()).buf(bridge.take_buffer());
                 }
                 let arrow = load!(concat "arrow" => n which is ["bridge-conveyor"| "bridge-conduit" | "phase-conveyor" | "phase-conduit" | "duct-bridge" | "reinforced-bridge-conduit"], scale);
                 /*
@@ -241,7 +240,7 @@ impl Renderable for Schematic {
                 } {
                     unsafe {
                         canvas.overlay_blended_at(
-                            &bridge.borrow(),
+                            &bridge,
                             (p.0 as i32 * scale.px() as i32 + index) as u32,
                             scale * (self.height as u32 - p.1 as u32 - 1 + y_fac / 2),
                         )
@@ -260,25 +259,19 @@ impl Renderable for Schematic {
                         ((self.height as i32 - p.1 as i32 + 1) * scale.px() as i32 + index) as u32;
 
                     unsafe {
-                        canvas.overlay_blended_at(
-                            &bridge.borrow(),
-                            scale * (p.0 as u32 + x_fac / 2),
-                            y,
-                        )
+                        canvas.overlay_blended_at(&bridge, scale * (p.0 as u32 + x_fac / 2), y)
                     };
                 }
                 if relative.0 != 0 {
                     unsafe {
                         canvas.overlay_blended_at(
-                            &arrow
-                                .rotated(if directional {
-                                    b.rot.rotated(false).count()
-                                } else if relative.0 < 0 {
-                                    2
-                                } else {
-                                    0
-                                })
-                                .borrow(),
+                            &arrow.rotated(if directional {
+                                b.rot.rotated(false).count()
+                            } else if relative.0 < 0 {
+                                2
+                            } else {
+                                0
+                            }),
                             scale.px() as u32
                                 + ((scale * p.0 as u32).cast_signed()
                                     + (scale.px() as i32 * relative.0 / 2))
@@ -289,15 +282,13 @@ impl Renderable for Schematic {
                 } else {
                     unsafe {
                         canvas.overlay_blended_at(
-                            &arrow
-                                .rotated(if directional {
-                                    b.rot.rotated(false).count()
-                                } else if relative.1 < 0 {
-                                    1
-                                } else {
-                                    3
-                                })
-                                .borrow(),
+                            &arrow.rotated(if directional {
+                                b.rot.rotated(false).count()
+                            } else if relative.1 < 0 {
+                                1
+                            } else {
+                                3
+                            }),
                             (scale * p.0 as u32) + (x_fac / 2 + scale.px() as u32) - 1,
                             scale.px() as u32
                                 + ((scale * (self.height as u32 - p.1 as u32 - 1)).cast_signed()
@@ -310,7 +301,7 @@ impl Renderable for Schematic {
         }
 
         if matches!(scale, Scale::Full) {
-            canvas.as_mut().shadow();
+            ImageUtils::shadow(&mut canvas);
             unsafe { bg.overlay_blended(&canvas) };
         } else {
             unsafe { bg.overlay(&canvas) };
@@ -401,11 +392,9 @@ impl Renderable for Map {
                         const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
                         unsafe {
                             img.overlay_at(
-                                &ImageHolder::from(
-                                    LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize],
-                                )
-                                .rotate(tile.nd[2] & 0x3)
-                                .borrow(),
+                                LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize]
+                                    .mapped(image::Cow::Ref)
+                                    .rotate(tile.nd[2] & 0x3),
                                 scale * x as u32,
                                 scale * y as u32,
                             )
@@ -493,7 +482,7 @@ impl Renderable for Map {
                     });
                     unsafe {
                         img.as_mut().overlay_at(
-                            &tile.build_image(ctx.as_ref(), scale).borrow(),
+                            &tile.build_image(ctx.as_ref(), scale),
                             scale * x as u32,
                             scale * y as u32,
                         )
@@ -513,7 +502,7 @@ impl Renderable for Map {
             }
             unsafe {
                 img.as_mut()
-                    .overlay_at(&entity.draw(scale).borrow(), scale * x, scale * y)
+                    .overlay_at(&entity.draw(scale), scale * x, scale * y)
             };
         }
         img
@@ -591,7 +580,7 @@ pub fn draw_units(
                     }
                     unsafe {
                         img.as_mut()
-                            .overlay_at(&entity.draw(scale).borrow(), scale * x, scale * y)
+                            .overlay_at(&entity.draw(scale), scale * x, scale * y)
                     };
                 }
                 Complete(Err(e)) => return Err(e),
@@ -706,7 +695,7 @@ pub fn draw_map_single(
             });
             unsafe {
                 img.as_mut().overlay_at(
-                    &b.image(None, ctx.as_ref(), r, scale).borrow(),
+                    &b.image(None, ctx.as_ref(), r, scale),
                     scale * x as u32,
                     scale * y as u32,
                 )

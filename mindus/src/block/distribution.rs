@@ -208,7 +208,8 @@ impl BlockLogic for ItemBlock {
             unsafe { p.overlay(top.tint(item.color())) };
             if name == "duct-unloader" {
                 unsafe {
-                    p.overlay(&load!("duct-unloader-arrows", s).rotate(rot.rotated(false).count()));
+                    let mut x = load!("duct-unloader-arrows", s);
+                    p.overlay(&*x.rotate(rot.rotated(false).count()));
                 }
             }
             return p;
