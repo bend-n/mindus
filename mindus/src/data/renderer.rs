@@ -1,9 +1,4 @@
 //! schematic drawing
-use std::hint::unlikely;
-use std::iter::successors;
-use std::ops::Coroutine;
-use std::pin::Pin;
-
 use super::GridPos;
 pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
@@ -20,7 +15,11 @@ use crate::{
 };
 use atools::ArrayTools;
 use either::Either;
-use fimg::{BlendingOverlay, BlendingOverlayAt, DynImage, uninit};
+use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
+use std::hint::unlikely;
+use std::iter::successors;
+use std::ops::Coroutine;
+use std::pin::Pin;
 
 include!(concat!(env!("OUT_DIR"), "/full.rs"));
 include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -61,6 +60,18 @@ macro_rules! load {
             $crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$name:snake:upper>],
         }
+    } };
+    (8x $name:literal) => { paste::paste! {
+        car::map!([
+            load!([<$name 1>]),
+            load!([<$name 2>]),
+            load!([<$name 3>]),
+            load!([<$name 4>]),
+            load!([<$name 5>]),
+            load!([<$name 6>]),
+            load!([<$name 7>]),
+            load!([<$name 8>]),
+        ], |x| car::map!(x, DynImage::from))
     } };
     ($name:literal, $scale:expr) => { paste::paste! {
         #[allow(unused_unsafe)] unsafe { match $scale {
@@ -319,7 +330,7 @@ impl Renderable for Map {
         } else {
             Scale::Eigth
         };
-        let table = &crate::data::map::FLOOR_TABLE[scale as usize];
+        use crate::data::map::table;
         let mut img = uninit::Image::<_, 3>::new(
             (scale * self.width as u32).try_into().unwrap(),
             (scale * self.height as u32).try_into().unwrap(),
@@ -374,7 +385,7 @@ impl Renderable for Map {
                 } else {
                     unsafe {
                         img.overlay_at(
-                            &table[tile.floor as usize],
+                            &table(tile.floor, scale),
                             scale * x as u32,
                             scale * y as u32,
                         );
@@ -400,15 +411,13 @@ impl Renderable for Map {
                             )
                         };
                     } else {
-                        match table[tile.ore as usize] {
-                            DynImage::Rgba(i) => unsafe {
-                                img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                            },
-                            DynImage::Rgb(i) => unsafe {
-                                img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                            },
-                            _ => unreachable!(),
-                        }
+                        unsafe {
+                            img.overlay_at(
+                                &table(tile.ore, scale),
+                                scale * x as u32,
+                                scale * y as u32,
+                            )
+                        };
                     }
                 }
             }
@@ -621,7 +630,7 @@ pub fn draw_map_single(
         (scale * w as u32).try_into().unwrap(),
         (scale * h as u32).try_into().unwrap(),
     );
-    let table = crate::data::map::FLOOR_TABLE[scale as usize];
+    use crate::data::map::table;
     // loop1 draws the floor
     for y in 0..h {
         for x in 0..w {
@@ -632,16 +641,10 @@ pub fn draw_map_single(
             };
             let y = h - y - 1;
             // println!("draw tile {floor} {ore} @ {x} {y}");
-            unsafe { img.overlay_at(&table[floor as usize], scale * x as u32, scale * y as u32) };
+            unsafe { img.overlay_at(&table(floor, scale), scale * x as u32, scale * y as u32) };
             if ore != Type::Air {
-                match table[floor as usize] {
-                    DynImage::Rgba(i) => unsafe {
-                        img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                    },
-                    DynImage::Rgb(i) => unsafe {
-                        img.overlay_at(&i, scale * x as u32, scale * y as u32);
-                    },
-                    _ => unreachable!(),
+                unsafe {
+                    img.overlay_at(&table(ore, scale), scale * x as u32, scale * y as u32);
                 }
             }
         }

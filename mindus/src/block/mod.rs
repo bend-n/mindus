@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::data::dynamic::{DynData, DynType};
-use crate::data::map::Build;
+use crate::data::map::{Build, mcg};
 use crate::data::{self, CompressError, renderer::*};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
@@ -306,7 +306,8 @@ impl SerializeError {
 
 /// a block. put it in stuff!
 pub struct Block {
-    image: Option<[DynImage<&'static [u8]>; 3]>,
+    image_random: Option<&'static [[DynImage<&'static [u8]>; 3]; 8]>,
+    image: Option<&'static [DynImage<&'static [u8]>; 3]>,
     name: &'static str,
     logic: BlockLogicEnum,
 }
@@ -318,17 +319,6 @@ impl PartialEq for Block {
 }
 
 impl Block {
-    /// create a new block
-    #[must_use]
-    #[inline]
-    pub(crate) const fn new(
-        name: &'static str,
-        logic: BlockLogicEnum,
-        image: Option<[DynImage<&'static [u8]>; 3]>,
-    ) -> Self {
-        Self { image, name, logic }
-    }
-
     /// this blocks name
     /// ```
     /// assert!(mindus::block::DISTRIBUTOR.name() == "distributor")
@@ -368,6 +358,9 @@ impl Block {
         rot: Rotation,
         scale: Scale,
     ) -> DynImage<Cow> {
+        if let Some(imgs) = &self.image_random {
+            return unsafe { imgs[mcg() as usize][scale as usize].mapped(Cow::Ref) };
+        }
         if let Some(imgs) = &self.image {
             return unsafe { imgs[scale as usize].mapped(Cow::Ref) };
         }
@@ -613,25 +606,30 @@ macro_rules! make_register {
         }
     }};
     (impl $field: literal => $logic: expr) => {
-        paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), None
-        ); }
+        paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
+            name: $field, logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: None, image_random: None,
+        }; }
     };
     (impl $field: literal -> $logic: expr) => {
-        paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), Some(car::map!(crate::data::renderer::load!($field), DynImage::from))
-        ); }
+        paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
+            name: $field, logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
+        }; }
     };
     (impl $field: literal : $size: literal) => {
-        paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(car::map!(crate::data::renderer::load!($field), DynImage::from))
-        ); }
+        paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
+            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
+        }; }
+    };
+    (impl $field: literal @ $size: literal) => {
+        paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
+            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image_random: Some(&crate::data::renderer::load!(8x $field)), image: None,
+        }; }
     };
     // floors
     (impl $field: literal > $size: literal) => {
-        paste::paste! { pub static [<$field:snake:upper>]: Block = Block::new(
-            $field, BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), Some(car::map!(crate::data::renderer::load!("empty4"), DynImage::from))
-        ); }
+        paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
+            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!("empty4"), DynImage::from)), image_random: None,
+        }; }
     };
 }
 // pub(self) use make_register;
@@ -717,77 +715,77 @@ make_register! {
     "yellow-stone-plates" > 1;
     "yellow-stone-vent" > 1;
     "spore-moss" > 1;
-    "ore-beryllium": 1;
-    "ore-copper": 1;
-    "ore-lead": 1;
-    "ore-coal": 1;
-    "ore-scrap": 1;
-    "ore-thorium": 1;
-    "ore-titanium": 1;
-    "ore-tungsten": 1;
-    "ore-crystal-thorium": 1;
-    "ore-wall-beryllium": 1;
-    "ore-wall-thorium": 1;
-    "ore-wall-tungsten": 1;
-    "graphitic-wall": 1;
-    "boulder": 1;
-    "arkyic-wall": 1;
-    "beryllic-stone-wall": 1;
-    "carbon-wall": 1;
+    "ore-beryllium" > 1;
+    "ore-copper" > 1;
+    "ore-lead" > 1;
+    "ore-coal" > 1;
+    "ore-scrap" > 1;
+    "ore-thorium" > 1;
+    "ore-titanium" > 1;
+    "ore-tungsten" > 1;
+    "ore-crystal-thorium" > 1;
+    "ore-wall-beryllium" @ 1;
+    "ore-wall-thorium" @ 1;
+    "ore-wall-tungsten" @ 1;
+    "graphitic-wall" @ 1;
+    "boulder" @ 1;
+    "arkyic-wall" @ 1;
+    "beryllic-stone-wall" @ 1;
+    "carbon-wall" @ 1;
     "cliff": 1;
-    "crystalline-stone-wall": 1;
-    "dacite-wall": 1;
-    "dark-metal": 1;
-    "dirt-wall": 1;
-    "dune-wall": 1;
-    "ferric-stone-wall": 1;
-    "ice-wall": 1;
-    "pebbles": 1;
+    "crystalline-stone-wall" @ 1;
+    "dacite-wall" @ 1;
+    "dark-metal" @ 1;
+    "dirt-wall" @ 1;
+    "dune-wall" @ 1;
+    "ferric-stone-wall" @ 1;
+    "ice-wall" @ 1;
+    "pebbles" @ 1;
     "pine": 1;
-    "red-diamond-wall": 1;
-    "red-ice-wall": 1;
-    "red-stone-wall": 1;
-    "regolith-wall": 1;
-    "rhyolite-vent" > 1;
-    "rhyolite-wall": 1;
-    "salt-wall": 1;
-    "sand-wall": 1;
-    "shale-wall": 1;
-    "shrubs": 1;
+    "red-diamond-wall" @ 1;
+    "red-ice-wall" @ 1;
+    "red-stone-wall" @ 1;
+    "regolith-wall" @ 1;
+    "rhyolite-vent"  @ 1;
+    "rhyolite-wall" @ 1;
+    "salt-wall" @ 1;
+    "sand-wall" @ 1;
+    "shale-wall" @ 1;
+    "shrubs" @ 1;
     "snow-pine": 1;
-    "snow-wall": 1;
+    "snow-wall" @ 1;
     "spawn": 1;
     "spore-pine": 1;
-    "spore-wall": 1;
-    "stone-wall": 1;
-    "yellow-stone-wall": 1;
+    "spore-wall" @ 1;
+    "stone-wall" @ 1;
+    "yellow-stone-wall" @ 1;
     // props
-    "yellow-stone-boulder": 1;
-    "snow-boulder": 1;
-    "shale-boulder": 1;
-    "arkyic-boulder": 1;
-    "basalt-boulder": 1;
-    "beryllic-boulder": 1;
-    "carbon-boulder": 1;
-    "crystalline-boulder": 1;
-    "dacite-boulder": 1;
-    "ferric-boulder": 1;
-    "red-ice-boulder": 1;
-    "red-stone-boulder": 1;
-    "rhyolite-boulder": 1;
-    "sand-boulder": 1;
+    "yellow-stone-boulder" @ 1;
+    "snow-boulder" @ 1;
+    "shale-boulder" @ 1;
+    "arkyic-boulder" @ 1;
+    "basalt-boulder" @ 1;
+    "beryllic-boulder" @ 1;
+    "carbon-boulder" @ 1;
+    "crystalline-boulder" @ 1;
+    "dacite-boulder" @ 1;
+    "ferric-boulder" @ 1;
+    "red-ice-boulder" @ 1;
+    "red-stone-boulder" @ 1;
+    "rhyolite-boulder" @ 1;
+    "sand-boulder" @ 1;
     "pur-bush": 1;
-    "tendrils": 1;
+    "tendrils" @ 1;
     // these are tall but uh (TODO layering)
     "white-tree-dead": 1;
     "yellowcoral": 1;
     "white-tree": 1;
-    "redweed": 1;
-    "spore-cluster": 1;
-    "crystal-blocks": 1;
-    "crystal-cluster": 1;
-    "vibrant-crystal-cluster": 1;
-    "crystal-orbs": 1;
+    "redweed" @ 1;
+    "spore-cluster" @ 1;
+    "crystal-blocks" @ 1;
+    "crystal-cluster"  @ 1;
+    "vibrant-crystal-cluster" @ 1;
+    "crystal-orbs" @ 1;
     // end tall
     "build1": 1;
     "build2": 1;

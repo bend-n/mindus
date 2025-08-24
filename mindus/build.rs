@@ -1,4 +1,5 @@
 use fimg::DynImage;
+use rand::Rng;
 use std::fs::File;
 use std::io::Write as _;
 use std::iter::Iterator;
@@ -63,6 +64,7 @@ fn main() {
             && e == "png"
         {
             let mut p = DynImage::open(path);
+            let rgb = p.clone().to_rgba().chunked().all(|x| x[3] == 255);
             if path
                 .file_name()
                 .unwrap()
@@ -135,7 +137,7 @@ fn main() {
                     } else {
                         p.scale::<fimg::scale::Nearest>(mx / $scale, my / $scale)
                     };
-                    let rgb = env && matches!(p, DynImage::Rgb(_));
+                    let rgb = env && rgb;
                     let x = new.width();
                     let y = new.height();
                     if rgb {
@@ -154,6 +156,30 @@ fn main() {
             n += 1;
         }
     }
+    for f in std::fs::read_dir("assets/blocks/environment")
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter_map(|x| x.file_name().to_str().map(String::from))
+        .filter(|x| x.contains("1"))
+    {
+        dbg!(&f);
+        let f = &f[..f.len() - 5];
+        let count = WalkDir::new("assets/blocks/environment")
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter_map(|x| x.file_name().to_str().map(String::from))
+            .filter(|x| &x[..x.len() - 5] == f)
+            .count();
+        let f = kebab2bigsnek(f);
+        for n in count + 1..=8 {
+            let r = rand::rng().random_range(1..=count);
+            wr!(full => r#"pub(crate) static {f}{n}: Image<&[u8], {{{f}1.channels()}}> = {f}{r}.copy();"#);
+            wr!(quar => r#"pub(crate) static {f}{n}: Image<&[u8], {{{f}1.channels()}}> = {f}{r}.copy();"#);
+            wr!(eigh => r#"pub(crate) static {f}{n}: Image<&[u8], {{{f}1.channels()}}> = {f}{r}.copy();"#);
+        }
+        println!("{count} {f}");
+    }
+    // panic!();
     for mut f in [full, eigh, quar] {
         f.write_all(b"}").unwrap();
     }

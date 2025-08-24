@@ -82,6 +82,7 @@ use std::collections::HashMap;
 use std::ops::CoroutineState::*;
 use std::ops::{Coroutine, Index, IndexMut};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
@@ -108,56 +109,75 @@ pub struct Tile {
     pub nd: [u8; 7],
 }
 
-pub static FLOOR_TABLE: [[DynImage<&'static [u8]>; BlockEnum::ALL.len()]; 3] = {
-    let mut table_f = [DynImage::from(load!(raw "empty", Scale::Full)); BlockEnum::ALL.len()];
-    let mut table_q = [DynImage::from(load!(raw "empty", Scale::Quarter)); BlockEnum::ALL.len()];
-    let mut table_e = [DynImage::from(load!(raw "empty", Scale::Eigth)); BlockEnum::ALL.len()];
+pub fn table(x: BlockEnum, scale: Scale) -> DynImage<&'static [u8]> {
+    FLOOR_TABLE[x as usize][mcg() as usize][scale as usize]
+}
+
+pub fn mcg() -> u64 {
+    static STATE: AtomicU64 = AtomicU64::new(25);
+    let s = STATE.load(Ordering::Relaxed);
+    // a * s % m
+    let s = (s.wrapping_mul(0xecc5)) % (1 << 32);
+    STATE.store(s, Ordering::Relaxed);
+    (s >> 13) & (0b111)
+}
+
+static FLOOR_TABLE: [[[DynImage<&'static [u8]>; 3]; 8]; BlockEnum::ALL.len()] = {
+    let mut table = [[car::map!(load!("empty"), DynImage::from); 8]; BlockEnum::ALL.len()];
     macro_rules! image {
         (| $($x:literal $(|)?)+) => { paste::paste! {
-            $(table_f[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Full));)+
-            $(table_q[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Quarter));)+
-            $(table_e[BlockEnum::[<$x:camel>] as usize] = DynImage::from(load!(raw $x, Scale::Eigth));)+
+            $(table[BlockEnum::[<$x:camel>] as usize] = load!(8x $x));+
+        } };
+        (| single $($x:literal $(|)?)+) => { paste::paste! {
+            $(table[BlockEnum::[<$x:camel>] as usize] =
+                car::map!([load!($x); 8], |x| car::map!(x, DynImage::from)));+
         } }
     }
+
+    image! [
+        | single "colored-floor" | "colored-wall" | "metal-tiles-1" | "metal-tiles-2" | "metal-tiles-3" | "metal-tiles-4" | "metal-tiles-5" | "metal-tiles-6" | "metal-tiles-7" | "metal-tiles-8" | "metal-tiles-9" | "metal-tiles-10" | "metal-tiles-11" | "metal-tiles-12"
+        | "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5"
+        | "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
+        | "arkycite-floor"
+        | "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
+        | "tar" | "pooled-cryofluid"
+        | "space"
+        | "stone-vent"
+        | "core-zone"
+    ];
     image! {
-        | "ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"
-        | "colored-floor" | "colored-wall" | "metal-tiles-1" | "metal-tiles-2" | "metal-tiles-3" | "metal-tiles-4" | "metal-tiles-5" | "metal-tiles-6" | "metal-tiles-7" | "metal-tiles-8" | "metal-tiles-9" | "metal-tiles-10" | "metal-tiles-11" | "metal-tiles-12"
+        | "ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "ore-crystal-thorium"
+        | "yellow-stone-vent" | "arkyic-vent" | "crystalline-vent"  | "red-stone-vent" | "carbon-vent"
         | "darksand"
         | "sand-floor"
         | "dacite"
         | "dirt"
-        | "arkycite-floor"
         | "basalt" | "basalt-vent"
         | "moss"
         | "mud"
         | "ice-snow" | "snow" | "salt" | "ice"
         | "hotrock" | "char" | "magmarock" | "molten-slag"
         | "shale"
-        | "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
-        | "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
-        | "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
-        | "tar" | "pooled-cryofluid"
-        | "space"
-        | "stone" | "stone-vent"
+        | "metal-floor-damaged"
+        | "stone"
         | "bluemat"
         | "ferric-craters"
         | "beryllic-stone"
         | "grass"
         | "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
-        | "core-zone"
         | "crater-stone"
         | "redmat"
         | "red-ice"
         | "spore-moss"
         | "regolith"
         | "ferric-stone"
-        | "arkyic-stone" | "arkyic-vent"
-        | "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
-        | "red-stone" | "red-stone-vent" | "dense-red-stone"
-        | "carbon-stone" | "carbon-vent"
-        | "crystal-floor" | "crystalline-stone" | "crystalline-vent"
+        | "arkyic-stone"
+        | "yellow-stone" | "yellow-stone-plates"
+        | "red-stone" | "dense-red-stone"
+        | "carbon-stone"
+        | "crystal-floor" | "crystalline-stone"
     };
-    [table_f, table_q, table_e]
+    table
 };
 
 impl Tile {
