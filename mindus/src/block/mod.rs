@@ -646,6 +646,7 @@ make_register! {
     "metal-tiles-10" > 1;
     "metal-tiles-11" > 1;
     "metal-tiles-12" > 1;
+    "metal-tiles-13" > 1;
     "colored-floor" > 1;
     "colored-wall" > 1;
     "darksand" > 1;

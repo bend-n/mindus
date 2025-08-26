@@ -159,6 +159,7 @@ content_enum! {
         "metal-tiles-10",
         "metal-tiles-11",
         "metal-tiles-12",
+        "metal-tiles-13",
         "colored-floor",
         "colored-wall",
         "character-overlay",

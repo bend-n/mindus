@@ -264,7 +264,7 @@ macro_rules! autotiled {
     x => unreachable!("{x}")
  }}}};
 }
-    autotiled!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12")
+    autotiled!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12" "metal-tiles-13")
 }
 
 pub trait RotationState {
