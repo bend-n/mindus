@@ -363,7 +363,6 @@ fn read_mounts(buff: &mut DataRead) -> Result<(), ReadError> {
 ///     - call [`read_plan`]
 fn read_plans(buff: &mut DataRead) -> Result<(), ReadError> {
     let used = buff.read_i32()?;
-    dbg!(used);
     if used == -1 {
         return Ok(());
     }
