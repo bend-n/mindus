@@ -1,6 +1,8 @@
 //! units
 //!
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
+use std::ops::{ControlFlow, Try};
+
 use crate::Serializable;
 use crate::block::payload::read_payload;
 use crate::content::content_enum;
@@ -116,6 +118,39 @@ pub struct UnitState {
     pub position: (f32, f32),
     pub controller: Controller,
 }
+// pub trait TryThen {
+//     fn try_then<O: Try<Output = Option<T>, Residual = E>, T, E, R: Try<Output = T, Residual = E>>(
+//         self,
+//         then: impl FnMut() -> R,
+//     ) -> O;
+// }
+// impl TryThen for bool {
+//     fn try_then<
+//         O: Try<Output = Option<T>, Residual = E>,
+//         T,
+//         E,
+//         R: Try<Output = T, Residual = E>,
+//     >(
+//         self,
+//         mut then: impl FnMut() -> R,
+//     ) {
+//         match self {
+//             false => O::from_output(None),
+//             true => match then().branch() {
+//                 ControlFlow::Continue(x) => O::from_output(Some(x)),
+//                 ControlFlow::Break(x) => O::from_residual(x),
+//             },
+//         }
+//     }
+// }
+pub trait TryThen {
+    fn try_then<T, E>(self, f: impl FnMut() -> Result<T, E>) -> Result<Option<T>, E>;
+}
+impl TryThen for bool {
+    fn try_then<T, E>(self, mut f: impl FnMut() -> Result<T, E>) -> Result<Option<T>, E> {
+        self.then_some(()).map(|()| f()).transpose()
+    }
+}
 
 #[derive(Default, Debug)]
 pub enum Controller {
@@ -153,28 +188,20 @@ impl Controller {
         Ok(match buff.read_u8()? {
             0 => Controller::Player(buff.read_i32()?),
             3 => Controller::Logic(buff.read_i32()?),
-            t @ (4 | 6 | 7 | 8) => {
+            t @ (4 | 6 | 7 | 8 | 9) => {
                 let has_attack = buff.read_bool()?;
-                let pos = if buff.read_bool()? {
-                    Some((buff.read_f32()?, buff.read_f32()?))
-                } else {
-                    None
-                };
-                let target = if has_attack {
+                let pos = buff
+                    .read_bool()?
+                    .try_then::<_, ReadError>(|| try { (buff.read_f32()?, buff.read_f32()?) })?;
+                let target = has_attack.try_then::<_, ReadError>(|| try {
                     buff.skip(1)?;
-                    Some(buff.read_i32()?)
-                } else {
-                    None
-                };
+                    buff.read_i32()?
+                })?;
                 let n = buff.read_i8()?;
-                let command = if let Ok(n) = u8::try_from(n)
-                    && let Ok(u) = UnitCommand::try_from(n)
-                {
-                    Some(u)
-                } else {
-                    None
-                };
-                if let 7 | 8 = t {
+                let command = u8::try_from(n)
+                    .ok()
+                    .and_then(|x| UnitCommand::try_from(x).ok());
+                if let 7 | 8 | 9 = t {
                     for _ in 0..buff.read_u8()? {
                         match buff.read_u8()? {
                             0 | 1 => {
@@ -191,6 +218,9 @@ impl Controller {
                 if t == 8 {
                     // stance
                     buff.read_u8()?;
+                } else if t == 9 {
+                    let stances = buff.read_u8()?;
+                    buff.skip(stances as _)?;
                 }
                 Controller::Command {
                     target,
@@ -334,6 +364,7 @@ fn read_mounts(buff: &mut DataRead) -> Result<(), ReadError> {
 ///     - call [`read_plan`]
 fn read_plans(buff: &mut DataRead) -> Result<(), ReadError> {
     let used = buff.read_i32()?;
+    dbg!(used);
     if used == -1 {
         return Ok(());
     }

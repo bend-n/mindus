@@ -1,6 +1,8 @@
 //! crate for dealing with mindustry
 #![feature(
+    error_generic_member_access,
     maybe_uninit_write_slice,
+    try_trait_v2_residual,
     stmt_expr_attributes,
     generic_const_exprs,
     iter_from_coroutine,
@@ -9,6 +11,8 @@
     likely_unlikely,
     portable_simd,
     derive_const,
+    try_trait_v2,
+    try_blocks,
     const_from,
     coroutines
 )]

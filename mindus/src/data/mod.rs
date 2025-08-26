@@ -3,6 +3,7 @@ use flate2::{
     Compress, CompressError as CError, Compression, Decompress, DecompressError as DError,
     FlushCompress, FlushDecompress, Status,
 };
+use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
@@ -77,6 +78,7 @@ impl<'d> DataRead<'d> {
             .ok_or(ReadError::Underflow {
                 need: n,
                 have: self.data.len(),
+                bt: Backtrace::capture(),
             })
             .inspect(|_| self.read += n)
     }
@@ -95,6 +97,7 @@ impl<'d> DataRead<'d> {
         self.data = self.data.get(n..).ok_or(ReadError::Underflow {
             need: n,
             have: self.data.len(),
+            bt: Backtrace::capture(),
         })?;
         self.read += n;
         Ok(())
@@ -187,8 +190,13 @@ pub enum DecompressError {
 
 #[derive(Debug, Error)]
 pub enum ReadError {
-    #[error("buffer underflow (expected {need} but got {have})")]
-    Underflow { need: usize, have: usize },
+    #[error("buffer underflow (expected {need} but got {have}) ({bt})")]
+    Underflow {
+        need: usize,
+        have: usize,
+
+        bt: Backtrace,
+    },
     #[error("expected {0}")]
     Expected(&'static str),
     #[error("malformed utf8 in string")]

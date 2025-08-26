@@ -923,13 +923,21 @@ impl MapReader {
             yield EntityData::Length(n);
             for _ in 0..n {
                 let len = self.buff.read_u16()? as usize;
+                let rb4 = self.buff.read;
                 let id = self.buff.read_u8()? as usize;
                 let Some(&Some(u)) = entity_mapping::ID.get(id) else {
                     self.buff.skip(len - 1)?;
                     continue;
                 };
-                self.buff.skip(4)?;
+                _ = self.buff.read_u32()?;
                 yield EntityData::Data(u.read(&mut self.buff)?);
+                let read = self.buff.read - rb4;
+                debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
+                let n = len - read;
+                if n != 0 && cfg!(debug_assertions) {
+                    dbg!("underread: skipping {n} bytes");
+                }
+                self.buff.skip(n)?;
             }
             let read = self.buff.read - rb4;
             debug_assert!(len >= read, "overread; supposed to read {len}; read {read}");
