@@ -1,7 +1,6 @@
 //! units
 //!
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
-use std::ops::{ControlFlow, Try};
 
 use crate::Serializable;
 use crate::block::payload::read_payload;

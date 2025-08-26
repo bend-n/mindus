@@ -78,7 +78,7 @@ fn draw_stack(
         1 => load!(concat 1 => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
         _ => load!("plastanium-conveyor-2", s),
     };
-    let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name != name);
+    let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name.get_name() != name);
     // mindustry says fuck this and just draws the arrow convs in schems but im better than that
     if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
         // end

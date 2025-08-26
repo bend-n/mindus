@@ -78,8 +78,7 @@ macro_rules! content_enum {
 				MAPPER.get(name).copied()
 			}
 		}
-
-		impl $crate::content::Content for $tname {
+		impl const $crate::content::Content for $tname {
 			fn get_type(&self) -> $crate::content::Type {
 				$crate::content::Type::$ctype
 			}
@@ -89,9 +88,11 @@ macro_rules! content_enum {
 			}
 
 			fn get_name(&self) -> &'static str {
-				match self {
-					$(Self::[<$val:camel>] => $val,)*
-				}
+				const NAME: [&str; {$tname::ALL.len()}] = [$($val,)*];
+				NAME[*self as usize]
+				// match self {
+				// 	$(Self::[<$val:camel>] => $val,)*
+				// }
 			}
 		}
 
@@ -184,13 +185,13 @@ impl Type {
         }
     }
 }
-
+#[const_trait]
 pub trait Content {
     fn get_type(&self) -> Type;
 
     fn get_id(&self) -> u16;
 
-    fn get_name(&self) -> &str;
+    fn get_name(&self) -> &'static str;
 }
 
 struct Generic(Type, u16);
@@ -204,7 +205,7 @@ impl Content for Generic {
         self.1
     }
 
-    fn get_name(&self) -> &str {
+    fn get_name(&self) -> &'static str {
         "<unknown>"
     }
 }

@@ -2,8 +2,8 @@
 use super::GridPos;
 pub(crate) use super::autotile::*;
 use super::schematic::Schematic;
+use crate::block::State;
 use crate::block::content::Type;
-use crate::block::{COLORED_WALL, State};
 use crate::color_mapping::BLOCK2COLOR;
 use crate::data::map::Registrar;
 use crate::team::Team;
@@ -325,7 +325,9 @@ impl Renderable for Map {
     /// Draws a map
     #[implicit_fn::implicit_fn]
     fn render(&self) -> Image<Vec<u8>, 3> {
-        let scale = if self.width + self.height < 2000 {
+        let scale = if self.width + self.height < 1000 {
+            Scale::Full
+        } else if self.width + self.height < 4000 {
             Scale::Quarter
         } else {
             Scale::Eigth
@@ -391,33 +393,50 @@ impl Renderable for Map {
                         );
                     }
                 }
+                macro_rules! f {
+                    ($($x: literal)+) => { paste::paste!{
+                        ([$(load!([<rune _ overlay $x>] ),)+], [$(load!([<rune _ overlay _ crux $x>] ),)+])
+                    }};
+                }
+                const RUNES: ([[Image<&[u8], 4>; 3]; 109], [[Image<&[u8], 4>; 3]; 109]) = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108];
 
                 if tile.has_ore() {
-                    if tile.ore == Type::CharacterOverlay || tile.ore == Type::CharacterOverlayWhite
-                    {
-                        macro_rules! f {
-                            ($($x: literal)+) => { paste::paste!{
-                                [$(load!([<character _ overlay $x>] ),)+]
-                            }};
+                    match tile.ore {
+                        Type::RuneOverlay => unsafe {
+                            img.overlay_at(
+                                &RUNES.0[tile.nd[2] as usize][scale as usize],
+                                scale * x as u32,
+                                scale * y as u32,
+                            );
+                        },
+                        Type::RuneOverlayCrux => unsafe {
+                            img.overlay_at(
+                                &RUNES.1[tile.nd[2] as usize][scale as usize],
+                                scale * x as u32,
+                                scale * y as u32,
+                            );
+                        },
+                        Type::CharacterOverlay | Type::CharacterOverlayWhite => {
+                            macro_rules! f {
+                                ($($x: literal)+) => { paste::paste!{
+                                    [$(load!([<character _ overlay $x>] ),)+]
+                                }};
+                            }
+
+                            const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
+                            unsafe {
+                                img.overlay_at(
+                                    LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize]
+                                        .mapped(image::Cow::Ref)
+                                        .rotate(4 - (tile.nd[2] >> 6)),
+                                    scale * x as u32,
+                                    scale * y as u32,
+                                )
+                            };
                         }
-                        const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
-                        unsafe {
-                            img.overlay_at(
-                                LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize]
-                                    .mapped(image::Cow::Ref)
-                                    .rotate(tile.nd[2] & 0x3),
-                                scale * x as u32,
-                                scale * y as u32,
-                            )
-                        };
-                    } else {
-                        unsafe {
-                            img.overlay_at(
-                                &table(tile.ore, scale),
-                                scale * x as u32,
-                                scale * y as u32,
-                            )
-                        };
+                        ore => unsafe {
+                            img.overlay_at(&table(ore, scale), scale * x as u32, scale * y as u32);
+                        },
                     }
                 }
             }
@@ -451,28 +470,33 @@ impl Renderable for Map {
                             // SAFETY: no block too big
                             _ => unsafe { std::hint::unreachable_unchecked() },
                         }) as usize;
-                    if unlikely(build.block == &COLORED_WALL) {
+                    if unlikely(matches!(
+                        build.block.name,
+                        Type::ColoredWall | Type::MetalWall1 | Type::MetalWall2 | Type::MetalWall3
+                    )) {
                         let mask = crate::data::autotile::nbors(
-                            self.corners(j).map(|x| {
-                                x.and_then(|x| x.build().and_then(|b| Type::by_name(b.name())))
-                            }),
-                            self.cross(j).map(|x| {
-                                x.and_then(|x| x.build().and_then(|b| Type::by_name(b.name())))
-                            }),
-                            Type::ColoredWall,
+                            self.corners(j)
+                                .map(|x| x.and_then(|x| x.build().map(|b| b.block.name))),
+                            self.cross(j)
+                                .map(|x| x.and_then(|x| x.build().map(|b| b.block.name))),
+                            build.block.name,
                         );
-                        let mut i = crate::data::autotile::select("colored-wall", mask)
-                            [scale as usize]
-                            .boxed();
-                        unsafe {
-                            img.overlay_at(
-                                &i.as_mut()
-                                    .tint(tile.nd.skip::<3>().take::<3>().into())
-                                    .as_ref(),
-                                scale * x as u32,
-                                scale * y as u32,
-                            )
-                        };
+                        let i =
+                            crate::data::autotile::select(build.block.name(), mask)[scale as usize];
+                        if build.block.name == Type::ColoredWall {
+                            unsafe {
+                                img.overlay_at(
+                                    &i.boxed()
+                                        .as_mut()
+                                        .tint(tile.nd.skip::<3>().take::<3>().into())
+                                        .as_ref(),
+                                    scale * x as u32,
+                                    scale * y as u32,
+                                )
+                            };
+                        } else {
+                            unsafe { img.overlay_at(&i, scale * x as u32, scale * y as u32) };
+                        }
                         continue;
                     }
                     let ctx = build.block.wants_context().then(|| {

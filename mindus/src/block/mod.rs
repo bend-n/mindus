@@ -6,6 +6,8 @@ use fimg::DynImage;
 use std::error::Error;
 use std::fmt;
 
+use crate::block::all::Type;
+use crate::content::Content;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::{Build, mcg};
 use crate::data::{self, CompressError, renderer::*};
@@ -308,7 +310,7 @@ impl SerializeError {
 pub struct Block {
     image_random: Option<&'static [[DynImage<&'static [u8]>; 3]; 8]>,
     image: Option<&'static [DynImage<&'static [u8]>; 3]>,
-    name: &'static str,
+    pub(crate) name: Type,
     logic: BlockLogicEnum,
 }
 
@@ -326,11 +328,11 @@ impl Block {
     #[must_use]
     #[inline]
     pub const fn name(&self) -> &'static str {
-        self.name
+        self.name.get_name()
     }
 
     pub fn io(&self, state: Option<&State>) -> ratios::Io {
-        <BlockLogicEnum as ratios::Ratios>::io(&self.logic, state, self.name)
+        <BlockLogicEnum as ratios::Ratios>::io(&self.logic, state, self.name.get_name())
     }
 
     /// should you send context to [`image`]?
@@ -364,7 +366,10 @@ impl Block {
         if let Some(imgs) = &self.image {
             return unsafe { imgs[scale as usize].mapped(Cow::Ref) };
         }
-        DynImage::Rgba(self.logic.draw(self.name, state, context, rot, scale))
+        DynImage::Rgba(
+            self.logic
+                .draw(self.name.get_name(), state, context, rot, scale),
+        )
     }
 
     /// size.
@@ -607,48 +612,38 @@ macro_rules! make_register {
     }};
     (impl $field: literal => $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
-            name: $field, logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: None, image_random: None,
+            name: crate::block::content::Type::[<$field:camel>], logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: None, image_random: None,
         }; }
     };
     (impl $field: literal -> $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
-            name: $field, logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
+            name: crate::block::content::Type::[<$field:camel>], logic: <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
         }; }
     };
     (impl $field: literal : $size: literal) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
-            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
+            name: crate::block::content::Type::[<$field:camel>], logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!($field), DynImage::from)), image_random: None,
         }; }
     };
     (impl $field: literal @ $size: literal) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
-            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image_random: Some(&crate::data::renderer::load!(8x $field)), image: None,
+            name: crate::block::content::Type::[<$field:camel>], logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image_random: Some(&crate::data::renderer::load!(8x $field)), image: None,
         }; }
     };
     // floors
     (impl $field: literal > $size: literal) => {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
-            name: $field, logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!("empty4"), DynImage::from)), image_random: None,
+            name: crate::block::content::Type::[<$field:camel>], logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!("empty4"), DynImage::from)), image_random: None,
         }; }
     };
 }
 // pub(self) use make_register;
 make_register! {
-    "metal-tiles-1" > 1;
-    "metal-tiles-2" > 1;
-    "metal-tiles-3" > 1;
-    "metal-tiles-4" > 1;
-    "metal-tiles-5" > 1;
-    "metal-tiles-6" > 1;
-    "metal-tiles-7" > 1;
-    "metal-tiles-8" > 1;
-    "metal-tiles-9" > 1;
-    "metal-tiles-10" > 1;
-    "metal-tiles-11" > 1;
-    "metal-tiles-12" > 1;
-    "metal-tiles-13" > 1;
+    "metal-wall-1": 1;
+    "metal-wall-2": 1;
+    "metal-wall-3": 1;
     "colored-floor" > 1;
-    "colored-wall" > 1;
+    "colored-wall": 1;
     "darksand" > 1;
     "sand-floor" > 1;
     "yellow-stone" > 1;

@@ -25,8 +25,8 @@ pub trait ImageUtils {
 impl<T: AsMut<[u8]> + AsRef<[u8]>> ImageUtils for Image<T, 4> {
     unsafe fn rotate(&mut self, times: u8) -> &mut Self {
         match times {
-            2 => self.rot_180(),
             1 => unsafe { self.rot_90() },
+            2 => self.rot_180(),
             3 => unsafe { self.rot_270() },
             _ => {}
         }

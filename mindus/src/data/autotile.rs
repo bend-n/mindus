@@ -241,8 +241,7 @@ macro_rules! g {
 }
 
 pub fn select(n: &str, mask: u8) -> [Image<&'static [u8], 4>; 3] {
-    #[rustfmt::skip]
-macro_rules! autotiled {
+    macro_rules! autotiled {
     ($($name:literal)+) => {{ paste::paste! { $(const [<$name:snake:upper>]: [[Image<&[u8], 4>; 3]; 256] = g![$name,
 39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24,
 38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25,
@@ -264,7 +263,10 @@ macro_rules! autotiled {
     x => unreachable!("{x}")
  }}}};
 }
-    autotiled!("colored-floor" "colored-wall" "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5" "metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12" "metal-tiles-13")
+    autotiled!("colored-floor" "colored-wall"
+               "metal-tiles-1" "metal-tiles-2" "metal-tiles-3" "metal-tiles-4" "metal-tiles-5""metal-tiles-6" "metal-tiles-7" "metal-tiles-8" "metal-tiles-9" "metal-tiles-10" "metal-tiles-11" "metal-tiles-12" "metal-tiles-13"
+               "metal-wall-1" "metal-wall-2" "metal-wall-3"
+    )
 }
 
 pub trait RotationState {

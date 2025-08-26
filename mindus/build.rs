@@ -161,6 +161,7 @@ fn main() {
         .filter_map(Result::ok)
         .filter_map(|x| x.file_name().to_str().map(String::from))
         .filter(|x| x.contains("1"))
+        .filter(|x| !x.contains("dark-panel"))
     {
         dbg!(&f);
         let f = &f[..f.len() - 5];
