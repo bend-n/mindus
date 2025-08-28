@@ -144,6 +144,7 @@ static FLOOR_TABLE: [[[DynImage<&'static [u8]>; 3]; 8]; BlockEnum::ALL.len()] = 
         | "space"
         | "stone-vent"
         | "core-zone"
+        | "spawn"
     ];
     image! {
         | "ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "ore-crystal-thorium"
