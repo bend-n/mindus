@@ -325,7 +325,7 @@ impl Renderable for Map {
     /// Draws a map
     #[implicit_fn::implicit_fn]
     fn render(&self) -> Image<Vec<u8>, 3> {
-        let scale = if self.width + self.height < 1000 {
+        let scale = if self.width + self.height < 600 {
             Scale::Full
         } else if self.width + self.height < 4000 {
             Scale::Quarter
