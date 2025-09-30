@@ -860,7 +860,7 @@ make_register! {
     "surge-crucible" -> ProductionBlock::new(3, true, cost!(Silicon: 100, Graphite: 80, Tungsten: 80, Oxide: 80));
     "cyanogen-synthesizer" -> ProductionBlock::new(3, true, cost!(Carbide: 50, Silicon: 80, Beryllium: 90));
     "phase-synthesizer" -> ProductionBlock::new(3, true, cost!(Carbide: 90, Silicon: 100, Thorium: 100, Tungsten: 200));
-    // heat reactor
+    "heat-reactor" => HeatCrafter::new(3, false, cost!(Oxide: 70, Graphite: 20, Carbide: 10, Thorium: 80));
     "payload-conveyor" => PayloadConveyor::new(3, false, cost!(Copper: 10, Graphite: 10));
     "payload-router" => PayloadRouter::new(3, false, cost!(Copper: 10, Graphite: 15));
     "reinforced-payload-conveyor" => PayloadConveyor::new(3, false, cost!(Tungsten: 10));

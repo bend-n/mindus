@@ -13,7 +13,7 @@
     derive_const,
     try_trait_v2,
     try_blocks,
-    const_from,
+    const_convert,
     coroutines
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]

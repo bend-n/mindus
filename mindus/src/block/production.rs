@@ -40,13 +40,13 @@ make_simple!(
 make_simple!(
     HeatCrafter,
     |_, n, _, _, r: Rotation, s| {
-        let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s);
+        let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source" | "heat-reactor"], s);
         let mut top = match r {
             Rotation::Up | Rotation::Right => {
-                load!(concat "top1" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+                load!(concat "top1" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source" | "heat-reactor"], s)
             }
             Rotation::Down | Rotation::Left => {
-                load!(concat "top2" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+                load!(concat "top2" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source" | "heat-reactor"], s)
             }
         };
         unsafe { top.rotate(r.rotated(false).count()) };
