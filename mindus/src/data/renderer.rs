@@ -13,7 +13,7 @@ use crate::{
     block::Rotation,
     data::map::{ThinBloc, ThinMapData},
 };
-use atools::ArrayTools;
+use atools::prelude::*;
 use either::Either;
 use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
 use std::hint::unlikely;
