@@ -834,7 +834,6 @@ impl MapReader {
                 let data = (packed & 2) != 0;
                 let newdata = (packed & 4) != 0;
                 let newdata = newdata.then(|| self.buff.readN::<7>()).transpose()?;
-                assert!(!data);
                 let central = if entity {
                     self.buff.read_bool()?
                 } else {
