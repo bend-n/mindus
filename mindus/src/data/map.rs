@@ -356,6 +356,10 @@ impl Build {
         if mask & 4 != 0 {
             read_liquids(buff, &mut self.liquids)?;
         }
+        if mask & 16 != 0 {
+            let _scale = buff.read_f32()?;
+            let _duration = buff.read_f32()?;
+        }
         // "efficiency"
         _ = buff.read_u8()? as f64 / 255.;
         _ = buff.read_u8()? as f64 / 255.;
