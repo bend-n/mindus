@@ -538,6 +538,7 @@ pub struct MapReader {
     backing: Vec<u8>,
     // dataread references 'backing'
     buff: DataRead<'static>,
+    version: u32,
 }
 
 #[derive(Debug)]
@@ -598,6 +599,7 @@ impl MapReader {
     pub fn new(buff: &mut DataRead<'_>) -> Result<Self, ReadError> {
         let backing = buff.deflate()?;
         Ok(Self {
+            version: u32::MAX,
             buff: DataRead::new(unsafe {
                 std::mem::transmute::<&'_ [u8], &'static [u8]>(&backing)
             }),
@@ -612,7 +614,7 @@ impl MapReader {
 
     pub fn version(&mut self) -> Result<u32, ReadError> {
         let x = self.buff.read_u32()?;
-        (7..=9)
+        (7..=10)
             .contains(&x)
             .then_some(x)
             .ok_or(ReadError::Version(x.try_into().unwrap_or(0)))
@@ -713,7 +715,11 @@ impl MapReader {
                 let block = block.to_block();
                 yield if entity {
                     if central {
-                        let len = self.buff.read_u16()? as usize;
+                        let len = if self.version > 9 {
+                            self.buff.read_u32()? as usize
+                        } else {
+                            self.buff.read_u16()? as usize
+                        };
                         let rb4 = self.buff.read;
 
                         #[cfg(debug_assertions)]
@@ -846,7 +852,11 @@ impl MapReader {
                 yield if entity {
                     if central {
                         let block = block.ok_or(ReadError::NoBlockWithData)?;
-                        let len = self.buff.read_u16()? as usize;
+                        let len = if self.version > 9 {
+                            self.buff.read_u32()? as usize
+                        } else {
+                            self.buff.read_u16()? as usize
+                        };
                         let rb4 = self.buff.read;
 
                         #[cfg(debug_assertions)]
@@ -922,7 +932,11 @@ impl MapReader {
             let n = self.buff.read_u32()?;
             yield EntityData::Length(n);
             for _ in 0..n {
-                let len = self.buff.read_u16()? as usize;
+                let len = if self.version > 9 {
+                    self.buff.read_u32()? as usize
+                } else {
+                    self.buff.read_u16()? as usize
+                };
                 let rb4 = self.buff.read;
                 let id = self.buff.read_u8()? as usize;
                 let Some(&Some(u)) = entity_mapping::ID.get(id) else {
@@ -977,13 +991,13 @@ impl Serializable for Map {
     fn deserialize(buff: &mut DataRead<'_>) -> Result<Map, Self::ReadError> {
         let mut buff = MapReader::new(buff)?;
         buff.header()?;
-        let v = buff.version()?;
+        buff.version = buff.version()?;
         let tags = buff.tags_alloc()?;
         let r = buff.content()?;
 
         let mut m = buff.collect_map(tags, r)?;
         m.entities = buff.collect_entities()?;
-        if v == 8 {
+        if buff.version == 8 {
             // skip marker region
             buff.skip()?;
         }
