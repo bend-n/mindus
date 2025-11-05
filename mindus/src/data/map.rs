@@ -618,7 +618,7 @@ impl MapReader {
 
     pub fn version(&mut self) -> Result<u32, ReadError> {
         let x = self.buff.read_u32()?;
-        (7..=10)
+        (7..=11)
             .contains(&x)
             .then_some(x)
             .ok_or(ReadError::Version(x.try_into().unwrap_or(0)))
@@ -998,7 +998,9 @@ impl Serializable for Map {
         buff.version = buff.version()?;
         let tags = buff.tags_alloc()?;
         let r = buff.content()?;
-
+        if buff.version >= 11 {
+            buff.skip()?;
+        }
         let mut m = buff.collect_map(tags, r)?;
         m.entities = buff.collect_entities()?;
         if buff.version == 8 {
