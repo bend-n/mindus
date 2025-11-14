@@ -1,2 +1,4 @@
-print "yes\n"
-jump 0 always
+set a 1
+select result notEqual x false a 2
+print result
+printflush message1

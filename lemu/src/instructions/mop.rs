@@ -29,6 +29,11 @@ macro_rules! num {
             f64::from($c(get_num!(x).to_radians()))
         }
     };
+    (to_deg $fn: ident $c:expr) => {
+        fn $fn(x: &LVar<'_>) -> f64 {
+            f64::from($c(get_num!(x))).to_radians()
+        }
+    };
 }
 
 macro_rules! flbop {
@@ -51,9 +56,9 @@ num!(sqrt f64::sqrt);
 num!(deg sin f64::sin);
 num!(deg cos f64::cos);
 num!(deg tan f64::tan);
-num!(deg asin f64::asin);
-num!(deg acos f64::acos);
-num!(deg atan f64::atan);
+num!(to_deg asin f64::asin);
+num!(to_deg acos f64::acos);
+num!(to_deg atan f64::atan);
 num!(log10 f64::log10);
 
 super::op_impl!(MathOp1, ptr type = for<'v> fn(&LVar<'v>) -> f64 {
