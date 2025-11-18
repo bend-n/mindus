@@ -185,8 +185,7 @@ impl Type {
         }
     }
 }
-#[const_trait]
-pub trait Content {
+pub const trait Content {
     fn get_type(&self) -> Type;
 
     fn get_id(&self) -> u16;

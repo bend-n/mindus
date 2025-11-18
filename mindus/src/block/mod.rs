@@ -49,9 +49,7 @@ macro_rules! disp {
                 }
             }
         }
-
-        #[const_trait]
-        pub trait ConstFrom<T>: Sized {
+        pub const trait ConstFrom<T>: Sized {
             fn fro(value: T) -> Self;
         }
         $(
