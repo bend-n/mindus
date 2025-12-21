@@ -22,7 +22,7 @@ pub fn main(args: Args) {
             }
         } {
             Ok(s) => {
-                println!("{curr} {}", s.tags.get("name").unwrap());
+                println!("{curr} {}, {:?}", s.tags.get("name").unwrap(), &s.tags);
                 let i = mindus::Renderable::render(&s);
                 if let Ok(v) = std::env::var("SAVE")
                     && v == "1"

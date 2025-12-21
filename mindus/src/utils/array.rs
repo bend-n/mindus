@@ -2,7 +2,7 @@ use std::{
     fmt::{Debug, Write},
     ops::Deref,
 };
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Array2D<T: Clone> {
     width: usize,
     height: usize,

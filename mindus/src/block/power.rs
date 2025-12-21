@@ -115,7 +115,7 @@ impl ConnectorDeserializeError {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct Rgba(u8, u8, u8, u8);
 
 impl From<u32> for Rgba {

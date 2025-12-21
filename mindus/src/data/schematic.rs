@@ -12,8 +12,8 @@ use crate::data::dynamic::{self, DynData};
 use crate::data::renderer::*;
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializable};
 use crate::item::storage::ItemStorage;
-use crate::utils::array::Array2D;
 use crate::utils::Cow;
+use crate::utils::array::Array2D;
 
 /// biggest schematic
 pub const MAX_DIMENSION: usize = 1024;
@@ -21,7 +21,7 @@ pub const MAX_DIMENSION: usize = 1024;
 pub const MAX_BLOCKS: u32 = 1024 * 1024;
 
 /// a placement in a schematic
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct Placement {
     pub block: &'static Block,
     pub rot: Rotation,
@@ -117,6 +117,13 @@ pub struct Schematic {
     pub tags: HashMap<String, String>,
     /// schems can have holes, so [Option] is used.
     pub blocks: Array2D<Option<Placement>>,
+}
+impl core::hash::Hash for Schematic {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.width.hash(state);
+        self.height.hash(state);
+        self.blocks.hash(state);
+    }
 }
 
 impl PartialEq for Schematic {

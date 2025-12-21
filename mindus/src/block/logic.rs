@@ -469,7 +469,7 @@ impl ProcessorSerializeError {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Hash)]
 pub struct ProcessorLink {
     name: String,
     x: i16,
@@ -502,7 +502,7 @@ impl ProcessorLink {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Hash)]
 pub struct ProcessorState {
     code: String,
     links: Vec<ProcessorLink>,

@@ -5,9 +5,9 @@ use crate::block::content::Type as BlockEnum;
 use crate::block::simple::*;
 use crate::block::{self, *};
 use crate::content;
+use crate::data::ReadError;
 use crate::data::dynamic::DynType;
 use crate::data::entity_mapping;
-use crate::data::ReadError;
 use crate::unit;
 
 make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
@@ -70,7 +70,7 @@ make_simple!(
     read_payload_router
 );
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 /// payload item cfg
 pub enum Payload {
     Empty,

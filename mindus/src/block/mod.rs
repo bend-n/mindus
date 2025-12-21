@@ -130,7 +130,7 @@ pub trait Cast {
 
 macro_rules! stater {
     ($($k: ident($v: ty),)+) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, Hash)]
         pub enum State {
             $($k($v),)+
         }
@@ -312,6 +312,12 @@ pub struct Block {
     logic: BlockLogicEnum,
 }
 
+impl core::hash::Hash for Block {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
 impl PartialEq for Block {
     fn eq(&self, rhs: &Block) -> bool {
         self.name == rhs.name
@@ -430,7 +436,7 @@ impl fmt::Debug for Block {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 /// the possible rotation states of a object
 #[repr(u8)]
 pub enum Rotation {
