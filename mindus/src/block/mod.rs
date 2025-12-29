@@ -1050,7 +1050,7 @@ make_register! {
     "beam-link" -> ConnectorBlock::new(3, true, &[], 12);
     "power-source" -> ConnectorBlock::new(1, true, &[], 100);
     "power-void" -> BasicBlock::new(1, true, &[]);
-    "world-processor" -> BasicBlock::new(1, true, &[]);
+    "world-processor" -> ProcessorLogic::new(1, true, &[]);
     "world-message" -> MessageLogic::new(1, true, &[]);
     "world-cell" -> MemoryBlock::new(1, true, &[]);
     "world-switch" => SwitchLogic::new(1, true, &[]);
