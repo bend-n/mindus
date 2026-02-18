@@ -68,7 +68,7 @@ fn deser_canvas_image(b: &[u8], size: usize) -> Image<Box<[u8]>, 1> {
             let word = (i + offset) >> 3;
             n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
         }
-        unsafe { p.set_pixel(i as u32 % size as u32, i as u32 / size as u32, [n]) };
+        unsafe { p.set_pixel(i as u32 % size as u32, i as u32 / size as u32, &[n]) };
     }
     p
 }

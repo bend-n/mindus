@@ -182,6 +182,7 @@ content_enum! {
         "ore-crystal-thorium",
         "ore-wall-thorium",
         "ore-wall-beryllium",
+        "ore-wall-graphite",
         "graphitic-wall",
         "ore-wall-tungsten",
         "graphite-press",

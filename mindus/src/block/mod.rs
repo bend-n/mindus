@@ -727,6 +727,7 @@ make_register! {
     "ore-wall-beryllium" @ 1;
     "ore-wall-thorium" @ 1;
     "ore-wall-tungsten" @ 1;
+    "ore-wall-graphite" @ 1;
     "graphitic-wall" @ 1;
     "boulder" @ 1;
     "arkyic-wall" @ 1;

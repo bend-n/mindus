@@ -393,52 +393,6 @@ impl Renderable for Map {
                         );
                     }
                 }
-                macro_rules! f {
-                    ($($x: literal)+) => { paste::paste!{
-                        ([$(load!([<rune _ overlay $x>] ),)+], [$(load!([<rune _ overlay _ crux $x>] ),)+])
-                    }};
-                }
-                const RUNES: ([[Image<&[u8], 4>; 3]; 109], [[Image<&[u8], 4>; 3]; 109]) = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108];
-
-                if tile.has_ore() {
-                    match tile.ore {
-                        Type::RuneOverlay => unsafe {
-                            img.overlay_at(
-                                &RUNES.0[tile.nd[2] as usize][scale as usize],
-                                scale * x as u32,
-                                scale * y as u32,
-                            );
-                        },
-                        Type::RuneOverlayCrux => unsafe {
-                            img.overlay_at(
-                                &RUNES.1[tile.nd[2] as usize][scale as usize],
-                                scale * x as u32,
-                                scale * y as u32,
-                            );
-                        },
-                        Type::CharacterOverlay | Type::CharacterOverlayWhite => {
-                            macro_rules! f {
-                                ($($x: literal)+) => { paste::paste!{
-                                    [$(load!([<character _ overlay $x>] ),)+]
-                                }};
-                            }
-
-                            const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
-                            unsafe {
-                                img.overlay_at(
-                                    LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize]
-                                        .mapped(image::Cow::Ref)
-                                        .rotate(4 - (tile.nd[2] >> 6)),
-                                    scale * x as u32,
-                                    scale * y as u32,
-                                )
-                            };
-                        }
-                        ore => unsafe {
-                            img.overlay_at(&table(ore, scale), scale * x as u32, scale * y as u32);
-                        },
-                    }
-                }
             }
         }
         let mut img = unsafe { img.assume_init() };
@@ -523,7 +477,62 @@ impl Renderable for Map {
                 }
             }
         }
-        // loop3 draws the units
+        /// loop 3 for the ores
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let j = x + self.width * y;
+                let tile = unsafe { self.tiles.get_unchecked(j) };
+                let y = self.height - y - 1;
+
+                macro_rules! f {
+                    ($($x: literal)+) => { paste::paste!{
+                        ([$(load!([<rune _ overlay $x>] ),)+], [$(load!([<rune _ overlay _ crux $x>] ),)+])
+                    }};
+                }
+                const RUNES: ([[Image<&[u8], 4>; 3]; 109], [[Image<&[u8], 4>; 3]; 109]) = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108];
+
+                if tile.has_ore() {
+                    match tile.ore {
+                        Type::RuneOverlay => unsafe {
+                            img.overlay_at(
+                                &RUNES.0[tile.nd[2] as usize][scale as usize],
+                                scale * x as u32,
+                                scale * y as u32,
+                            );
+                        },
+                        Type::RuneOverlayCrux => unsafe {
+                            img.overlay_at(
+                                &RUNES.1[tile.nd[2] as usize][scale as usize],
+                                scale * x as u32,
+                                scale * y as u32,
+                            );
+                        },
+                        Type::CharacterOverlay | Type::CharacterOverlayWhite => {
+                            macro_rules! f {
+                                ($($x: literal)+) => { paste::paste!{
+                                    [$(load!([<character _ overlay $x>] ),)+]
+                                }};
+                            }
+
+                            const LETTERS: [[Image<&[u8], 4>; 3]; 64] = f![0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63];
+                            unsafe {
+                                img.overlay_at(
+                                    LETTERS[(tile.nd[2] & 0x3f) as usize][scale as usize]
+                                        .mapped(image::Cow::Ref)
+                                        .rotate(4 - (tile.nd[2] >> 6)),
+                                    scale * x as u32,
+                                    scale * y as u32,
+                                )
+                            };
+                        }
+                        ore => unsafe {
+                            img.overlay_at(&table(ore, scale), scale * x as u32, scale * y as u32);
+                        },
+                    }
+                }
+            }
+        }
+        // loop4 draws the units
         for entity in &self.entities {
             // bounds checks
             let (x, y) = (
@@ -812,7 +821,7 @@ pub fn draw_map_simple(
             for x in x..(x as usize + s as usize).min(w as usize) {
                 for y in y..(y as usize + s as usize).min(h as usize) {
                     unsafe {
-                        img.set_pixel(x as u32, y as u32, <[u8; 3]>::from(team.color()));
+                        img.set_pixel(x as u32, y as u32, &<[u8; 3]>::from(team.color()));
                     }
                 }
             }
