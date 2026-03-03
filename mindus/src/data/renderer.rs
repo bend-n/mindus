@@ -15,7 +15,7 @@ use crate::{
 };
 use atools::prelude::*;
 use either::Either;
-use fimg::{BlendingOverlay, BlendingOverlayAt, uninit};
+use fimg::{BlendingOverlay, BlendingOverlayAt, OverlayAtClipping, uninit};
 use std::hint::unlikely;
 use std::iter::successors;
 use std::ops::Coroutine;
@@ -393,6 +393,11 @@ impl Renderable for Map {
                         );
                     }
                 }
+                if Type::FLOOR.contains(&tile.ore) {
+                    unsafe {
+                        img.overlay_at(&table(tile.ore, scale), scale * x as u32, scale * y as u32);
+                    }
+                }
             }
         }
         let mut img = unsafe { img.assume_init() };
@@ -467,17 +472,16 @@ impl Renderable for Map {
                             position: pctx,
                         }
                     });
-                    unsafe {
-                        img.as_mut().overlay_at(
-                            &tile.build_image(ctx.as_ref(), scale),
-                            scale * x as u32,
-                            scale * y as u32,
-                        )
-                    };
+
+                    img.as_mut().clipping_overlay_at(
+                        &tile.build_image(ctx.as_ref(), scale),
+                        scale * x as u32,
+                        scale * y as u32,
+                    );
                 }
             }
         }
-        /// loop 3 for the ores
+        // loop 3 for the ores
         for y in 0..self.height {
             for x in 0..self.width {
                 let j = x + self.width * y;
@@ -525,6 +529,7 @@ impl Renderable for Map {
                                 )
                             };
                         }
+                        o if Type::FLOOR.contains(&o) => {}
                         ore => unsafe {
                             img.overlay_at(&table(ore, scale), scale * x as u32, scale * y as u32);
                         },

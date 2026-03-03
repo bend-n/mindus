@@ -10,11 +10,12 @@
     coroutine_trait,
     likely_unlikely,
     portable_simd,
+    const_convert,
     derive_const,
     try_trait_v2,
     try_blocks,
-    const_convert,
-    coroutines
+    coroutines,
+    const_cmp
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]
 #![warn(

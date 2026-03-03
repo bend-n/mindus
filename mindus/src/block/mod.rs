@@ -604,7 +604,7 @@ macro_rules! make_register {
         )+};
 
         impl content::Type {
-            pub fn to_block(self) -> Option<&'static Block> {
+            pub const fn to_block(self) -> Option<&'static Block> {
                 // static L: &[&Block] = &[$(&[<$field:snake:upper>],)+];
                 // L.get(self as usize).copied()
                 match self {
@@ -639,6 +639,27 @@ macro_rules! make_register {
         paste::paste! { pub static [<$field:snake:upper>]: Block = Block {
             name: crate::block::content::Type::[<$field:camel>], logic: BlockLogicEnum::BasicBlock(BasicBlock::new($size, true, &[])), image: Some(&car::map!(crate::data::renderer::load!("empty4"), DynImage::from)), image_random: None,
         }; }
+    };
+}
+impl content::Type {
+    pub const FLOOR: [Self; 94] = {
+        let mut i = 0;
+        let mut bl = [Self::OreCopper; _];
+        let mut oi = 0;
+        while i < Self::ALL.len() {
+            if let Some(b) = Self::ALL[i].to_block()
+                && b.image
+                    == Some(&car::map!(
+                        crate::data::renderer::load!("empty4"),
+                        DynImage::from
+                    ))
+            {
+                bl[oi] = Self::ALL[i];
+                oi += 1;
+            }
+            i += 1;
+        }
+        bl
     };
 }
 // pub(self) use make_register;
