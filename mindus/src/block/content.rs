@@ -449,5 +449,6 @@ content_enum! {
         "world-cell",
         "world-message",
         "world-switch",
+        "large-canvas",
     }
 }

@@ -24,6 +24,7 @@ pub struct CanvasBlock {
     symmetric: bool,
     build_cost: BuildCost,
     canvas_size: u8,
+    pal: &'static [(u8, u8, u8)],
 }
 
 macro_rules! h {
@@ -32,7 +33,25 @@ macro_rules! h {
         (v[0], v[1], v[2])
     }};
 }
-const PALETTE: &[(u8, u8, u8); 8] = &[
+pub const L_PALETTE: &[(u8, u8, u8); 16] = &[
+    h!("#452b3f"),
+    h!("#8a5865"),
+    h!("#e08d51"),
+    h!("#fabf61"),
+    h!("#f5eeb0"),
+    h!("#2c5e3b"),
+    h!("#609c4f"),
+    h!("#c6cc54"),
+    h!("#78c2d6"),
+    h!("#5479b0"),
+    h!("#56546e"),
+    h!("#839fa6"),
+    h!("#e0d3c8"),
+    h!("#f05b5b"),
+    h!("#8f325f"),
+    h!("#eb6c98"),
+];
+pub const S_PALETTE: &[(u8, u8, u8); 8] = &[
     h!("#362944"),
     h!("#c45d9f"),
     h!("#e39aac"),
@@ -45,7 +64,13 @@ const PALETTE: &[(u8, u8, u8); 8] = &[
 
 impl CanvasBlock {
     #[must_use]
-    pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost, canvas_size: u8) -> Self {
+    pub const fn new(
+        size: u8,
+        symmetric: bool,
+        build_cost: BuildCost,
+        canvas_size: u8,
+        pal: &'static [(u8, u8, u8)],
+    ) -> Self {
         assert!(size != 0, "invalid size");
         assert!(canvas_size != 0, "invalid size");
         Self {
@@ -53,20 +78,21 @@ impl CanvasBlock {
             symmetric,
             build_cost,
             canvas_size,
+            pal,
         }
     }
 
     state_impl!(pub Image<Box<[u8]>, 1>);
 }
 
-fn deser_canvas_image(b: &[u8], size: usize) -> Image<Box<[u8]>, 1> {
+fn deser_canvas_image(b: &[u8], size: usize, bpp: usize) -> Image<Box<[u8]>, 1> {
     let mut p = Image::alloc(size as u32, size as u32).boxed();
     for i in 0..(size * size) {
-        let offset = i * 3;
+        let offset = i * bpp;
         let mut n = 0;
-        for i in 0..3 {
+        for i in 0..bpp {
             let word = (i + offset) >> 3;
-            n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
+            n |= (((b[word] & (1u8 << ((i + offset) & 7))) != 0) as u8) << i;
         }
         unsafe { p.set_pixel(i as u32 % size as u32, i as u32 / size as u32, &[n]) };
     }
@@ -85,6 +111,7 @@ impl BlockLogic for CanvasBlock {
             DynData::ByteArray(b) => Ok(Some(Self::create_state(deser_canvas_image(
                 &b,
                 self.canvas_size as usize,
+                self.pal.len().next_power_of_two().ilog2() as _,
             )))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
@@ -94,17 +121,18 @@ impl BlockLogic for CanvasBlock {
     }
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
+        let bpp = self.pal.len().next_power_of_two().ilog2() as usize;
         let mut o = vec![0; self.canvas_size as usize * self.canvas_size as usize * 3];
         let p = Self::get_state(state);
         for i in 0..(self.canvas_size * self.canvas_size) as usize {
-            let index = unsafe {
+            let &[index] = unsafe {
                 p.pixel(
                     i as u32 % self.canvas_size as u32,
                     i as u32 / self.canvas_size as u32,
-                )[0]
+                )
             };
-            let offset = i * 3;
-            for i in 0..3 {
+            let offset = i * bpp;
+            for i in 0..bpp {
                 let word = (i + offset) >> 3;
                 if index >> i & 1 == 0 {
                     o[word] &= !(1 << ((i + offset) & 7));
@@ -119,7 +147,7 @@ impl BlockLogic for CanvasBlock {
     /// i thought about drawing the borders and stuff but it felt like too much work
     fn draw(
         &self,
-        _: &str,
+        n: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
@@ -135,14 +163,15 @@ impl BlockLogic for CanvasBlock {
             };
             let mut img = Image::alloc(p.width(), p.height());
             for ([r, g, b, a], &y) in img.chunked_mut().zip(p.buffer().iter()) {
-                (*r, *g, *b) = PALETTE[y as usize];
+                (*r, *g, *b) = self.pal[y as usize];
                 *a = 255;
             }
             let img = img.scale::<fimg::scale::Nearest>(
                 (s * self.size as u32) - offset * 2,
                 (s * self.size as u32) - offset * 2,
             );
-            let mut borders = load!("canvas", s);
+
+            let mut borders = load!(from n which is ["canvas" | "large-canvas"], s);
             unsafe { borders.overlay_at(&img, offset, offset) };
             return borders;
         }
@@ -150,7 +179,7 @@ impl BlockLogic for CanvasBlock {
         // FIXME: make const
         let mut def = Image::alloc(s * self.size as u32, s * self.size as u32).boxed();
         for [r, g, b, a] in def.chunked_mut() {
-            (*r, *g, *b) = PALETTE[0];
+            (*r, *g, *b) = self.pal[0];
             *a = 255;
         }
         unsafe { def.mapped(crate::utils::Cow::Own) }
@@ -166,6 +195,7 @@ impl BlockLogic for CanvasBlock {
         build.state = Some(Self::create_state(deser_canvas_image(
             &b,
             self.canvas_size as usize,
+            self.pal.len().next_power_of_two().ilog2() as _,
         )));
         Ok(())
     }

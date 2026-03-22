@@ -6,7 +6,7 @@ use fimg::DynImage;
 use std::error::Error;
 use std::fmt;
 
-use crate::block::all::Type;
+use crate::block::all::{L_PALETTE, S_PALETTE, Type};
 use crate::content::Content;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::{Build, mcg};
@@ -1006,7 +1006,8 @@ make_register! {
     "logic-display" -> BasicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
     "large-logic-display" -> BasicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
     "tile-logic-display" => TileableDisplay::new(1, false, cost!(Lead: 8, Silicon: 8, Metaglass: 8, PhaseFabric: 3));
-    "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
+    "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 10, Beryllium: 10), 12, S_PALETTE);
+    "large-canvas" => CanvasBlock::new(3, true, cost!(Silicon: 15, Beryllium: 15, SurgeAlloy: 15), 24, L_PALETTE);
     "illuminator" -> LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
     "power-node" -> ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
     "power-node-large" -> ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
