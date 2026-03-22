@@ -472,12 +472,14 @@ impl Renderable for Map {
                             position: pctx,
                         }
                     });
-
-                    img.as_mut().clipping_overlay_at(
-                        &tile.build_image(ctx.as_ref(), scale),
-                        scale * x as u32,
-                        scale * y as u32,
-                    );
+                    let i = tile.build_image(ctx.as_ref(), scale);
+                    let x = scale * x as u32;
+                    let y = scale * y as u32;
+                    if i.width() + x > img.width() || y + i.height() > img.height() {
+                        img.as_mut().clipping_overlay_at(&i, x, y);
+                    } else {
+                        unsafe { img.as_mut().overlay_at(&i, x, y) };
+                    }
                 }
             }
         }
