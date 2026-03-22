@@ -499,14 +499,14 @@ impl Renderable for Map {
                     match tile.ore {
                         Type::RuneOverlay => unsafe {
                             img.overlay_at(
-                                &RUNES.0[tile.nd[2] as usize][scale as usize],
+                                &RUNES.0[tile.nd[2] as usize % 109][scale as usize],
                                 scale * x as u32,
                                 scale * y as u32,
                             );
                         },
                         Type::RuneOverlayCrux => unsafe {
                             img.overlay_at(
-                                &RUNES.1[tile.nd[2] as usize][scale as usize],
+                                &RUNES.1[tile.nd[2] as usize % 109][scale as usize],
                                 scale * x as u32,
                                 scale * y as u32,
                             );
