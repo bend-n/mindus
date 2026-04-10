@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "5.0.42"
+version = "5.0.43"
 edition = "2024"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -58,6 +58,12 @@ path = "src/exe/mod.rs"
 
 [dev-dependencies]
 diff = "0.1"
+
+[profile.release]
+debug = 2
+opt-level = 3
+lto = "thin"
+incremental = true
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
