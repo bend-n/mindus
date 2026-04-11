@@ -544,7 +544,7 @@ impl Renderable for Map {
             // bounds checks
             let (x, y) = (
                 entity.state.position.0 as u32,
-                self.height as u32 - entity.state.position.1 as u32 - 1,
+                lower::saturating::math! { self.height as u32 - entity.state.position.1 as u32 - 1 },
             );
             if x < 10 || x as usize > self.width - 10 || y < 10 || y as usize > self.height - 10 {
                 continue;

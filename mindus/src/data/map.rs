@@ -369,7 +369,7 @@ impl Build {
             _ = buff.read_u64()?;
         }
         // "overridden by subclasses"
-        self.block.read(self, buff)?;
+        // self.block.read(self, buff)?;
 
         Ok(())
     }
@@ -865,7 +865,7 @@ impl MapReader {
 
                         #[cfg(debug_assertions)]
                         println!("reading {block:?} ");
-                        let _ = self.buff.read_i8()?;
+                        let revision = self.buff.read_i8()?;
                         let mut b = Build::new(block);
                         b.read(&mut self.buff)?;
                         // implementation not complete, skip remaining bytes (TODO finish impl)
