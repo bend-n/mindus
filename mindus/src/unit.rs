@@ -1,7 +1,7 @@
 //! units
 //!
 //! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
-
+#![allow(dead_code)]
 use crate::Serializable;
 use crate::block::payload::read_payload;
 use crate::content::content_enum;
@@ -13,7 +13,6 @@ use crate::item::Type as Item;
 use crate::modifier::Type as Status;
 use crate::team::Team;
 use crate::utils::ImageHolder;
-
 macro_rules! units {
     ($($unit:literal,)+ $(,)?) => { paste::paste! {
         content_enum! (pub enum Type / Unit for u16 | TryFromU16Error {
@@ -321,7 +320,7 @@ impl UnitClass {
         if self == Self::Bomb {
             buff.skip(4)?; // time
         }
-        let ty = Type::try_from(buff.read_u16()?).unwrap();
+        let ty = Type::try_from(buff.read_u16()?).unwrap_or(Type::ScatheMissile); // shrug
         buff.skip(1)?; // update_building
         state.velocity = (buff.read_f32()?, buff.read_f32()?);
         state.position = (
