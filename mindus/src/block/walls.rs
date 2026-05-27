@@ -60,6 +60,7 @@ impl BlockLogic for DoorBlock {
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Boolean(opened) => Ok(Some(Self::create_state(opened))),
+            DynData::Empty => Ok(Some(Self::create_state(false))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::Boolean,
