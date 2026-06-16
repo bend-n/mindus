@@ -110,7 +110,7 @@ pub struct UnitState {
     pub shield: f32,
     pub stack: (Option<Item>, u32),
     /// how many status can you realistically be afflicted with
-    pub status: [Status; 3],
+    pub status: [Status; 10],
     pub team: Team,
     pub velocity: (f32, f32),
     pub position: (f32, f32),
@@ -243,7 +243,7 @@ impl UnitClass {
         let _rev = buff.read_u16()?;
         let mut state = UnitState::default();
         read_abilities(buff)?;
-        state.ammo = buff.read_f32()?;
+        // state.ammo = buff.read_f32()?;
         match self {
             Self::Block
             | Self::Legs
@@ -407,13 +407,13 @@ fn read_stack(buff: &mut DataRead) -> Result<(Option<Item>, u32), ReadError> {
 /// - iterate [`i32`]
 ///     - status: [`u16`] attempt into [`Status`]
 ///     - duration: [`f32`]
-fn read_status(buff: &mut DataRead) -> Result<[Status; 3], ReadError> {
-    let mut status = [Status::None, Status::None, Status::None];
+fn read_status(buff: &mut DataRead) -> Result<[Status; 10], ReadError> {
+    let mut status = [Status::None; 10];
     for i in 0..buff.read_i32()? {
         let this = Status::try_from(buff.read_u16()?);
         buff.skip(4)?;
         if let Ok(s) = this
-            && i < 3
+            && i < 10
         {
             status[i as usize] = s;
         }
