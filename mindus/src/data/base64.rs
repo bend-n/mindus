@@ -1,5 +1,5 @@
-use base64::{engine::general_purpose, engine::Engine as _};
 pub use base64::{DecodeSliceError as DecodeError, EncodeSliceError as EncodeError};
+use base64::{engine::Engine as _, engine::general_purpose};
 
 const BASE64: general_purpose::GeneralPurpose = general_purpose::STANDARD;
 

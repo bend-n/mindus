@@ -1,5 +1,5 @@
 use fimg::DynImage;
-use rand::Rng;
+use rand::RngExt;
 use std::fs::File;
 use std::io::Write as _;
 use std::iter::Iterator;

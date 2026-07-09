@@ -53,7 +53,7 @@ macro_rules! disp {
             fn fro(value: T) -> Self;
         }
         $(
-            impl const ConstFrom<$k> for BlockLogicEnum {
+            const impl ConstFrom<$k> for BlockLogicEnum {
                 fn fro(v: $k) -> Self {
                     BlockLogicEnum::$k(v)
                 }

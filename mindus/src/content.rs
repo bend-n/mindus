@@ -78,7 +78,7 @@ macro_rules! content_enum {
 				MAPPER.get(name).copied()
 			}
 		}
-		impl const $crate::content::Content for $tname {
+		const impl $crate::content::Content for $tname {
 			fn get_type(&self) -> $crate::content::Type {
 				$crate::content::Type::$ctype
 			}

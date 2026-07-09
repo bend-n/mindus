@@ -26,13 +26,13 @@ pub enum Resource {
     Fluid(crate::fluid::Type),
 }
 
-impl const super::ConstFrom<crate::item::Type> for Resource {
+const impl super::ConstFrom<crate::item::Type> for Resource {
     fn fro(value: crate::item::Type) -> Self {
         Self::Item(value)
     }
 }
 
-impl const super::ConstFrom<crate::fluid::Type> for Resource {
+const impl super::ConstFrom<crate::fluid::Type> for Resource {
     fn fro(value: crate::fluid::Type) -> Self {
         Self::Fluid(value)
     }

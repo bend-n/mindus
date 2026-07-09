@@ -1,20 +1,17 @@
 //! crate for dealing with mindustry
 #![feature(
     error_generic_member_access,
-    try_trait_v2_residual,
     stmt_expr_attributes,
     generic_const_exprs,
-    iter_from_coroutine,
     const_trait_impl,
     coroutine_trait,
     likely_unlikely,
     portable_simd,
     const_convert,
-    derive_const,
-    try_trait_v2,
     try_blocks,
     coroutines,
-    const_cmp
+    const_cmp,
+    doc_cfg
 )]
 #![allow(clippy::redundant_closure_call, incomplete_features)]
 #![warn(
