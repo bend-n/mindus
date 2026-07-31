@@ -124,7 +124,7 @@ pub(crate) use make_simple;
 pub type BuildCost = &'static [(item::Type, u32)];
 
 macro_rules! cost {
-	($($item:ident: $cnt:expr),+) => {
+	($($item:ident: $cnt:expr),*) => {
 		&[$((crate::item::Type::$item, $cnt)),*]
 	};
 }

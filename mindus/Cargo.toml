@@ -31,7 +31,7 @@ fimg = { version = "0.4.56", features = [
   "save",
 ], default-features = false }
 atools = "0.1.11"
-either = "1.16.0"
+either = "1.17.0"
 implicit-fn = "0.1.0"
 lower = "0.2.1"
 car = "0.1.4"

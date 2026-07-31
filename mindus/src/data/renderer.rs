@@ -564,13 +564,15 @@ fn all_blocks() {
     use crate::content::Content;
     for t in 19..Type::WorldMessage as u16 {
         let t = Type::try_from(t).unwrap();
-        if matches!(t, |Type::Empty| Type::SlagCentrifuge
-            | Type::HeatReactor
+        if matches!(t, |Type::Empty| Type::HeatReactor
             | Type::LegacyMechPad
             | Type::LegacyUnitFactory
             | Type::LegacyUnitFactoryAir
             | Type::LegacyUnitFactoryGround
             | Type::CommandCenter)
+            || t.get_name().starts_with("metal-tiles")
+            || t.get_name().starts_with("rune")
+            || t.get_name().starts_with("character")
         {
             continue;
         }

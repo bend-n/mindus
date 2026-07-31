@@ -848,6 +848,7 @@ impl MapReader {
                 } else {
                     false
                 };
+
                 let block = r
                     .get(block_id as usize)
                     .ok_or(ReadError::NoSuchBlock(block_id))?;

@@ -642,7 +642,7 @@ macro_rules! make_register {
     };
 }
 impl content::Type {
-    pub const FLOOR: [Self; 94] = {
+    pub const FLOOR: [Self; 96] = {
         let mut i = 0;
         let mut bl = [Self::OreCopper; _];
         let mut oi = 0;
@@ -709,6 +709,8 @@ make_register! {
     "shallow-water" > 1;
     "space" > 1;
     "stone" > 1;
+    "stone-vent" > 1;
+    "basalt-vent" > 1;
     "arkyic-vent" > 1;
     "beryllic-stone" > 1;
     "bluemat" > 1;
@@ -882,6 +884,7 @@ make_register! {
     "heat-router" => HeatConduit::new(3, false, cost!(Tungsten: 15, Graphite: 10));
     "slag-incinerator" -> BasicBlock::new(1, true, cost!(Tungsten: 15));
     "carbide-crucible" -> ProductionBlock::new(3, true, cost!(Tungsten: 110, Thorium: 150, Oxide: 60));
+    "slag-centrifuge" -> ProductionBlock::new(3, true, cost!());
     // slag centrifuge
     "surge-crucible" -> ProductionBlock::new(3, true, cost!(Silicon: 100, Graphite: 80, Tungsten: 80, Oxide: 80));
     "cyanogen-synthesizer" -> ProductionBlock::new(3, true, cost!(Carbide: 50, Silicon: 80, Beryllium: 90));
