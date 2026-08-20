@@ -263,3 +263,4 @@ rats!(AssemblerBlock { none });
 rats!(RepairTurret { none });
 rats!(AssemblerModule { none });
 rats!(TileableDisplay { none });
+rats!(LandingPadBlock { none });

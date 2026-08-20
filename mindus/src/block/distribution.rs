@@ -467,7 +467,7 @@ pub struct BridgeConvertError {
 /// format;
 /// - call [`read_item_bridge`]
 /// - become [`read_item_buffer`]
-fn read_buffered_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
+fn read_buffered_item_bridge(_buff: &mut DataRead) -> Result<(), DataReadError> {
     // read_item_bridge(buff)?;
     // read_item_buffer(buff)
     Ok(())
@@ -491,7 +491,7 @@ fn read_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
 /// - moved: `bool`
 fn read_item_bridge(buff: &mut DataRead) -> Result<(), DataReadError> {
     buff.skip(8)?;
-    let n = buff.read_i8()?;
+    let _n = buff.read_i8()?;
     // buff.skip((n as usize * 4) + 1)
     // bug?
     Ok(())

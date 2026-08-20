@@ -865,7 +865,7 @@ impl MapReader {
 
                         #[cfg(debug_assertions)]
                         println!("reading {block:?} ");
-                        let revision = self.buff.read_i8()?;
+                        let _revision = self.buff.read_i8()?;
                         let mut b = Build::new(block);
                         b.read(&mut self.buff)?;
                         // implementation not complete, skip remaining bytes (TODO finish impl)
