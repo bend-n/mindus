@@ -450,5 +450,6 @@ content_enum! {
         "world-message",
         "world-switch",
         "large-canvas",
+        "target-dummy",
     }
 }

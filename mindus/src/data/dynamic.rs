@@ -161,6 +161,11 @@ impl Serializable for DynData {
             }
             19 => Ok(DynData::Vec2(buff.read_f32()?, buff.read_f32()?)),
             20 => Ok(DynData::from(Team::of(buff.read_u8()?))),
+            21 => Ok(DynData::IntArray(
+                (0..buff.read_u16()? as usize)
+                    .map(|_| buff.read_i32())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
             23 => Ok(DynData::from(
                 UnitCommand::try_from(buff.read_i16()? as u8)?,
             )),

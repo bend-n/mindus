@@ -1090,4 +1090,5 @@ make_register! {
     "item-source" => ItemBlock::new(1, true, &[]);
     "item-void" -> BasicBlock::new(1, true, &[]);
     "heat-source" => HeatCrafter::new(1, false, &[]);
+    "target-dummy" -> BasicBlock::new(2, true, &[]);
 }

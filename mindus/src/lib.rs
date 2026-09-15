@@ -8,6 +8,7 @@
     likely_unlikely,
     portable_simd,
     const_convert,
+    vec_from_fn,
     try_blocks,
     coroutines,
     const_cmp,
